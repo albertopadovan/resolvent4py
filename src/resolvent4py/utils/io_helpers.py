@@ -155,6 +155,11 @@ def read_harmonic_balanced_matrix(
     nblocks = full_sizes[0][-1]//Nrb    # Number of blocks
     nfb = (len(rows_lst) - 1) // 2  # Number of baseflow frequencies
     nfp = (nblocks - 1) // 2        # Number of perturbation frequencies
+    if nfb < nfb:
+        raise ValueError (
+            f"The number of blocks must be larger than the number of Fourier "
+            f"coefficients of A(t). (See function description.)"
+        )
     for i in range(2 * nfp + 1):
         for j in range(2 * nfp + 1):
             k = i - j + nfb
