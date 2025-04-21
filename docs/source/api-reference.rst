@@ -8,3 +8,4 @@ API-reference
    linear_operators.rst
    linalg.rst
    model_reduction.rst
+   utils.rst

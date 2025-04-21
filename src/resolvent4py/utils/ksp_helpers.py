@@ -1,5 +1,5 @@
-from . import PETSc
-from . import MPI
+from .. import PETSc
+from .. import MPI
 from .random_helpers import generate_random_petsc_vector
 
 

@@ -1,8 +1,8 @@
-from . import np
-from . import sp
-from . import PETSc
-from . import MPI
-from . import typing
+from .. import np
+from .. import sp
+from .. import PETSc
+from .. import MPI
+from .. import typing
 from .comms_helpers import scatter_array_from_root_to_all
 from .mat_helpers import convert_coo_to_csr
 

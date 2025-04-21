@@ -34,16 +34,8 @@ from .linear_operators import ProductLinearOperator
 from . import linalg
 from . import model_reduction
 
-from .io_helpers import *
-from .vec_helpers import *
-from .mat_helpers import *
-from .bv_helpers import *
-from .comms_helpers import *
-from .random_helpers import *
-from .ksp_helpers import *
-from .errors_helpers import *
-from .miscellaneous import *
+from .utils import *
 
-from .my_pymanopt_classes import myAdaptiveLineSearcher
+# from .my_pymanopt_classes import myAdaptiveLineSearcher
 
 np.seterr(over="raise")

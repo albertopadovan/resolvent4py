@@ -1,8 +1,8 @@
-from . import PETSc
-from . import SLEPc
-from . import MPI
-from . import np
-from . import typing
+from .. import PETSc
+from .. import SLEPc
+from .. import MPI
+from .. import np
+from .. import typing
 
 from .mat_helpers import convert_coo_to_csr
 from .comms_helpers import compute_local_size

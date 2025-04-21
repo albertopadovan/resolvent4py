@@ -1,5 +1,5 @@
 from .linear_operator import LinearOperator
-from ..mat_helpers import mat_solve_hermitian_transpose
+from ..utils.mat_helpers import mat_solve_hermitian_transpose
 from .. import SLEPc
 from .. import PETSc
 from .. import MPI

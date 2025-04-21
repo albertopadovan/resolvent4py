@@ -7,7 +7,7 @@ from math import ceil
 import copy
 
 from ..linalg import enforce_complex_conjugacy
-from ..mat_helpers import create_dense_matrix
+from ..utils.mat_helpers import create_dense_matrix
 
 def construct_dft_mats(n_omega, n_timesteps, n):
     dft_mat = create_dense_matrix(MPI.COMM_SELF, (n_omega, n_omega // 2))

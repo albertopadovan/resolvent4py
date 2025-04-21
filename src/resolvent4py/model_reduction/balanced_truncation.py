@@ -4,8 +4,8 @@ from .. import PETSc
 from .. import SLEPc
 from .. import typing
 
-from ..comms_helpers import compute_local_size
-from ..mat_helpers import create_dense_matrix
+from ..utils.comms_helpers import compute_local_size
+from ..utils.mat_helpers import create_dense_matrix
 
 
 def compute_gramian_factors(

@@ -1,6 +1,6 @@
-from . import np
-from . import MPI
-from . import tracemalloc
+from .. import np
+from .. import MPI
+from .. import tracemalloc
 
 numpy_to_mpi_dtype = {
     np.dtype(np.int32): MPI.INT,

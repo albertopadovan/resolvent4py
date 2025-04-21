@@ -4,10 +4,10 @@ from .. import PETSc
 from .. import SLEPc
 from .. import MPI
 
-from ..errors_helpers import raise_not_implemented_error
-from ..random_helpers import generate_random_petsc_vector
-from ..vec_helpers import enforce_complex_conjugacy
-from ..vec_helpers import check_complex_conjugacy
+from ..utils.errors_helpers import raise_not_implemented_error
+from ..utils.random_helpers import generate_random_petsc_vector
+from ..utils.vec_helpers import enforce_complex_conjugacy
+from ..utils.vec_helpers import check_complex_conjugacy
 
 from typing import Optional
 from typing import Union

@@ -1,6 +1,6 @@
-from . import np
-from . import PETSc
-from . import MPI
+from .. import np
+from .. import PETSc
+from .. import MPI
 
 
 def enforce_complex_conjugacy(

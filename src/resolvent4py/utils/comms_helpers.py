@@ -1,7 +1,7 @@
-from . import np
-from . import MPI
-from . import PETSc
-from . import typing
+from .. import np
+from .. import MPI
+from .. import PETSc
+from .. import typing
 from .miscellaneous import get_mpi_type
 
 

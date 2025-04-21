@@ -1,4 +1,4 @@
-from ..bv_helpers import bv_add
+from ..utils.bv_helpers import bv_add
 from .low_rank import LowRankLinearOperator
 from .linear_operator import LinearOperator
 

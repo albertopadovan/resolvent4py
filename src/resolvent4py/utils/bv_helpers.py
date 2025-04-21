@@ -1,12 +1,12 @@
-from . import SLEPc
-from . import MPI
-from . import typing
-from . import np
+from .. import SLEPc
+from .. import MPI
+from .. import typing
+from .. import np
 
 
 def bv_add(alpha: float, X: SLEPc.BV, Y: SLEPc.BV) -> None:
     r"""
-    Compute in-place addition :math:`X \leftarrow X + \alpha Y
+    Compute in-place addition :math:`X \leftarrow X + \alpha Y`
 
     :type alpha: float
     :type X: SLEPc.BV
@@ -24,7 +24,7 @@ def bv_add(alpha: float, X: SLEPc.BV, Y: SLEPc.BV) -> None:
 
 def bv_conj(X: SLEPc.BV, inplace: typing.Optional[bool] = False) -> SLEPc.BV:
     r"""
-    Returns the complex conjugate :math:`\overline(X)` of the BV structure
+    Returns the complex conjugate :math:`\overline{X}` of the BV structure
 
     :type X: SLEPc.BV
     :param inplace: in-place if :code:`True`, else the result is stored in a
