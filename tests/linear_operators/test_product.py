@@ -12,7 +12,7 @@ from petsc4py import PETSc
 comm = MPI.COMM_WORLD
 rank, size = comm.Get_rank(), comm.Get_size()
 
-mats_names = ['A1', 'A2', 'A3', 'A4']
+mats_names = ["A1", "A2", "A3", "A4"]
 row_sizes = [10, 30, 30, 20]
 col_sizes = row_sizes[1:]
 col_sizes.append(7)
@@ -26,7 +26,7 @@ if rank == 0:
     os.makedirs(path) if os.path.isdir(path) == False else None
 
     matrices = []
-    for i in range (len(row_sizes)):
+    for i in range(len(row_sizes)):
         Nr = row_sizes[i]
         Nc = col_sizes[i]
         A = sp.sparse.random(Nr, Nc, 0.1, "csr", np.complex128)
@@ -34,7 +34,7 @@ if rank == 0:
             A += sp.sparse.identity(Nr, np.complex128, "csr")
         A = A.tocoo()
         arrays = [A.row, A.col, A.data]
-        name = path + mats_names[i] + '_'
+        name = path + mats_names[i] + "_"
         fnames_jac = [name + "rows.dat", name + "cols.dat", name + "vals.dat"]
         for i, array in enumerate(arrays):
             vec = PETSc.Vec().createWithArray(
@@ -47,8 +47,8 @@ if rank == 0:
 
     A = matrices[0]
     for mat in matrices[1:]:
-        A = A@mat
-    
+        A = A @ mat
+
     x = np.random.randn(A.shape[-1]) + 1j * np.random.randn(A.shape[-1])
     xvec = PETSc.Vec().createWithArray(x, comm=MPI.COMM_SELF)
     Ax = PETSc.Vec().createWithArray(A @ x, comm=MPI.COMM_SELF)
@@ -71,8 +71,8 @@ fnames_mats = fnames[2:]
 
 lops = []
 actions = []
-for i in range (len(mats_names)):
-    name = path + mats_names[i] + '_'
+for i in range(len(mats_names)):
+    name = path + mats_names[i] + "_"
     fnames = [name + "rows.dat", name + "cols.dat", name + "vals.dat"]
     Nr = row_sizes[i]
     Nc = col_sizes[i]

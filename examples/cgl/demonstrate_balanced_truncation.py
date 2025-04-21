@@ -49,7 +49,9 @@ L_gen = partial(L_generator, A=A)
 L_generators = [L_gen for _ in range(len(omegas))]
 
 res4py.petscprint(comm, "Computing Gramian factors...")
-X, Y = res4py.model_reduction.compute_gramian_factors(L_generators, omegas, weights, B, C)
+X, Y = res4py.model_reduction.compute_gramian_factors(
+    L_generators, omegas, weights, B, C
+)
 
 res4py.petscprint(comm, "Computing balanced projection...")
 Phi, Psi, S = res4py.model_reduction.compute_balanced_projection(X, Y, 10)

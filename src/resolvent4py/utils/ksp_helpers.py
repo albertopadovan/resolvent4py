@@ -1,6 +1,8 @@
 from .. import PETSc
 from .. import MPI
+from .. import typing
 from .random_helpers import generate_random_petsc_vector
+from .miscellaneous import petscprint
 
 
 def create_mumps_solver(comm: MPI.Comm, A: PETSc.Mat) -> PETSc.KSP:
@@ -34,6 +36,14 @@ def check_lu_factorization(
     r"""
     Check that the LU factorization computed in :func:`.create_mumps_solver`
     has succeeded.
+
+    :param comm: MPI communicator (one of :code:`MPI.COMM_WORLD` or
+        :code:`MPI.COMM_SELF`)
+    :type comm: MPI.Comm
+    :param A: PETSc matrix
+    :type A: PETSc.Mat
+    :param ksp: PETSc KSP solver
+    :type ksp: PETSc.KSP
     """
     sizes = A.getSizes()[0]
     b = generate_random_petsc_vector(comm, sizes)
@@ -50,3 +60,87 @@ def check_lu_factorization(
         )
     x.destroy()
     b.destroy()
+
+
+def create_gmres_bjacobi_solver(
+        comm: MPI.Comm,
+        A: PETSc.Mat,
+        nblocks: int,
+        rtol: typing.Optional[float]=1e-10,
+        atol: typing.Optional[float]=1e-10,
+        monitor: typing.Optional[bool]=False
+) -> PETSc.KSP:
+    r"""
+    Create GMRES solver with block-jacobi preconditioner.
+
+    :param comm: MPI communicator (one of :code:`MPI.COMM_WORLD` or
+        :code:`MPI.COMM_SELF`)
+    :type comm: MPI.Comm
+    :param A: PETSc matrix
+    :type A: PETSc.Mat
+    :param nblocks: number of blocks for the block jacobi preconditioner
+    :type nblocks: int
+    :param rtol: relative tolerance for GMRES
+    :type rtol: Optional[float], default is :math:`10^{-10}`
+    :param atol: absolute tolerance for GMRES
+    :type atol: Optional[float], default is :math:`10^{-10}`
+    :param monitor: :code:`True` to monitor convergence and print residual
+        history to terminal. :code:`False` otherwise
+    :type monitor: Optional[bool], default is :code:`False`
+
+    :return ksp: PETSc KSP solver
+    :rtype ksp: PETSc.KSP
+    """
+    
+    monitor_fun = None
+    if monitor:
+        def monitor_fun(ksp, its, rnorm):
+            string = f"GMRES Iteration {its:3d}, Residual Norm = {rnorm:.3e}"
+            petscprint(comm, string)
+        
+
+    opts = PETSc.Options()
+    opts["pc_type"] = "bjacobi"
+    opts["pc_bjacobi_blocks"] = nblocks
+    opts["sub_ksp_type"] = "preonly"
+    opts["sub_pc_type"] = "lu"
+    opts["sub_pc_factor_mat_solver_type"] = "mumps"
+
+    ksp = PETSc.KSP().create(comm=comm)
+    ksp.setOperators(A)
+    ksp.setType('gmres')
+    ksp.setTolerances(rtol=rtol, atol=atol)
+    ksp.setMonitor(monitor_fun)
+    pc = ksp.getPC()
+    pc.setFromOptions()
+    pc.setUp()
+    ksp.setUp()
+
+    return ksp
+
+def check_gmres_bjacobi_solver(
+    comm: MPI.Comm, A: PETSc.Mat, ksp: PETSc.KSP
+) -> None:
+    r"""
+    Check that the solver computed in :func:`.create_gmres_bjacobi_solver`
+    has succeeded.
+
+    :param comm: MPI communicator (one of :code:`MPI.COMM_WORLD` or
+        :code:`MPI.COMM_SELF`)
+    :type comm: MPI.Comm
+    :param A: PETSc matrix
+    :type A: PETSc.Mat
+    :param ksp: PETSc KSP solver
+    :type ksp: PETSc.KSP
+    """
+    sizes = A.getSizes()[0]
+    b = generate_random_petsc_vector(comm, sizes)
+    x = b.duplicate()
+    ksp.solve(b, x)
+    x.destroy()
+    b.destroy()
+    reason = ksp.getConvergedReason()
+    if reason < 0:
+        raise ValueError (
+            f"GMRES solver did not converge. ConvergedReason = {reason}"
+        )

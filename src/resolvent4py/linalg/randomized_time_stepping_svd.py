@@ -9,20 +9,25 @@ import copy
 from ..linalg import enforce_complex_conjugacy
 from ..utils.mat_helpers import create_dense_matrix
 
+
 def construct_dft_mats(n_omega, n_timesteps, n):
     dft_mat = create_dense_matrix(MPI.COMM_SELF, (n_omega, n_omega // 2))
-    i_dft_mat = create_dense_matrix(MPI.COMM_SELF, (2 * n_timesteps, n_omega // 2))
+    i_dft_mat = create_dense_matrix(
+        MPI.COMM_SELF, (2 * n_timesteps, n_omega // 2)
+    )
 
     j = np.linspace(0, 2 * n_timesteps - 1, 2 * n_timesteps)
-    
-    alpha = -np.pi * 1j / n_timesteps 
+
+    alpha = -np.pi * 1j / n_timesteps
     for i in range(n_omega // 2):
         col = i_dft_mat.getDenseColumnVec(i)
-        col.array[:] = (alpha * i) * np.conj(np.exp(alpha * i * j)) / n_timesteps
+        col.array[:] = (
+            (alpha * i) * np.conj(np.exp(alpha * i * j)) / n_timesteps
+        )
         i_dft_mat.restoreDenseColumnVec(i, col)
 
     j = np.linspace(0, n_omega - 1, n_omega)
-    
+
     alpha = -2 * np.pi * 1j / n_omega
     for i in range(n_omega // 2):
         col = dft_mat.getDenseColumnVec(i)
@@ -31,7 +36,18 @@ def construct_dft_mats(n_omega, n_timesteps, n):
 
     return dft_mat, i_dft_mat
 
-def randomized_time_stepping_svd(lin_op, lin_op_mass, lin_op_action, omega, n_periods, n_timesteps, n_rand, n_loops, n_svals):
+
+def randomized_time_stepping_svd(
+    lin_op,
+    lin_op_mass,
+    lin_op_action,
+    omega,
+    n_periods,
+    n_timesteps,
+    n_rand,
+    n_loops,
+    n_svals,
+):
     r"""
         Compute the SVD of the linear operator :math:`iwG - A`
         specified by :code:`lin_op` using a time-stepping randomized SVD algorithm
@@ -64,14 +80,14 @@ def randomized_time_stepping_svd(lin_op, lin_op_mass, lin_op_action, omega, n_pe
     omega = omega[omega >= 0]
 
     if lin_op_action != lin_op.apply_mat and lin_op_action != lin_op.solve_mat:
-        raise ValueError (
+        raise ValueError(
             f"lin_op_action must be lin_op.apply_mat or lin_op.solve_mat."
         )
     if lin_op_action == lin_op.apply_mat:
         lin_op_action_adj = lin_op.apply_hermitian_transpose_mat
     if lin_op_action == lin_op.solve_mat:
         lin_op_action_adj = lin_op.solve_hermitian_transpose_mat
-    
+
     # Assemble random BV
     N = lin_op.get_dimensions()[0][1]
     print(f"N = {N}, k = {n_rand}")
@@ -79,7 +95,7 @@ def randomized_time_stepping_svd(lin_op, lin_op_mass, lin_op_action, omega, n_pe
     for k in range(n_rand):
         X_k = SLEPc.BV().create(comm=lin_op._comm)
         X_k.setSizes(N, n_omega // 2)
-        X_k.setType('mat')
+        X_k.setType("mat")
         X_k.setRandomNormal()
         for j in range(n_omega // 2):
             xj = X_k.getColumn(j)
@@ -102,16 +118,16 @@ def randomized_time_stepping_svd(lin_op, lin_op_mass, lin_op_action, omega, n_pe
     def sample_forcing(forcing_mat, idx):
         f = SLEPc.BV().create(comm=X[0].comm)
         f.setSizes(N, n_rand)
-        f.setType('mat')
+        f.setType("mat")
 
-        for i in range(n_rand): 
+        for i in range(n_rand):
             temp = forcing_mat[i].getMat()
-            f_i = temp.getDenseArray() @ i_dft_mat[idx,:].transpose()
-            
+            f_i = temp.getDenseArray() @ i_dft_mat[idx, :].transpose()
+
             f_col = f.getColumn(i)
             f_col.setArray(f_i)
             f.restoreColumn(i, f_col)
-            
+
             forcing_mat[i].restoreMat(temp)
         return f
 
@@ -119,47 +135,51 @@ def randomized_time_stepping_svd(lin_op, lin_op_mass, lin_op_action, omega, n_pe
     def direct_action(forcing_mat):
         q_temp = SLEPc.BV().create(comm=lin_op._comm)
         q_temp.setSizes(N, n_rand)
-        q_temp.setType('mat')
+        q_temp.setType("mat")
         q_temp.scale(0.0)
 
         Y_hat = []
         for i in range(n_omega):
             Y_hat_i = SLEPc.BV().create(comm=lin_op._comm)
             Y_hat_i.setSizes(N, n_rand)
-            Y_hat_i.setType('mat')
+            Y_hat_i.setType("mat")
             Y_hat_i.setFromOptions()
             Y_hat.append(Y_hat_i)
 
         lhs = copy.deepcopy(lin_op_mass)
-        lhs.axpy(-dt/2, lin_op)
-        
+        lhs.axpy(-dt / 2, lin_op)
+
         rhs_1 = copy.deepcopy(lin_op_mass)
-        rhs_1.axpy(dt/2, lin_op)
-        
+        rhs_1.axpy(dt / 2, lin_op)
+
         ksp = PETSc.KSP().create(comm=lin_op._comm)
         ksp.setOperators(lhs.A)
-        ksp.setType('preonly')
+        ksp.setType("preonly")
         pc = ksp.getPC()
-        pc.setType('lu')
+        pc.setType("lu")
         ksp.setUp()
 
         temp_rhs = SLEPc.BV().create(comm=lin_op._comm)
         temp_rhs.setSizes(N, n_rand)
-        temp_rhs.setType('mat')
-        
+        temp_rhs.setType("mat")
+
         f_sum = SLEPc.BV().create(comm=lin_op._comm)
         f_sum.setSizes(N, n_rand)
-        f_sum.setType('mat')
+        f_sum.setType("mat")
 
         idx = 0
         for period in range(n_periods):
             for i in range(n_timesteps):
-                f = sample_forcing(forcing_mat, (2*(i-1)) % (2*n_timesteps))
-                f_next = sample_forcing(forcing_mat, (2*(i-1)+2) % (2*n_timesteps))
-                
+                f = sample_forcing(
+                    forcing_mat, (2 * (i - 1)) % (2 * n_timesteps)
+                )
+                f_next = sample_forcing(
+                    forcing_mat, (2 * (i - 1) + 2) % (2 * n_timesteps)
+                )
+
                 temp_rhs.scale(0.0)
                 rhs_1.apply_mat(q_temp, temp_rhs)
-                
+
                 _, nc = f.getSizes()
                 f_sum.scale(0.0)
 
@@ -186,7 +206,7 @@ def randomized_time_stepping_svd(lin_op, lin_op_mass, lin_op_action, omega, n_pe
                     ksp.solve(rhs_col, sol_col)
                     temp_rhs.restoreColumn(j, rhs_col)
                     q_temp.restoreColumn(j, sol_col)
-                
+
                 if period == n_periods - 1 and i % t_ratio == 0:
                     q_temp.copy(Y_hat[idx])
                     idx += 1
@@ -196,12 +216,12 @@ def randomized_time_stepping_svd(lin_op, lin_op_mass, lin_op_action, omega, n_pe
 
         temp_rhs.destroy()
         f_sum.destroy()
-        
+
         Y_temp = []
         for i in range(n_rand):
             Y_temp_i = SLEPc.BV().create(comm=lin_op._comm)
-            Y_temp_i.setSizes(N, n_omega//2)
-            Y_temp_i.setType('mat')
+            Y_temp_i.setSizes(N, n_omega // 2)
+            Y_temp_i.setType("mat")
 
             local_cols = []
             for y in Y_hat:
@@ -209,15 +229,17 @@ def randomized_time_stepping_svd(lin_op, lin_op_mass, lin_op_action, omega, n_pe
                 local_cols.append(col.getArray().copy())
                 y.restoreColumn(i, col)
 
-            dft_coeffs_local = np.column_stack(local_cols) @ dft_mat.getDenseArray()
+            dft_coeffs_local = (
+                np.column_stack(local_cols) @ dft_mat.getDenseArray()
+            )
 
-            for j in range(n_omega//2):
+            for j in range(n_omega // 2):
                 col = Y_temp_i.getColumn(j)
                 col.array[:] = dft_coeffs_local[:, j] * t_ratio
                 Y_temp_i.restoreColumn(j, col)
-            
+
             Y_temp.append(Y_temp_i)
-            
+
             del local_cols
             del dft_coeffs_local
             del Y_temp_i
@@ -232,52 +254,57 @@ def randomized_time_stepping_svd(lin_op, lin_op_mass, lin_op_action, omega, n_pe
     def adjoint_action(forcing_mat):
         z_temp = SLEPc.BV().create(comm=lin_op._comm)
         z_temp.setSizes(N, n_rand)
-        z_temp.setType('mat')
+        z_temp.setType("mat")
         z_temp.scale(0.0)
 
         S_hat = []
         for i in range(n_omega):
             S_hat_i = SLEPc.BV().create(comm=lin_op._comm)
             S_hat_i.setSizes(N, n_rand)
-            S_hat_i.setType('mat')
+            S_hat_i.setType("mat")
             S_hat.append(S_hat_i)
-        
+
         lin_op_mass.hermitian_transpose()
         lin_op.hermitian_transpose()
-        
+
         lhs = copy.deepcopy(lin_op_mass)
-        lhs.axpy(-dt/2, lin_op)
-        
+        lhs.axpy(-dt / 2, lin_op)
+
         rhs_1 = copy.deepcopy(lin_op_mass)
-        rhs_1.axpy(dt/2, lin_op)
-        
+        rhs_1.axpy(dt / 2, lin_op)
+
         ksp = PETSc.KSP().create(comm=lin_op._comm)
         ksp.setOperators(lhs.A)
-        ksp.setType('preonly')
+        ksp.setType("preonly")
         pc = ksp.getPC()
-        pc.setType('lu')
+        pc.setType("lu")
         ksp.setUp()
 
         temp_rhs = SLEPc.BV().create(comm=lin_op._comm)
         temp_rhs.setSizes(N, n_rand)
-        temp_rhs.setType('mat')
-        
+        temp_rhs.setType("mat")
+
         s_sum = SLEPc.BV().create(comm=lin_op._comm)
         s_sum.setSizes(N, n_rand)
-        s_sum.setType('mat')
+        s_sum.setType("mat")
 
         idx = n_omega - 1
         for period in range(n_periods):
             for i in range(n_timesteps):
-                s = sample_forcing(forcing_mat, (2*(n_timesteps - i)) % (2*n_timesteps))
-                s_next = sample_forcing(forcing_mat, (2*(n_timesteps - i) - 2) % (2*n_timesteps))
-                
+                s = sample_forcing(
+                    forcing_mat, (2 * (n_timesteps - i)) % (2 * n_timesteps)
+                )
+                s_next = sample_forcing(
+                    forcing_mat,
+                    (2 * (n_timesteps - i) - 2) % (2 * n_timesteps),
+                )
+
                 temp_rhs.scale(0.0)
                 rhs_1.apply_mat(z_temp, temp_rhs)
 
                 _, nc = s.getSizes()
                 s_sum.scale(0.0)
-                
+
                 for k in range(nc):
                     v_s = s.getColumn(k)
                     v_sn = s_next.getColumn(k)
@@ -301,7 +328,7 @@ def randomized_time_stepping_svd(lin_op, lin_op_mass, lin_op_action, omega, n_pe
                     ksp.solve(rhs_col, sol_col)
                     temp_rhs.restoreColumn(j, rhs_col)
                     z_temp.restoreColumn(j, sol_col)
-                
+
                 if period == n_periods - 1 and i % t_ratio == 0:
                     z_temp.copy(S_hat[idx])
                     idx -= 1
@@ -311,32 +338,34 @@ def randomized_time_stepping_svd(lin_op, lin_op_mass, lin_op_action, omega, n_pe
 
         temp_rhs.destroy()
         s_sum.destroy()
-        
+
         S_temp = []
         for i in range(n_rand):
             S_temp_i = SLEPc.BV().create(comm=lin_op._comm)
-            S_temp_i.setSizes(N, n_omega//2)
-            S_temp_i.setType('mat')
+            S_temp_i.setSizes(N, n_omega // 2)
+            S_temp_i.setType("mat")
 
             local_cols = []
             for s in S_hat:
                 col = s.getColumn(i)
                 local_cols.append(col.getArray().copy())
                 s.restoreColumn(i, col)
-            
-            dft_coeffs_local = np.column_stack(local_cols) @ dft_mat.getDenseArray()
 
-            for j in range(n_omega//2):
+            dft_coeffs_local = (
+                np.column_stack(local_cols) @ dft_mat.getDenseArray()
+            )
+
+            for j in range(n_omega // 2):
                 col = S_temp_i.getColumn(j)
                 col.array[:] = dft_coeffs_local[:, j] * t_ratio
                 S_temp_i.restoreColumn(j, col)
-            
+
             S_temp.append(S_temp_i)
-            
+
             del local_cols
             del dft_coeffs_local
             del S_temp_i
-        
+
         lhs.destroy()
         rhs_1.destroy()
         ksp.destroy()
@@ -368,14 +397,14 @@ def randomized_time_stepping_svd(lin_op, lin_op_mass, lin_op_action, omega, n_pe
         v = vh.conj().T
 
         S[i, :] = s[:n_svals]
-        
+
         Y_hat_array = Y_hat[i].getMat().getDenseArray()
         factor = u_tilde[:, :n_svals] @ np.diag(s[:n_svals])
         U_array = Y_hat_array @ factor
 
         U_i = SLEPc.BV().create(comm=lin_op._comm)
         U_i.setSizes(N, n_svals)
-        U_i.setType('mat')
+        U_i.setType("mat")
 
         for j in range(n_svals):
             col = U_i.getColumn(j)
@@ -384,15 +413,14 @@ def randomized_time_stepping_svd(lin_op, lin_op_mass, lin_op_action, omega, n_pe
 
         V_i = SLEPc.BV().create(comm=lin_op._comm)
         V_i.setSizes(N, n_svals)
-        V_i.setType('mat')
-        
+        V_i.setType("mat")
+
         for j in range(n_svals):
             col = V_i.getColumn(j)
             col.array[:] = v[:N, j]
             V_i.restoreColumn(j, col)
-        
+
         U.append(U_i)
         V.append(V_i)
-        
 
     return U, S, V

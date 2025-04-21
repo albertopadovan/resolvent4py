@@ -41,7 +41,7 @@ class MatrixLinearOperator(LinearOperator):
         y = self.create_left_vector() if y == None else y
         self.A.mult(x, y)
         return y
-    
+
     def hermitian_transpose(self):
         self.A.hermitianTranspose()
 
@@ -55,7 +55,7 @@ class MatrixLinearOperator(LinearOperator):
             Ym = Xm.duplicate()
             Ym.axpy(alpha, Xm)
             Y = SLEPc.BV().createFromMat(Ym)
-            Y.setType('mat')
+            Y.setType("mat")
             Ym.destroy()
         return Y
 

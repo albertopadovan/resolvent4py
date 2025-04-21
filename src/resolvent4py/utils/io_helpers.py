@@ -79,17 +79,47 @@ def read_coo_matrix(
 def read_harmonic_balanced_matrix(
     comm: MPI.Comm,
     filenames_lst: typing.List[typing.Tuple[str, str, str]],
-    bflow_freqs: np.array,
-    pertb_freqs: np.array,
+    real_bflow: bool,
     block_sizes: typing.Tuple[typing.Tuple[int, int], typing.Tuple[int, int]],
-    full_sizes: typing.Tuple[typing.Tuple[int, int], typing.Tuple[int, int]]
+    full_sizes: typing.Tuple[typing.Tuple[int, int], typing.Tuple[int, int]],
 ) -> PETSc.Mat:
+    r"""
+    Given :math:`\{\ldots, A_{-1}, A_{0}, A_{1},\ldots\}`, where :math:`A_j` is
+    the :math:`j` th Fourier coefficient of a time-periodic matrix :math:`A(t)`,
+    assemble the harmonic-balanced matrix
 
-    if len(bflow_freqs) != len(filenames_lst):
-        raise ValueError (
-            f"Error in read_harmonic_balanced_matrix(). filenames_lst "
-            f"should have the same length as bflow_freqs."
-        )
+    .. math::
+
+        M = \begin{bmatrix}
+        \ddots & \ddots & \ddots & \ddots \\
+        \ddots & A_{0} & A_{-1} & A_{-2} & \ddots \\
+        \ddots & A_{1} & A_{0} & A_{-1} & A_{-2} & \ddots \\
+        \ddots & A_{2} & A_{1} & A_{0} & A_{-1} & A_{-2} &\ddots \\
+        & \ddots & A_{2} & A_{1} & A_{0} & A_{-1} &\ddots \\
+        &  & \ddots & A_{2} & A_{1} & A_{0} & \ddots\\
+        & & & \ddots & \ddots & \ddots & \ddots \\
+        \end{bmatrix}
+    
+    :param comm: MPI communicator (MPI.COMM_WORLD)
+    :type comm: MPI.Comm
+    :param filenames_lst: list of tuples, with each tuple of the form
+        :code:`(rows_j.dat, cols_j.dat, vals_j.dat)` containing the COO arrays
+        of the matrix :math:`A_j`
+    :type filenames_lst: List[Tuple[str, str, str]]
+    :param real_bflow: set to :code:`True` if :code:`filenames_lst` 
+        contains the names of the COO arrays of the positive Fourier 
+        coefficients of :math:`A(t)` (i.e., :math:`\{A_0, A_1, A_2, \ldots\}`). 
+        The negative frequencies are assumed the complex-conjugates of the 
+        positive ones. Set to :code:`False` otherwise
+        (i.e., :math:`\{\ldots, A_{-2}, A_{-1}, A_0, A_1, A_2, \ldots\}`).
+    :type real_bflow: bool
+    :param block_sizes: sizes :code:`((local rows, global rows), 
+        (local cols, global cols))` of :math:`A_j`
+    :type block_sizes: Tuple[Tuple[int, int], Tuple[int, int]]
+    :param full_sizes: sizes :code:`((local rows, global rows), 
+        (local cols, global cols))` of :math:`M`
+    :type full_sizes: Tuple[Tuple[int, int], Tuple[int, int]]
+    """
     # Read list of COO vectors
     rows_lst, cols_lst, vals_lst = [], [], []
     for filenames in filenames_lst:
@@ -97,8 +127,12 @@ def read_harmonic_balanced_matrix(
         rowsvec = read_vector(comm, fname_rows)
         colsvec = read_vector(comm, fname_cols)
         valsvec = read_vector(comm, fname_vals)
-        rowsvec_arr = np.asarray(rowsvec.getArray().real, dtype=np.int32).copy()
-        colsvec_arr = np.asarray(colsvec.getArray().real, dtype=np.int32).copy()
+        rowsvec_arr = np.asarray(
+            rowsvec.getArray().real, dtype=np.int32
+        ).copy()
+        colsvec_arr = np.asarray(
+            colsvec.getArray().real, dtype=np.int32
+        ).copy()
         valsvec_arr = valsvec.getArray().copy()
         rows_lst.append(rowsvec_arr)
         cols_lst.append(colsvec_arr)
@@ -106,28 +140,27 @@ def read_harmonic_balanced_matrix(
         rowsvec.destroy()
         colsvec.destroy()
         valsvec.destroy()
-    
-    put_back = False
-    if np.min(bflow_freqs) == 0.0:
-        put_back = True
-        for i in range (1, len(bflow_freqs)):
-            idx_lst = i - 1 - nfp
+
+    if real_bflow:
+        l = len(rows_lst)
+        for i in range(1, l):
+            idx_lst = i - l
             rows_lst.insert(0, rows_lst[idx_lst])
             cols_lst.insert(0, cols_lst[idx_lst])
             vals_lst.insert(0, np.conj(vals_lst[idx_lst]))
-        bflow_freqs = np.concatenate((-np.flipud(bflow_freqs[1:]), bflow_freqs))
 
     rows, cols, vals = [], [], []
-    Nrb = block_sizes[0][-1]            # Number of block rows
-    Ncb = block_sizes[-1][-1]           # Number of block columns
-    nfb = (len(bflow_freqs) - 1)//2     # Number of perturbation frequencies
-    nfp = (len(pertb_freqs) - 1)//2     # Number of baseflow frequencies
-    for i in range (2*nfp + 1):
-        for j in range (2*nfp + 1):
+    Nrb = block_sizes[0][-1]    # Number of rows for each block
+    Ncb = block_sizes[-1][-1]   # Number of columns for each block
+    nblocks = full_sizes[0][-1]//Nrb    # Number of blocks
+    nfb = (len(rows_lst) - 1) // 2  # Number of baseflow frequencies
+    nfp = (nblocks - 1) // 2        # Number of perturbation frequencies
+    for i in range(2 * nfp + 1):
+        for j in range(2 * nfp + 1):
             k = i - j + nfb
-            if k >= 0:
-                rows.extend(rows_lst[k] + i*Nrb)
-                cols.extend(cols_lst[k] + j*Ncb)
+            if k >= 0 and k < (2 * nfp + 1):
+                rows.extend(rows_lst[k] + i * Nrb)
+                cols.extend(cols_lst[k] + j * Ncb)
                 vals.extend(vals_lst[k])
     rows = np.asarray(rows, dtype=np.int32)
     cols = np.asarray(cols, dtype=np.int32)
@@ -139,14 +172,13 @@ def read_harmonic_balanced_matrix(
     cols = np.delete(cols, idces)
     vals = np.delete(vals, idces)
     # Convert COO to CSR and create the sparse matrix
-    rows_ptr, cols, vals = convert_coo_to_csr(comm, \
-                                              [rows, cols, vals], full_sizes)
+    rows_ptr, cols, vals = convert_coo_to_csr(
+        comm, [rows, cols, vals], full_sizes
+    )
     M = PETSc.Mat().createAIJ(full_sizes, comm=comm)
     M.setPreallocationCSR((rows_ptr, cols))
     M.setValuesCSR(rows_ptr, cols, vals, True)
     M.assemble(False)
-
-    bflow_freqs = bflow_freqs[nfb:] if put_back else bflow_freqs
     
     return M
 
@@ -224,4 +256,3 @@ def write_to_file(
     else:
         object.view(viewer)
     viewer.destroy()
-

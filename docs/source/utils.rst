@@ -1,9 +1,25 @@
 Utils
 =====
 
-BV
+
+Mat
+---
+.. automodule:: src.resolvent4py.utils.mat_helpers
+   :members:
+
+Vec
+---
+.. automodule:: src.resolvent4py.utils.vec_helpers
+   :members:
+
+Bv
 ---
 .. automodule:: src.resolvent4py.utils.bv_helpers
+   :members:
+
+Ksp
+---
+.. automodule:: src.resolvent4py.utils.ksp_helpers
    :members:
 
 Comms
@@ -14,21 +30,6 @@ Comms
 I/O
 ---
 .. automodule:: src.resolvent4py.utils.io_helpers
-   :members:
-
-MAT
----
-.. automodule:: src.resolvent4py.utils.mat_helpers
-   :members:
-
-VEC
----
-.. automodule:: src.resolvent4py.utils.vec_helpers
-   :members:
-
-KSP
----
-.. automodule:: src.resolvent4py.utils.ksp_helpers
    :members:
 
 Random

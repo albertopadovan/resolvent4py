@@ -48,7 +48,9 @@ res4py.petscprint(comm, "Running randomized SVD...")
 n_rand = 40
 n_loops = 3
 n_svals = 10
-U, S, V = res4py.linalg.randomized_svd(L, L.solve_mat, n_rand, n_loops, n_svals)
+U, S, V = res4py.linalg.randomized_svd(
+    L, L.solve_mat, n_rand, n_loops, n_svals
+)
 
 # Check convergence
 res4py.linalg.check_randomized_svd_convergence(L.solve, U, S, V)

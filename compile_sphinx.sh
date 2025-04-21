@@ -1,1 +1,1 @@
-sphinx-apidoc -o docs/source resolvent4py/
+sphinx-apidoc -o docs/source src/resolvent4py/
