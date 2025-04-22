@@ -154,13 +154,13 @@ def read_harmonic_balanced_matrix(
             vals_lst.insert(0, np.conj(vals_lst[idx_lst]))
 
     rows, cols, vals = [], [], []
-    Nrb = block_sizes[0][-1]    # Number of rows for each block
-    Ncb = block_sizes[-1][-1]   # Number of columns for each block
-    nblocks = full_sizes[0][-1]//Nrb    # Number of blocks
+    Nrb = block_sizes[0][-1]  # Number of rows for each block
+    Ncb = block_sizes[-1][-1]  # Number of columns for each block
+    nblocks = full_sizes[0][-1] // Nrb  # Number of blocks
     nfb = (len(rows_lst) - 1) // 2  # Number of baseflow frequencies
-    nfp = (nblocks - 1) // 2        # Number of perturbation frequencies
+    nfp = (nblocks - 1) // 2  # Number of perturbation frequencies
     if nfp < nfb:
-        raise ValueError (
+        raise ValueError(
             f"The number of blocks must be larger than the number of Fourier "
             f"coefficients of A(t). (See function description.)"
         )
@@ -188,7 +188,7 @@ def read_harmonic_balanced_matrix(
     M.setPreallocationCSR((rows_ptr, cols))
     M.setValuesCSR(rows_ptr, cols, vals, True)
     M.assemble(False)
-    
+
     return M
 
 
@@ -300,33 +300,41 @@ def read_harmonic_balanced_bv(
         for i in range(1, l):
             idx_lst = i - l
             bvs_lst.insert(0, bv_conj(bvs_lst[idx_lst]))
-    
-    Nrb = block_sizes[0][-1]    # Number of rows for each block
-    Ncb = block_sizes[-1]       # Number of cols for each block
-    nblocks = full_sizes[0][-1]//Nrb    # Number of blocks
-    nfb = (len(bvs_lst) - 1) // 2       # Number of baseflow frequencies
-    nfp = (nblocks - 1) // 2            # Number of perturbation frequencies
+
+    Nrb = block_sizes[0][-1]  # Number of rows for each block
+    Ncb = block_sizes[-1]  # Number of cols for each block
+    nblocks = full_sizes[0][-1] // Nrb  # Number of blocks
+    nfb = (len(bvs_lst) - 1) // 2  # Number of baseflow frequencies
+    nfp = (nblocks - 1) // 2  # Number of perturbation frequencies
     if nfp < nfb:
-        raise ValueError (
+        raise ValueError(
             f"The number of blocks must be larger than the number of Fourier "
             f"coefficients of A(t). (See function description.)"
         )
+    
+    bv_mat = bvs_lst[0].getMat()
+    r0, r1 = bv_mat.getOwnershipRange()
+    bvs_lst[0].restoreMat(bv_mat)
+    rows = np.arange(r0, r1, dtype=np.int32)
+    cols = np.arange(Ncb, dtype=np.int32)
     M = SLEPc.BV().create(comm)
-    M.setSizes(full_sizes)
-    M.setType('mat')
+    M.setSizes(full_sizes[0], full_sizes[-1])
+    M.setType("mat")
     Mmat = M.getMat()
-    r0, r1 = Mmat.getOwnershipRange()
     for i in range(2 * nfp + 1):
         for j in range(2 * nfp + 1):
             k = i - j + nfb
             if k >= 0 and k < (2 * nfp + 1):
-                rows = np.arange(r0, r1) + i * Nrb
-                cols = np.arange(Ncb) + j * Ncb
+                rows_k = rows + i * Nrb
+                cols_k = cols + j * Ncb
                 bv_k_mat = bvs_lst[k].getMat()
-                Mmat.setValues(rows, cols, bv_k_mat.getDenseArray(), None)
+                array = bv_k_mat.getDenseArray().reshape(-1)
+                Mmat.setValues(rows_k, cols_k, array, None)
                 bvs_lst[k].restoreMat(bv_k_mat)
-    Mmat.assmble(None)
+    Mmat.assemble(None)
     M.restoreMat(Mmat)
+    for bv in bvs_lst:
+        bv.destroy()
     return M
 
 

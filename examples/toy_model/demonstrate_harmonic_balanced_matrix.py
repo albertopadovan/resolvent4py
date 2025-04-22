@@ -21,13 +21,13 @@ plt.rcParams.update(
 comm = MPI.COMM_WORLD
 
 save_path = "data/"
-bflow_freqs = np.load(save_path + 'bflow_freqs.npy')
-perts_freqs = np.load(save_path + 'perts_freqs.npy')
+bflow_freqs = np.load(save_path + "bflow_freqs.npy")
+perts_freqs = np.load(save_path + "perts_freqs.npy")
 fnames_lst = [
     (
         save_path + "rows_%02d.dat" % j,
         save_path + "cols_%02d.dat" % j,
-        save_path + "vals_%02d.dat" % j
+        save_path + "vals_%02d.dat" % j,
     )
     for j in range(len(bflow_freqs))
 ]
@@ -48,35 +48,9 @@ x = PETSc.Vec().createWithArray(np.ones(Nl), (Nl, N), None, comm)
 y = x.duplicate()
 H.mult(x, y)
 
-
-def gmres_monitor(ksp, its, rnorm):
-    print(f"GMRES Iteration {its:3d}, Residual Norm = {rnorm:.3e}")
-
-
-# opts = PETSc.Options()
-# print(opts.getAll())
-# opts["pc_type"] = "bjacobi"
-# opts["pc_bjacobi_blocks"] = len(perts_freqs)
-# opts["sub_ksp_type"] = "preonly"
-# opts["sub_pc_type"] = "lu"
-# opts["sub_pc_factor_mat_solver_type"] = "mumps"
-
-# ksp = PETSc.KSP().create(comm=PETSc.COMM_WORLD)
-# ksp.setOperators(H)
-# ksp.setType('gmres')
-# ksp.setTolerances(rtol=1e-10, atol=1e-10)
-# ksp.setMonitor(gmres_monitor)
-# pc = ksp.getPC()
-# pc.setFromOptions()
-# pc.setUp()
-# ksp.setUp()
-
-# pc = ksp.getPC()
-
-# print(pc.getType())
-# print(PETSc.Sys.getVersion())
-    
-ksp = res4py.create_gmres_bjacobi_solver(comm, H, len(perts_freqs))
+ksp = res4py.create_gmres_bjacobi_solver(
+    comm, H, len(perts_freqs), 1e-10, 1e-10, True
+)
 res4py.check_gmres_bjacobi_solver(comm, H, ksp)
 
 x = res4py.generate_random_petsc_vector(comm, (Nl, N), True)
@@ -88,6 +62,20 @@ H.mult(y, x2)
 x2.axpy(-1.0, x)
 res4py.petscprint(comm, x2.norm())
 
+fnames_lst = [
+    (
+        save_path + "Aj_%02d.dat" % j
+    )
+    for j in range(len(bflow_freqs))
+]
 
+bv = res4py.read_harmonic_balanced_bv(comm, fnames_lst, True, ((nl, n), 3), \
+                                 ((Nl, N), N))
+
+# bv.view()
+L = bv.getMat().getDenseArray()
+H.convert(PETSc.Mat.Type.DENSE)
+H_ = H.getDenseArray()
+print(np.linalg.norm(H_ - L))
 
 

@@ -22,7 +22,7 @@ plt.rcParams.update(
 # --------- Define system -------------------------------------------
 # -------------------------------------------------------------------
 
-n = 3  # number of degrees of freedom
+n = 3
 mu = 1 / 5
 alpha = 1 / 5
 beta = 1 / 5
@@ -60,7 +60,7 @@ idx0 = np.argmin(np.abs(time - 98 * Tw))
 idxf = np.argmin(np.abs(time - 99 * Tw))
 time = time[idx0:idxf] - time[idx0]
 Q = Q[:, idx0:idxf]
-nf = 10
+nf = 3
 freqs, QHat = toy.fft(time, Q, nf)
 
 QHat = toy.newton_harmonic_balance(time, tensors, freqs, QHat, wf, 1e-9)
@@ -80,7 +80,6 @@ Ahat = (1 / len(time)) * np.fft.rfft(As, axis=-1)[:, : len(freqs) // 2 + 1]
 
 save_path = "data/"
 os.makedirs(save_path) if not os.path.exists(save_path) else None
-
 
 
 for j in range(Ahat.shape[-1]):
@@ -104,8 +103,12 @@ for j in range(Ahat.shape[-1]):
         )
         res4py.write_to_file(MPI.COMM_WORLD, fname, vec)
 
+    Aj = Aj.todense()
+    Aj_mat = PETSc.Mat().createDense((3, 3), None, Aj, MPI.COMM_SELF)
+    res4py.write_to_file(MPI.COMM_WORLD, save_path + 'Aj_%02d.dat'%j, Aj_mat)
+
 perts_freqs = freqs.copy()
 bflow_freqs = freqs[len(freqs) // 2 :]
 
-np.save(save_path + 'bflow_freqs.npy', bflow_freqs)
-np.save(save_path + 'perts_freqs.npy', perts_freqs)
+np.save(save_path + "bflow_freqs.npy", bflow_freqs)
+np.save(save_path + "perts_freqs.npy", perts_freqs)

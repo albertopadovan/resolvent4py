@@ -63,12 +63,12 @@ def check_lu_factorization(
 
 
 def create_gmres_bjacobi_solver(
-        comm: MPI.Comm,
-        A: PETSc.Mat,
-        nblocks: int,
-        rtol: typing.Optional[float]=1e-10,
-        atol: typing.Optional[float]=1e-10,
-        monitor: typing.Optional[bool]=False
+    comm: MPI.Comm,
+    A: PETSc.Mat,
+    nblocks: int,
+    rtol: typing.Optional[float] = 1e-10,
+    atol: typing.Optional[float] = 1e-10,
+    monitor: typing.Optional[bool] = False,
 ) -> PETSc.KSP:
     r"""
     Create GMRES solver with block-jacobi preconditioner.
@@ -91,13 +91,13 @@ def create_gmres_bjacobi_solver(
     :return ksp: PETSc KSP solver
     :rtype ksp: PETSc.KSP
     """
-    
+
     monitor_fun = None
     if monitor:
+
         def monitor_fun(ksp, its, rnorm):
             string = f"GMRES Iteration {its:3d}, Residual Norm = {rnorm:.3e}"
             petscprint(comm, string)
-        
 
     opts = PETSc.Options()
     opts["pc_type"] = "bjacobi"
@@ -108,7 +108,7 @@ def create_gmres_bjacobi_solver(
 
     ksp = PETSc.KSP().create(comm=comm)
     ksp.setOperators(A)
-    ksp.setType('gmres')
+    ksp.setType("gmres")
     ksp.setTolerances(rtol=rtol, atol=atol)
     ksp.setMonitor(monitor_fun)
     pc = ksp.getPC()
@@ -117,6 +117,7 @@ def create_gmres_bjacobi_solver(
     ksp.setUp()
 
     return ksp
+
 
 def check_gmres_bjacobi_solver(
     comm: MPI.Comm, A: PETSc.Mat, ksp: PETSc.KSP
@@ -141,6 +142,6 @@ def check_gmres_bjacobi_solver(
     b.destroy()
     reason = ksp.getConvergedReason()
     if reason < 0:
-        raise ValueError (
+        raise ValueError(
             f"GMRES solver did not converge. ConvergedReason = {reason}"
         )
