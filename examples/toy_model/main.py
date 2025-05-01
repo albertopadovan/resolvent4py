@@ -114,7 +114,7 @@ sol = scipy.integrate.solve_ivp(
 )
 
 
-ylabs = ["$x^\prime$", "$y^\prime$", "$z^\prime$"]
+ylabs = [r"$x^\prime$", r"$y^\prime$", r"$z^\prime$"]
 
 fig, ax = plt.subplots(nrows=3, ncols=1)
 for k in range(3):
@@ -126,7 +126,7 @@ for k in range(3):
     else:
         ax[k].set_xticks(Tw * np.arange(0, 51, 10))
         ax[k].set_xticklabels(
-            ["$0$", "$10\,T$", "$20\,T$", "$30\,T$", "$40\,T$", "$50\,T$"]
+            [r"$0$", r"$10\,T$", r"$20\,T$", r"$30\,T$", r"$40\,T$", r"$50\,T$"]
         )
         ax[k].set_xlabel("Time $t$")
 

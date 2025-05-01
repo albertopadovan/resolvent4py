@@ -3,7 +3,7 @@ import scipy
 
 
 class CGL:
-    """
+    r"""
         Class for the linear complex Ginzburg-Landau equation
 
         .. math::
