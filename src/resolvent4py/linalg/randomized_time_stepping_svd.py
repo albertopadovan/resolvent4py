@@ -9,8 +9,8 @@ from mpi4py import MPI
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
-from ..utils.vec_helpers import enforce_complex_conjugacy
-from ..utils.mat_helpers import create_dense_matrix
+from ..utils.vector import enforce_complex_conjugacy
+from ..utils.matrix import create_dense_matrix
 
 
 def construct_dft_mats(n_omega, n_timesteps, n):

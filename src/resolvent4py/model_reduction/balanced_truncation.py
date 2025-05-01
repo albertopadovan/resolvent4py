@@ -10,8 +10,8 @@ from mpi4py import MPI
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
-from ..utils.comms_helpers import compute_local_size
-from ..utils.mat_helpers import create_dense_matrix
+from ..utils.comms import compute_local_size
+from ..utils.matrix import create_dense_matrix
 
 
 def compute_gramian_factors(

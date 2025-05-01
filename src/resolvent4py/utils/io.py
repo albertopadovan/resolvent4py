@@ -15,9 +15,9 @@ from mpi4py import MPI
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
-from .bv_helpers import bv_conj
-from .comms_helpers import compute_local_size
-from .mat_helpers import convert_coo_to_csr
+from .bv import bv_conj
+from .comms import compute_local_size
+from .matrix import convert_coo_to_csr
 
 
 def read_vector(

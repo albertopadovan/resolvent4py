@@ -12,9 +12,9 @@ from petsc4py import PETSc
 from slepc4py import SLEPc
 
 from ..linear_operators import LinearOperator
-from ..utils.mat_helpers import create_dense_matrix
+from ..utils.matrix import create_dense_matrix
 from ..utils.miscellaneous import petscprint
-from ..utils.vec_helpers import enforce_complex_conjugacy
+from ..utils.vector import enforce_complex_conjugacy
 
 
 def randomized_svd(

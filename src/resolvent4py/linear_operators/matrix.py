@@ -4,7 +4,7 @@ from mpi4py import MPI
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
-from ..utils.mat_helpers import mat_solve_hermitian_transpose
+from ..utils.matrix import mat_solve_hermitian_transpose
 from .linear_operator import LinearOperator
 
 

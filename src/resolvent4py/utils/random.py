@@ -7,8 +7,8 @@ import scipy as sp
 from mpi4py import MPI
 from petsc4py import PETSc
 
-from .comms_helpers import scatter_array_from_root_to_all
-from .mat_helpers import convert_coo_to_csr
+from .comms import scatter_array_from_root_to_all
+from .matrix import convert_coo_to_csr
 
 
 def generate_random_petsc_sparse_matrix(

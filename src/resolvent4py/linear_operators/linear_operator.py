@@ -6,9 +6,9 @@ from mpi4py import MPI
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
-from ..utils.errors_helpers import raise_not_implemented_error
-from ..utils.random_helpers import generate_random_petsc_vector
-from ..utils.vec_helpers import (check_complex_conjugacy,
+from ..utils.errors import raise_not_implemented_error
+from ..utils.random import generate_random_petsc_vector
+from ..utils.vector import (check_complex_conjugacy,
                                  enforce_complex_conjugacy)
 
 

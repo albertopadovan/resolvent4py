@@ -15,8 +15,8 @@ from slepc4py import SLEPc
 
 from ..linear_operators import LinearOperator
 from ..utils.miscellaneous import petscprint
-from ..utils.random_helpers import generate_random_petsc_vector
-from ..utils.vec_helpers import enforce_complex_conjugacy
+from ..utils.random import generate_random_petsc_vector
+from ..utils.vector import enforce_complex_conjugacy
 
 
 def arnoldi_iteration(

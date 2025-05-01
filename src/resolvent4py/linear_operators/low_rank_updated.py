@@ -6,7 +6,7 @@ from mpi4py import MPI
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
-from ..utils.bv_helpers import bv_add
+from ..utils.bv import bv_add
 from .linear_operator import LinearOperator
 from .low_rank import LowRankLinearOperator
 

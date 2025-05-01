@@ -11,7 +11,7 @@ from mpi4py import MPI
 from petsc4py import PETSc
 
 from .miscellaneous import petscprint
-from .random_helpers import generate_random_petsc_vector
+from .random import generate_random_petsc_vector
 
 
 def create_mumps_solver(comm: MPI.Comm, A: PETSc.Mat) -> PETSc.KSP:
