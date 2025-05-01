@@ -1,6 +1,8 @@
-from .. import np
-from .. import PETSc
-from .. import MPI
+__all__ = ["enforce_complex_conjugacy", "check_complex_conjugacy"]
+
+import numpy as np
+from mpi4py import MPI
+from petsc4py import PETSc
 
 
 def enforce_complex_conjugacy(

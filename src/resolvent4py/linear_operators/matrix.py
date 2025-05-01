@@ -1,9 +1,11 @@
-from .linear_operator import LinearOperator
+import typing
+
+from mpi4py import MPI
+from petsc4py import PETSc
+from slepc4py import SLEPc
+
 from ..utils.mat_helpers import mat_solve_hermitian_transpose
-from .. import SLEPc
-from .. import PETSc
-from .. import MPI
-from .. import typing
+from .linear_operator import LinearOperator
 
 
 class MatrixLinearOperator(LinearOperator):

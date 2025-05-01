@@ -1,11 +1,9 @@
 import pytest
 import scipy as sp
 import numpy as np
-import matplotlib.pyplot as plt
 import resolvent4py as res4py
 from mpi4py import MPI
 from petsc4py import PETSc
-import pathlib
 
 
 @pytest.fixture

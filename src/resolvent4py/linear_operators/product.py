@@ -1,8 +1,10 @@
+import typing
+
+from mpi4py import MPI
+from petsc4py import PETSc
+from slepc4py import SLEPc
+
 from .linear_operator import LinearOperator
-from .. import SLEPc
-from .. import PETSc
-from .. import MPI
-from .. import typing
 
 
 class ProductLinearOperator(LinearOperator):

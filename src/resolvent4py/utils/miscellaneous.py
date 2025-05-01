@@ -1,6 +1,9 @@
-from .. import np
-from .. import MPI
-from .. import tracemalloc
+__all__ = ["get_mpi_type", "petscprint", "get_memory_usage"]
+
+import tracemalloc
+
+import numpy as np
+from mpi4py import MPI
 
 numpy_to_mpi_dtype = {
     np.dtype(np.int32): MPI.INT,

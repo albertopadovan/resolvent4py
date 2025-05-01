@@ -1,16 +1,15 @@
-from .. import np
-from .. import abc
-from .. import PETSc
-from .. import SLEPc
-from .. import MPI
+import abc
+from typing import Optional, Union
+
+import numpy as np
+from mpi4py import MPI
+from petsc4py import PETSc
+from slepc4py import SLEPc
 
 from ..utils.errors_helpers import raise_not_implemented_error
 from ..utils.random_helpers import generate_random_petsc_vector
-from ..utils.vec_helpers import enforce_complex_conjugacy
-from ..utils.vec_helpers import check_complex_conjugacy
-
-from typing import Optional
-from typing import Union
+from ..utils.vec_helpers import (check_complex_conjugacy,
+                                 enforce_complex_conjugacy)
 
 
 class LinearOperator(metaclass=abc.ABCMeta):

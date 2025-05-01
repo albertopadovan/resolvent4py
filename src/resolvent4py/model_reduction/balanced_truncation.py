@@ -1,8 +1,14 @@
-from .. import np
-from .. import MPI
-from .. import PETSc
-from .. import SLEPc
-from .. import typing
+__all__ = [
+    "compute_gramian_factors",
+    "compute_balanced_projection",
+]
+
+import typing
+
+import numpy as np
+from mpi4py import MPI
+from petsc4py import PETSc
+from slepc4py import SLEPc
 
 from ..utils.comms_helpers import compute_local_size
 from ..utils.mat_helpers import create_dense_matrix

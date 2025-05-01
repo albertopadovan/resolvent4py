@@ -1,9 +1,11 @@
+import typing
+
+import numpy as np
+from mpi4py import MPI
+from petsc4py import PETSc
+from slepc4py import SLEPc
+
 from .linear_operator import LinearOperator
-from .. import MPI
-from .. import PETSc
-from .. import SLEPc
-from .. import np
-from .. import typing
 
 
 class LowRankLinearOperator(LinearOperator):

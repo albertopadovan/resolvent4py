@@ -7,7 +7,7 @@ __all__ = [
 ]
 
 from .linear_operator import LinearOperator
-from .matrix import MatrixLinearOperator
 from .low_rank import LowRankLinearOperator
 from .low_rank_updated import LowRankUpdatedLinearOperator
+from .matrix import MatrixLinearOperator
 from .product import ProductLinearOperator

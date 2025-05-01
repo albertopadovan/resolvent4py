@@ -1,4 +1,6 @@
-from .. import functools
+__all__ = ["raise_not_implemented_error"]
+
+import functools
 
 
 def raise_not_implemented_error(method):
