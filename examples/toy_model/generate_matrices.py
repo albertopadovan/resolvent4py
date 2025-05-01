@@ -1,21 +1,11 @@
 import numpy as np
 import scipy
-import matplotlib.pyplot as plt
 import os
 
 import toy_model as toy
 import resolvent4py as res4py
 from petsc4py import PETSc
 from mpi4py import MPI
-
-plt.rcParams.update(
-    {
-        "font.family": "serif",
-        "font.sans-serif": ["Computer Modern"],
-        "font.size": 18,
-        "text.usetex": True,
-    }
-)
 
 
 # -------------------------------------------------------------------

@@ -1,7 +1,6 @@
 import pytest
 import scipy as sp
 import numpy as np
-import matplotlib.pyplot as plt
 import resolvent4py as res4py
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -81,11 +80,15 @@ def test_randomized_svd(
     Sseq = np.diag(S)
 
     if rank == 0:
-        plt.figure()
-        plt.plot(s.real, "ko")
-        plt.plot(Sseq.real, "rx")
-        plt.gca().set_yscale("log")
-        plt.savefig(path + "svals.png")
+        try:
+            import matplotlib.pyplot as plt
+            plt.figure()
+            plt.plot(s.real, "ko")
+            plt.plot(Sseq.real, "rx")
+            plt.gca().set_yscale("log")
+            plt.savefig(path + "svals.png")
+        except ImportError:
+            pass
 
     for i in range(len(Sseq)):
         u = U.getColumn(i)
