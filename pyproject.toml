@@ -11,7 +11,18 @@ description = """\
   control of large-scale linear systems.\
 """
 license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["control", "model reduction", "large-scale systems", "parallel computing"]
+
 requires-python = ">=3.8"
+
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.10",
+    "mpi4py>=3.1",
+    "petsc4py>=3.13",
+    "slepc4py>=3.13",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
