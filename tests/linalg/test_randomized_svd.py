@@ -72,7 +72,7 @@ def test_randomized_svd(
     Nl = res4py.compute_local_size(N)
     Ncl = res4py.compute_local_size(Nc)
     A_dist = res4py.read_coo_matrix(comm, fnames_jac, ((Nl, N), (Ncl, Nc)))
-    linop = res4py.MatrixLinearOperator(comm, A_dist)
+    linop = res4py.linear_operators.MatrixLinearOperator(comm, A_dist)
 
     # Run randomized SVD
     k = min(10, min(N, Nc))  # Number of singular values to compute
@@ -95,6 +95,7 @@ def test_randomized_svd(
         v = V.getColumn(i)
         Av = linop.apply(v)
         error = np.abs(Av.dot(u) - Sseq[i])
+        assert Av.dot(u) == pytest.approx(Sseq[i])
         res4py.petscprint(comm, "Error = %1.15e" % error)
         U.restoreColumn(i, u)
         V.restoreColumn(i, v)

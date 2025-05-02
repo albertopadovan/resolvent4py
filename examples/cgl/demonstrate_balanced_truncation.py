@@ -21,7 +21,7 @@ def L_generator(omega, A):
     Rinv.scale(1j * omega)
     Rinv.axpy(-1.0, A)
     ksp = res4py.create_mumps_solver(comm, Rinv)
-    L = res4py.MatrixLinearOperator(comm, Rinv, ksp)
+    L = res4py.linear_operators.MatrixLinearOperator(comm, Rinv, ksp)
     return (L, L.solve_mat, (L.destroy,))
 
 

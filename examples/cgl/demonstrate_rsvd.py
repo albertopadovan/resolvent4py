@@ -41,7 +41,7 @@ Rinv.scale(s)
 Rinv.axpy(-1.0, A)
 ksp = res4py.create_mumps_solver(comm, Rinv)
 res4py.check_lu_factorization(comm, Rinv, ksp)
-L = res4py.MatrixLinearOperator(comm, Rinv, ksp)
+L = res4py.linear_operators.MatrixLinearOperator(comm, Rinv, ksp)
 
 # Compute the svd
 res4py.petscprint(comm, "Running randomized SVD...")

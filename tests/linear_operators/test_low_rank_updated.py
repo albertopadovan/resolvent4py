@@ -114,11 +114,11 @@ ql = res4py.compute_local_size(q)
 sl = res4py.compute_local_size(s)
 A = res4py.read_coo_matrix(comm, fnames_jac, ((Nl, N), (Nl, N)))
 ksp = res4py.create_mumps_solver(comm, A)
-linop_ = res4py.MatrixLinearOperator(comm, A, ksp)
+linop_ = res4py.linear_operators.MatrixLinearOperator(comm, A, ksp)
 Sig = np.load(path + "Sigma.npy")
 U = res4py.read_bv(comm, fnames_factors[0], ((Nl, N), r))
 V = res4py.read_bv(comm, fnames_factors[1], ((Nl, N), q))
-linop = res4py.LowRankUpdatedLinearOperator(comm, linop_, U, Sig, V)
+linop = res4py.linear_operators.LowRankUpdatedLinearOperator(comm, linop_, U, Sig, V)
 x = res4py.read_vector(comm, fnames_vecs[0])
 actions = [
     linop.apply,
@@ -164,7 +164,7 @@ res4py.petscprint(comm, " ")
 Sigw = np.load(path + "Sigmaw.npy")
 Uw = res4py.read_bv(comm, fnames_factors_w[0], ((Nl, N), q))
 Vw = res4py.read_bv(comm, fnames_factors_w[1], ((Nl, N), q))
-linop = res4py.LowRankUpdatedLinearOperator(
+linop = res4py.linear_operators.LowRankUpdatedLinearOperator(
     comm, linop_, U, Sig, V, (Uw, Sigw, Vw)
 )
 x = res4py.read_vector(comm, fnames_vecs[0])

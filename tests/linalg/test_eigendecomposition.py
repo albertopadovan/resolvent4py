@@ -80,4 +80,7 @@ def test_eigendecomposition(comm, rank_size, matrix_size, test_output_dir):
     oId.convert(PETSc.Mat.Type.MPIAIJ)
     oId.axpy(-1.0, A_dist)
     ksp = res4py.create_mumps_solver(comm, oId)
-    linop = res4py.MatrixLinearOperator(comm, oId, ksp)
+    linop = res4py.linear_operators.MatrixLinearOperator(comm, oId, ksp)
+    krylov_dim = linop.get_dimensions()[0][-1]
+    d, v = res4py.linalg.eig(linop, linop.solve, krylov_dim, 10, lambda x: 1j * omega + 1/x)
+    # todo: check that the eigenvalues agree with those found by scipy

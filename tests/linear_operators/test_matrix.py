@@ -79,7 +79,7 @@ sl = res4py.compute_local_size(s)
 
 A = res4py.read_coo_matrix(comm, fnames_jac, ((Nl, N), (Nl, N)))
 ksp = res4py.create_mumps_solver(comm, A)
-linop = res4py.MatrixLinearOperator(comm, A, ksp)
+linop = res4py.linear_operators.MatrixLinearOperator(comm, A, ksp)
 x = res4py.read_vector(comm, fnames_vecs[0])
 actions = [
     linop.apply,

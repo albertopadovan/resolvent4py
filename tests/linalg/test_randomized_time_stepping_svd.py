@@ -90,7 +90,7 @@ def test_randomized_time_stepping_svd(
     A_dist = res4py.read_coo_matrix(comm, fnames_jac, ((Nl, N), (Ncl, Nc)))
 
     # Create linear operator
-    linop = res4py.MatrixLinearOperator(comm, A_dist)
+    linop = res4py.linear_operators.MatrixLinearOperator(comm, A_dist)
 
     mass = PETSc.Mat().create(comm=comm)
     mass.setSizes(A_dist.getSizes())
@@ -103,7 +103,7 @@ def test_randomized_time_stepping_svd(
 
     mass.assemblyBegin()
     mass.assemblyEnd()
-    mass_linop = res4py.MatrixLinearOperator(comm, mass)
+    mass_linop = res4py.linear_operators.MatrixLinearOperator(comm, mass)
 
     # Run randomized time-stepping SVD
     n_loops = 3  # Power iterations

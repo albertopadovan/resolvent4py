@@ -3,8 +3,6 @@ import numpy as np
 import sys
 import os
 
-sys.path.append("../../")
-
 import resolvent4py as res4py
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -79,12 +77,12 @@ for i in range(len(mats_names)):
     Nrl = res4py.compute_local_size(Nr)
     Ncl = res4py.compute_local_size(Nc)
     A = res4py.read_coo_matrix(comm, fnames, ((Nrl, Nr), (Ncl, Nc)))
-    Alop = res4py.MatrixLinearOperator(comm, A)
+    Alop = res4py.linear_operators.MatrixLinearOperator(comm, A)
     lops.append(Alop)
     actions.append(Alop.apply)
 
 
-linop = res4py.ProductLinearOperator(comm, lops, actions)
+linop = res4py.linear_operators.ProductLinearOperator(comm, lops, actions)
 
 x = res4py.read_vector(comm, fnames_vecs[0])
 actions = [linop.apply]
