@@ -30,22 +30,27 @@ def generate_negative_semidefinite_matrix(comm, size, complex=True):
         int(0.3 * N * N),
         complex
     )
-    Bpetsc.scale(100)
-    B = Bpetsc.copy()
-    BH = Bpetsc.copy()
-    BH.hermitianTranspose()
-    A = B.matMult(BH)
-    A.scale(-1.0)
+    Bpetsc.convert(PETSc.Mat.Type.DENSE)
+    Bseq = res4py.distributed_to_sequential_matrix(comm, Bpetsc)
+    Bpython = Bseq.getDenseArray().copy()
+    eigvals = np.sort(np.linalg.eigvals(Bpython).real)
 
-    Atemp = A.copy()
-    Atemp.convert(PETSc.Mat.Type.DENSE)
-    Aseq = res4py.distributed_to_sequential_matrix(comm, Atemp)
-    Apython = Aseq.getDenseArray().copy()
-    B.destroy()
-    BH.destroy()
-    Aseq.destroy()
-    Atemp.destroy()
-    return A, Apython
+    if eigvals[-1] >= 0:
+        I = res4py.create_AIJ_identity(comm, ((Nl, N), (Nl, N)))
+        I.scale(eigvals[-1])
+        I.convert(PETSc.Mat.Type.DENSE)
+        Bpetsc.axpy(-1.1, I)
+        I.destroy()
+
+    Btemp = Bpetsc.copy()
+    Bseq = res4py.distributed_to_sequential_matrix(comm, Btemp)
+    Bpython = Bseq.getDenseArray().copy()
+
+    Bpetsc.convert(PETSc.Mat.Type.AIJ)
+
+    Bseq.destroy()
+    Btemp.destroy()
+    return Bpetsc, Bpython
 
 
 

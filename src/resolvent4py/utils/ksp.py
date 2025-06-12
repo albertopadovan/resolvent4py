@@ -14,6 +14,25 @@ from .miscellaneous import petscprint
 from .random import generate_random_petsc_vector
 
 
+def create_gmres_asm_solver(comm: MPI.Comm, A: PETSc.Mat) -> PETSc.KSP:
+    A.convert(PETSc.Mat.Type.AIJ)
+    ksp = PETSc.KSP().create(comm=comm)
+    ksp.setOperators(A)
+    ksp.setType('gmres')
+
+    pc = ksp.getPC()
+    pc.setType('asm')
+
+    ksp.setTolerances(rtol=1e-10, atol=1e-10, max_it=500)
+    ksp.setUp()
+
+    subksps = pc.getASMSubKSP()
+
+    for sub in subksps:
+        sub.getPC().setType('ilu')
+        sub.getPC().setFactorLevels(0)
+    return ksp
+
 def create_mumps_solver(comm: MPI.Comm, A: PETSc.Mat) -> PETSc.KSP:
     r"""
     Compute an LU factorization of the matrix A using

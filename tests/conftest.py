@@ -35,9 +35,9 @@ def square_matrix_size(request):
 
 @pytest.fixture(
     params=[
-        pytest.param((6, 6), marks=pytest.mark.local),
-        pytest.param((8, 8), marks=pytest.mark.development),
-        pytest.param((10, 10), marks=pytest.mark.main),
+        pytest.param((60, 60), marks=pytest.mark.local),
+        pytest.param((80, 80), marks=pytest.mark.development),
+        pytest.param((100, 100), marks=pytest.mark.main),
     ]
 )
 def square_negative_semidefinite_matrix_size(request):
