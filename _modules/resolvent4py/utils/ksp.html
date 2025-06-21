@@ -1,0 +1,257 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>resolvent4py.utils.ksp &mdash; resolvent4py 0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css?v=d2d258e8" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
+      <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            resolvent4py
+              <img src="../../../_static/logo.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-reference.html">API-reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../refs.html">References</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../auto_examples/cgl/index.html">Complex Ginzburg-Landau Equation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../auto_examples/toy_model/index.html">Toy Model</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">resolvent4py</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">resolvent4py.utils.ksp</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for resolvent4py.utils.ksp</h1><div class="highlight"><pre>
+<span></span><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;create_mumps_solver&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;check_lu_factorization&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_gmres_bjacobi_solver&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;check_gmres_bjacobi_solver&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">petsc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">PETSc</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.miscellaneous</span><span class="w"> </span><span class="kn">import</span> <span class="n">petscprint</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.random</span><span class="w"> </span><span class="kn">import</span> <span class="n">generate_random_petsc_vector</span>
+
+<div class="viewcode-block" id="create_mumps_solver">
+<a class="viewcode-back" href="../../../utils.html#resolvent4py.utils.ksp.create_mumps_solver">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_mumps_solver</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">KSP</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute an LU factorization of the matrix A using MUMPS.</span>
+<span class="sd">    </span>
+<span class="sd">    :param A: PETSc matrix</span>
+<span class="sd">    :type A: PETSc.Mat</span>
+
+<span class="sd">    :return ksp: PETSc KSP solver</span>
+<span class="sd">    :rtype ksp: PETSc.KSP</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ksp</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">KSP</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="o">=</span><span class="n">A</span><span class="o">.</span><span class="n">getComm</span><span class="p">())</span>
+    <span class="n">ksp</span><span class="o">.</span><span class="n">setOperators</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+    <span class="n">ksp</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;preonly&quot;</span><span class="p">)</span>
+    <span class="n">ksp</span><span class="o">.</span><span class="n">setUp</span><span class="p">()</span>
+    <span class="n">pc</span> <span class="o">=</span> <span class="n">ksp</span><span class="o">.</span><span class="n">getPC</span><span class="p">()</span>
+    <span class="n">pc</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;lu&quot;</span><span class="p">)</span>
+    <span class="n">pc</span><span class="o">.</span><span class="n">setFactorSolverType</span><span class="p">(</span><span class="s2">&quot;mumps&quot;</span><span class="p">)</span>
+    <span class="n">pc</span><span class="o">.</span><span class="n">setReusePreconditioner</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">pc</span><span class="o">.</span><span class="n">setUp</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">ksp</span></div>
+
+
+
+<div class="viewcode-block" id="check_lu_factorization">
+<a class="viewcode-back" href="../../../utils.html#resolvent4py.utils.ksp.check_lu_factorization">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">check_lu_factorization</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span> <span class="n">ksp</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">KSP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Check that the LU factorization computed in :func:`.create_mumps_solver`</span>
+<span class="sd">    has succeeded.</span>
+
+<span class="sd">    :param A: PETSc matrix</span>
+<span class="sd">    :type A: PETSc.Mat</span>
+<span class="sd">    :param ksp: PETSc KSP solver</span>
+<span class="sd">    :type ksp: PETSc.KSP</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sizes</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getSizes</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">generate_random_petsc_vector</span><span class="p">(</span><span class="n">sizes</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">duplicate</span><span class="p">()</span>
+    <span class="n">ksp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    <span class="n">pc</span> <span class="o">=</span> <span class="n">ksp</span><span class="o">.</span><span class="n">getPC</span><span class="p">()</span>
+    <span class="n">Mat</span> <span class="o">=</span> <span class="n">pc</span><span class="o">.</span><span class="n">getFactorMatrix</span><span class="p">()</span>
+    <span class="n">Infog1</span> <span class="o">=</span> <span class="n">Mat</span><span class="o">.</span><span class="n">getMumpsInfog</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">Infog2</span> <span class="o">=</span> <span class="n">Mat</span><span class="o">.</span><span class="n">getMumpsInfog</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">Infog1</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;MUMPS factorization failed with INFO(1) = </span><span class="si">{</span><span class="n">Infog1</span><span class="si">}</span><span class="s2">  &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;and INFO(2) = </span><span class="si">{</span><span class="n">Infog2</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
+        <span class="p">)</span>
+    <span class="n">x</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+    <span class="n">b</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="create_gmres_bjacobi_solver">
+<a class="viewcode-back" href="../../../utils.html#resolvent4py.utils.ksp.create_gmres_bjacobi_solver">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_gmres_bjacobi_solver</span><span class="p">(</span>
+    <span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>
+    <span class="n">nblocks</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">rtol</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-10</span><span class="p">,</span>
+    <span class="n">atol</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-10</span><span class="p">,</span>
+    <span class="n">monitor</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">KSP</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create GMRES solver with block-jacobi preconditioner.</span>
+
+<span class="sd">    :param A: PETSc matrix</span>
+<span class="sd">    :type A: PETSc.Mat</span>
+<span class="sd">    :param nblocks: number of blocks for the block jacobi preconditioner</span>
+<span class="sd">    :type nblocks: int</span>
+<span class="sd">    :param rtol: relative tolerance for GMRES</span>
+<span class="sd">    :type rtol: Optional[float], default is :math:`10^{-10}`</span>
+<span class="sd">    :param atol: absolute tolerance for GMRES</span>
+<span class="sd">    :type atol: Optional[float], default is :math:`10^{-10}`</span>
+<span class="sd">    :param monitor: :code:`True` to monitor convergence and print residual</span>
+<span class="sd">        history to terminal. :code:`False` otherwise</span>
+<span class="sd">    :type monitor: Optional[bool], default is :code:`False`</span>
+
+<span class="sd">    :return ksp: PETSc KSP solver</span>
+<span class="sd">    :rtype ksp: PETSc.KSP</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">comm</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getComm</span><span class="p">()</span>
+    <span class="n">monitor_fun</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">monitor</span><span class="p">:</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">monitor_fun</span><span class="p">(</span><span class="n">ksp</span><span class="p">,</span> <span class="n">its</span><span class="p">,</span> <span class="n">rnorm</span><span class="p">):</span>
+            <span class="n">string</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;GMRES Iteration </span><span class="si">{</span><span class="n">its</span><span class="si">:</span><span class="s2">3d</span><span class="si">}</span><span class="s2">, Residual Norm = </span><span class="si">{</span><span class="n">rnorm</span><span class="si">:</span><span class="s2">.3e</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">petscprint</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">string</span><span class="p">)</span>
+
+    <span class="n">opts</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Options</span><span class="p">()</span>
+    <span class="n">opts</span><span class="p">[</span><span class="s2">&quot;pc_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;bjacobi&quot;</span>
+    <span class="n">opts</span><span class="p">[</span><span class="s2">&quot;pc_bjacobi_blocks&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nblocks</span>
+    <span class="n">opts</span><span class="p">[</span><span class="s2">&quot;sub_ksp_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;preonly&quot;</span>
+    <span class="n">opts</span><span class="p">[</span><span class="s2">&quot;sub_pc_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;lu&quot;</span>
+    <span class="n">opts</span><span class="p">[</span><span class="s2">&quot;sub_pc_factor_mat_solver_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;mumps&quot;</span>
+
+    <span class="n">ksp</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">KSP</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="o">=</span><span class="n">comm</span><span class="p">)</span>
+    <span class="n">ksp</span><span class="o">.</span><span class="n">setOperators</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+    <span class="n">ksp</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;gmres&quot;</span><span class="p">)</span>
+    <span class="n">ksp</span><span class="o">.</span><span class="n">setTolerances</span><span class="p">(</span><span class="n">rtol</span><span class="o">=</span><span class="n">rtol</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">atol</span><span class="p">)</span>
+    <span class="n">ksp</span><span class="o">.</span><span class="n">setMonitor</span><span class="p">(</span><span class="n">monitor_fun</span><span class="p">)</span>
+    <span class="n">pc</span> <span class="o">=</span> <span class="n">ksp</span><span class="o">.</span><span class="n">getPC</span><span class="p">()</span>
+    <span class="n">pc</span><span class="o">.</span><span class="n">setFromOptions</span><span class="p">()</span>
+    <span class="n">pc</span><span class="o">.</span><span class="n">setUp</span><span class="p">()</span>
+    <span class="n">ksp</span><span class="o">.</span><span class="n">setUp</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">ksp</span></div>
+
+
+<div class="viewcode-block" id="check_gmres_bjacobi_solver">
+<a class="viewcode-back" href="../../../utils.html#resolvent4py.utils.ksp.check_gmres_bjacobi_solver">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">check_gmres_bjacobi_solver</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span> <span class="n">ksp</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">KSP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Check that the solver computed in :func:`.create_gmres_bjacobi_solver`</span>
+<span class="sd">    has succeeded.</span>
+
+<span class="sd">    :param A: PETSc matrix</span>
+<span class="sd">    :type A: PETSc.Mat</span>
+<span class="sd">    :param ksp: PETSc KSP solver</span>
+<span class="sd">    :type ksp: PETSc.KSP</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sizes</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getSizes</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">generate_random_petsc_vector</span><span class="p">(</span><span class="n">sizes</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">duplicate</span><span class="p">()</span>
+    <span class="n">ksp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    <span class="n">x</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+    <span class="n">b</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+    <span class="n">reason</span> <span class="o">=</span> <span class="n">ksp</span><span class="o">.</span><span class="n">getConvergedReason</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">reason</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;GMRES solver did not converge. ConvergedReason = </span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Alberto Padovan.</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

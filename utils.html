@@ -1,0 +1,935 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Utils &mdash; resolvent4py 0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/sg_gallery.css?v=d2d258e8" />
+      <link rel="stylesheet" type="text/css" href="_static/sg_gallery-binder.css?v=f4aeca0c" />
+      <link rel="stylesheet" type="text/css" href="_static/sg_gallery-dataframe.css?v=2082cf3c" />
+      <link rel="stylesheet" type="text/css" href="_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=2709fde1"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="References" href="refs.html" />
+    <link rel="prev" title="Model Reduction" href="model_reduction.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            resolvent4py
+              <img src="_static/logo.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="api-reference.html">API-reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="linear_operators.html">Linear Operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="linalg.html">Linalg</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_reduction.html">Model Reduction</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Utils</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-resolvent4py.utils.matrix">Mat</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.matrix.assemble_harmonic_resolvent_generator"><code class="docutils literal notranslate"><span class="pre">assemble_harmonic_resolvent_generator()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.matrix.convert_coo_to_csr"><code class="docutils literal notranslate"><span class="pre">convert_coo_to_csr()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.matrix.create_AIJ_identity"><code class="docutils literal notranslate"><span class="pre">create_AIJ_identity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.matrix.create_dense_matrix"><code class="docutils literal notranslate"><span class="pre">create_dense_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.matrix.hermitian_transpose"><code class="docutils literal notranslate"><span class="pre">hermitian_transpose()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.matrix.mat_solve_hermitian_transpose"><code class="docutils literal notranslate"><span class="pre">mat_solve_hermitian_transpose()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#id1">Vec</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.vector.check_complex_conjugacy"><code class="docutils literal notranslate"><span class="pre">check_complex_conjugacy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.vector.enforce_complex_conjugacy"><code class="docutils literal notranslate"><span class="pre">enforce_complex_conjugacy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.vector.vec_imag"><code class="docutils literal notranslate"><span class="pre">vec_imag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.vector.vec_real"><code class="docutils literal notranslate"><span class="pre">vec_real()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#id2">BV</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.bv.bv_add"><code class="docutils literal notranslate"><span class="pre">bv_add()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.bv.bv_conj"><code class="docutils literal notranslate"><span class="pre">bv_conj()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.bv.bv_imag"><code class="docutils literal notranslate"><span class="pre">bv_imag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.bv.bv_real"><code class="docutils literal notranslate"><span class="pre">bv_real()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#id3">Ksp</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.ksp.check_gmres_bjacobi_solver"><code class="docutils literal notranslate"><span class="pre">check_gmres_bjacobi_solver()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.ksp.check_lu_factorization"><code class="docutils literal notranslate"><span class="pre">check_lu_factorization()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.ksp.create_gmres_bjacobi_solver"><code class="docutils literal notranslate"><span class="pre">create_gmres_bjacobi_solver()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.ksp.create_mumps_solver"><code class="docutils literal notranslate"><span class="pre">create_mumps_solver()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-resolvent4py.utils.comms">Comms</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.comms.compute_local_size"><code class="docutils literal notranslate"><span class="pre">compute_local_size()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.comms.distributed_to_sequential_matrix"><code class="docutils literal notranslate"><span class="pre">distributed_to_sequential_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.comms.distributed_to_sequential_vector"><code class="docutils literal notranslate"><span class="pre">distributed_to_sequential_vector()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.comms.scatter_array_from_root_to_all"><code class="docutils literal notranslate"><span class="pre">scatter_array_from_root_to_all()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.comms.sequential_to_distributed_matrix"><code class="docutils literal notranslate"><span class="pre">sequential_to_distributed_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.comms.sequential_to_distributed_vector"><code class="docutils literal notranslate"><span class="pre">sequential_to_distributed_vector()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-resolvent4py.utils.io">I/O</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.io.read_bv"><code class="docutils literal notranslate"><span class="pre">read_bv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.io.read_coo_matrix"><code class="docutils literal notranslate"><span class="pre">read_coo_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.io.read_dense_matrix"><code class="docutils literal notranslate"><span class="pre">read_dense_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.io.read_harmonic_balanced_bv"><code class="docutils literal notranslate"><span class="pre">read_harmonic_balanced_bv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.io.read_harmonic_balanced_matrix"><code class="docutils literal notranslate"><span class="pre">read_harmonic_balanced_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.io.read_harmonic_balanced_vector"><code class="docutils literal notranslate"><span class="pre">read_harmonic_balanced_vector()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.io.read_vector"><code class="docutils literal notranslate"><span class="pre">read_vector()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.io.write_to_file"><code class="docutils literal notranslate"><span class="pre">write_to_file()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-resolvent4py.utils.random">Random</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.random.generate_random_petsc_sparse_matrix"><code class="docutils literal notranslate"><span class="pre">generate_random_petsc_sparse_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.random.generate_random_petsc_vector"><code class="docutils literal notranslate"><span class="pre">generate_random_petsc_vector()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-resolvent4py.utils.miscellaneous">Miscellaneous</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.miscellaneous.get_memory_usage"><code class="docutils literal notranslate"><span class="pre">get_memory_usage()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.miscellaneous.get_mpi_type"><code class="docutils literal notranslate"><span class="pre">get_mpi_type()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.utils.miscellaneous.petscprint"><code class="docutils literal notranslate"><span class="pre">petscprint()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="refs.html">References</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="auto_examples/cgl/index.html">Complex Ginzburg-Landau Equation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="auto_examples/toy_model/index.html">Toy Model</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">resolvent4py</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="api-reference.html">API-reference</a></li>
+      <li class="breadcrumb-item active">Utils</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/utils.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="utils">
+<h1>Utils<a class="headerlink" href="#utils" title="Link to this heading"></a></h1>
+<section id="module-resolvent4py.utils.matrix">
+<span id="mat"></span><h2>Mat<a class="headerlink" href="#module-resolvent4py.utils.matrix" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.matrix.assemble_harmonic_resolvent_generator">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.matrix.</span></span><span class="sig-name descname"><span class="pre">assemble_harmonic_resolvent_generator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freqs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Mat</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/matrix.html#assemble_harmonic_resolvent_generator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.matrix.assemble_harmonic_resolvent_generator" title="Link to this definition"></a></dt>
+<dd><p>Assemble <span class="math notranslate nohighlight">\(T = -M + A\)</span>, where <span class="math notranslate nohighlight">\(A\)</span> is the output of
+<a class="reference internal" href="#resolvent4py.utils.io.read_harmonic_balanced_matrix" title="resolvent4py.utils.io.read_harmonic_balanced_matrix"><code class="xref py py-func docutils literal notranslate"><span class="pre">resolvent4py.utils.io.read_harmonic_balanced_matrix()</span></code></a>
+and <span class="math notranslate nohighlight">\(M\)</span> is a block
+diagonal matrix with block <span class="math notranslate nohighlight">\(k\)</span> given by <span class="math notranslate nohighlight">\(M_k = i k \omega I\)</span>
+and <span class="math notranslate nohighlight">\(k\omega\)</span> is the <span class="math notranslate nohighlight">\(k\)</span> th entry of <code class="code docutils literal notranslate"><span class="pre">freqs</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<em>PETSc.Mat</em>) – assembled PETSc matrix</p></li>
+<li><p><strong>freqs</strong> (<em>np.array</em>) – array <span class="math notranslate nohighlight">\(\omega\left(\ldots, -1, 0, 1, \ldots\right)\)</span></p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Mat</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.matrix.convert_coo_to_csr">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.matrix.</span></span><span class="sig-name descname"><span class="pre">convert_coo_to_csr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arrays</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">array</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">array</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/matrix.html#convert_coo_to_csr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.matrix.convert_coo_to_csr" title="Link to this definition"></a></dt>
+<dd><p>Convert arrays = [row indices, col indices, values] for COO matrix
+assembly to [row pointers, col indices, values] for CSR matrix assembly.
+(Petsc4py currently does not support COO matrix assembly, hence the need
+to convert.)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>arrays</strong> – a list of numpy arrays (e.g., arrays = [rows,cols,vals])</p></li>
+<li><p><strong>sizes</strong> (<em>tuple</em><em>[</em><em>np.array</em><em>, </em><em>np.array</em><em>, </em><em>np.array</em><em>]</em>) – see <a class="reference external" href="https://petsc.org/release/petsc4py/reference/petsc4py.typing.MatSizeSpec.html#petsc4py.typing.MatSizeSpec">MatSizeSpec</a></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>csr row pointers, column indices and matrix values for CSR
+matrix assembly</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[np.array, np.array, np.array]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.matrix.create_AIJ_identity">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.matrix.</span></span><span class="sig-name descname"><span class="pre">create_AIJ_identity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Comm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Mat</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/matrix.html#create_AIJ_identity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.matrix.create_AIJ_identity" title="Link to this definition"></a></dt>
+<dd><p>Create identity matrix of sparse AIJ type</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>comm</strong> (<em>PETSc.Comm</em>) – MPI Communicator</p></li>
+<li><p><strong>sizes</strong> (<em>tuple</em><em>[</em><em>tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>, </em><em>tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>]</em>) – see <a class="reference external" href="https://petsc.org/release/petsc4py/reference/petsc4py.typing.MatSizeSpec.html#petsc4py.typing.MatSizeSpec">MatSizeSpec</a></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>identity matrix</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>PETSc.Mat.Type.AIJ</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.matrix.create_dense_matrix">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.matrix.</span></span><span class="sig-name descname"><span class="pre">create_dense_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Comm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Mat</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/matrix.html#create_dense_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.matrix.create_dense_matrix" title="Link to this definition"></a></dt>
+<dd><p>Create dense matrix</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>comm</strong> (<em>PETSc.Comm</em>) – PETSc communicator</p></li>
+<li><p><strong>sizes</strong> – tuple[tuple[int, int], tuple[int, int]]</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Mat.Type.DENSE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.matrix.hermitian_transpose">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.matrix.</span></span><span class="sig-name descname"><span class="pre">hermitian_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Mat</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_place</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MatHT</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Mat</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/matrix.html#hermitian_transpose"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.matrix.hermitian_transpose" title="Link to this definition"></a></dt>
+<dd><p>Return the hermitian transpose of the matrix <code class="code docutils literal notranslate"><span class="pre">Mat</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Mat</strong> (<em>PETSc.Mat</em>) – PETSc matrix</p></li>
+<li><p><strong>in_place</strong> (Optional[bool] defaults to <code class="code docutils literal notranslate"><span class="pre">False</span></code>) – in-place transposition if <code class="code docutils literal notranslate"><span class="pre">True</span></code> and
+out of place otherwise</p></li>
+<li><p><strong>MatHT</strong> – [optional] matrix with the correct layout to hold the
+hermitian transpose of <code class="code docutils literal notranslate"><span class="pre">Mat</span></code></p></li>
+<li><p><strong>MatHT</strong> – Optional[PETSc.Mat] defaults to <code class="code docutils literal notranslate"><span class="pre">None</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.matrix.mat_solve_hermitian_transpose">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.matrix.</span></span><span class="sig-name descname"><span class="pre">mat_solve_hermitian_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ksp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">KSP</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mat</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Mat</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/matrix.html#mat_solve_hermitian_transpose"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.matrix.mat_solve_hermitian_transpose" title="Link to this definition"></a></dt>
+<dd><p>Solve <span class="math notranslate nohighlight">\(A^{-*}X = Y\)</span>, where <span class="math notranslate nohighlight">\(X\)</span> is a PETSc matrix of type
+<code class="code docutils literal notranslate"><span class="pre">PETSc.Mat.Type.DENSE</span></code></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ksp</strong> (<em>PETSc.KSP</em>) – a KPS solver structure</p></li>
+<li><p><strong>X</strong> (<em>PETSc.Mat.Type.DENSE</em>) – a dense PETSc matrix</p></li>
+<li><p><strong>Y</strong> (Optional[PETSc.Mat.Type.DENSE] defaults to <code class="code docutils literal notranslate"><span class="pre">None</span></code>) – a dense PETSc matrix</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>matrix to store the result</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>PETSc.Mat.Type.DENSE</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="id1">
+<h2>Vec<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
+<dl class="py function" id="module-resolvent4py.utils.vector">
+<dt class="sig sig-object py" id="resolvent4py.utils.vector.check_complex_conjugacy">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.vector.</span></span><span class="sig-name descname"><span class="pre">check_complex_conjugacy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Comm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vec</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nblocks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/vector.html#check_complex_conjugacy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.vector.check_complex_conjugacy" title="Link to this definition"></a></dt>
+<dd><p>Verify whether the components <span class="math notranslate nohighlight">\(v_i\)</span> of the vector</p>
+<div class="math notranslate nohighlight">
+\[v = \left(\ldots,v_{-1},v_{0},v_{1},\ldots\right)\]</div>
+<p>satisfy <span class="math notranslate nohighlight">\(v_{-i} = \overline{v_{i}}\)</span> for all <span class="math notranslate nohighlight">\(i\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vec</strong> (<em>PETSc.Vec</em>) – vector <span class="math notranslate nohighlight">\(v\)</span> described above</p></li>
+<li><p><strong>nblocks</strong> (<em>int</em>) – number of vectors <span class="math notranslate nohighlight">\(v_i\)</span> in <span class="math notranslate nohighlight">\(v\)</span>. This must
+be an odd number.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="code docutils literal notranslate"><span class="pre">True</span></code> if the components are complex-conjugates of each
+other and <code class="code docutils literal notranslate"><span class="pre">False</span></code> otherwise</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.vector.enforce_complex_conjugacy">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.vector.</span></span><span class="sig-name descname"><span class="pre">enforce_complex_conjugacy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Comm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vec</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nblocks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/vector.html#enforce_complex_conjugacy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.vector.enforce_complex_conjugacy" title="Link to this definition"></a></dt>
+<dd><p>Suppose we have a vector</p>
+<div class="math notranslate nohighlight">
+\[v = \left(\ldots,v_{-1},v_{0},v_{1},\ldots\right)\]</div>
+<p>where <span class="math notranslate nohighlight">\(v_i\)</span> are complex vectors. This function enforces
+<span class="math notranslate nohighlight">\(v_{-i} = \overline{v_{i}}\)</span> for all <span class="math notranslate nohighlight">\(i\)</span> (this implies that
+<span class="math notranslate nohighlight">\(v_0\)</span> will be purely real).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vec</strong> (<em>PETSc.Vec</em>) – vector <span class="math notranslate nohighlight">\(v\)</span> described above</p></li>
+<li><p><strong>nblocks</strong> (<em>int</em>) – number of vectors <span class="math notranslate nohighlight">\(v_i\)</span> in <span class="math notranslate nohighlight">\(v\)</span>. This must
+be an odd number.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.vector.vec_imag">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.vector.</span></span><span class="sig-name descname"><span class="pre">vec_imag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Vec</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/vector.html#vec_imag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.vector.vec_imag" title="Link to this definition"></a></dt>
+<dd><p>Returns the imaginary part <span class="math notranslate nohighlight">\(\text{Im}(x)\)</span> of the PETSc Vec.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>inplace</strong> (<em>Optional</em><em>[</em><em>bool</em><em>]</em><em>, </em><em>default is False</em>) – in-place if <code class="code docutils literal notranslate"><span class="pre">True</span></code>, else the result is stored in a
+new PETSc.Vec</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.vector.vec_real">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.vector.</span></span><span class="sig-name descname"><span class="pre">vec_real</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Vec</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/vector.html#vec_real"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.vector.vec_real" title="Link to this definition"></a></dt>
+<dd><p>Returns the real part <span class="math notranslate nohighlight">\(\text{Re}(x)\)</span> of the PETSc Vec.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>inplace</strong> (<em>Optional</em><em>[</em><em>bool</em><em>]</em><em>, </em><em>default is False</em>) – in-place if <code class="code docutils literal notranslate"><span class="pre">True</span></code>, else the result is stored in a
+new PETSc.Vec</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="id2">
+<h2>BV<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
+<dl class="py function" id="module-resolvent4py.utils.bv">
+<dt class="sig sig-object py" id="resolvent4py.utils.bv.bv_add">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.bv.</span></span><span class="sig-name descname"><span class="pre">bv_add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/bv.html#bv_add"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.bv.bv_add" title="Link to this definition"></a></dt>
+<dd><p>Compute in-place addition <span class="math notranslate nohighlight">\(X \leftarrow X + \alpha Y\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.bv.bv_conj">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.bv.</span></span><span class="sig-name descname"><span class="pre">bv_conj</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">BV</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/bv.html#bv_conj"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.bv.bv_conj" title="Link to this definition"></a></dt>
+<dd><p>Returns the complex conjugate <span class="math notranslate nohighlight">\(\overline{X}\)</span> of the BV structure</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>inplace</strong> (<em>Optional</em><em>[</em><em>bool</em><em>]</em><em>, </em><em>default is False</em>) – in-place if <code class="code docutils literal notranslate"><span class="pre">True</span></code>, else the result is stored in a
+new SLEPc.BV structure</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.bv.bv_imag">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.bv.</span></span><span class="sig-name descname"><span class="pre">bv_imag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">BV</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/bv.html#bv_imag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.bv.bv_imag" title="Link to this definition"></a></dt>
+<dd><p>Returns the imaginary part <span class="math notranslate nohighlight">\(\text{Im}(X)\)</span> of the BV structure</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>inplace</strong> (<em>Optional</em><em>[</em><em>bool</em><em>]</em><em>, </em><em>default is False</em>) – in-place if <code class="code docutils literal notranslate"><span class="pre">True</span></code>, else the result is stored in a
+new SLEPc.BV structure</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.bv.bv_real">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.bv.</span></span><span class="sig-name descname"><span class="pre">bv_real</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">BV</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/bv.html#bv_real"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.bv.bv_real" title="Link to this definition"></a></dt>
+<dd><p>Returns the real part <span class="math notranslate nohighlight">\(\text{Re}(X)\)</span> of the BV structure</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>inplace</strong> (<em>Optional</em><em>[</em><em>bool</em><em>]</em><em>, </em><em>default is False</em>) – in-place if <code class="code docutils literal notranslate"><span class="pre">True</span></code>, else the result is stored in a
+new SLEPc.BV structure</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="id3">
+<h2>Ksp<a class="headerlink" href="#id3" title="Link to this heading"></a></h2>
+<dl class="py function" id="module-resolvent4py.utils.ksp">
+<dt class="sig sig-object py" id="resolvent4py.utils.ksp.check_gmres_bjacobi_solver">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.ksp.</span></span><span class="sig-name descname"><span class="pre">check_gmres_bjacobi_solver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ksp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">KSP</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/ksp.html#check_gmres_bjacobi_solver"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.ksp.check_gmres_bjacobi_solver" title="Link to this definition"></a></dt>
+<dd><p>Check that the solver computed in <a class="reference internal" href="#resolvent4py.utils.ksp.create_gmres_bjacobi_solver" title="resolvent4py.utils.ksp.create_gmres_bjacobi_solver"><code class="xref py py-func docutils literal notranslate"><span class="pre">create_gmres_bjacobi_solver()</span></code></a>
+has succeeded.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<em>PETSc.Mat</em>) – PETSc matrix</p></li>
+<li><p><strong>ksp</strong> (<em>PETSc.KSP</em>) – PETSc KSP solver</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.ksp.check_lu_factorization">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.ksp.</span></span><span class="sig-name descname"><span class="pre">check_lu_factorization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ksp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">KSP</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/ksp.html#check_lu_factorization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.ksp.check_lu_factorization" title="Link to this definition"></a></dt>
+<dd><p>Check that the LU factorization computed in <a class="reference internal" href="#resolvent4py.utils.ksp.create_mumps_solver" title="resolvent4py.utils.ksp.create_mumps_solver"><code class="xref py py-func docutils literal notranslate"><span class="pre">create_mumps_solver()</span></code></a>
+has succeeded.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<em>PETSc.Mat</em>) – PETSc matrix</p></li>
+<li><p><strong>ksp</strong> (<em>PETSc.KSP</em>) – PETSc KSP solver</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.ksp.create_gmres_bjacobi_solver">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.ksp.</span></span><span class="sig-name descname"><span class="pre">create_gmres_bjacobi_solver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nblocks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">monitor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">KSP</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/ksp.html#create_gmres_bjacobi_solver"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.ksp.create_gmres_bjacobi_solver" title="Link to this definition"></a></dt>
+<dd><p>Create GMRES solver with block-jacobi preconditioner.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<em>PETSc.Mat</em>) – PETSc matrix</p></li>
+<li><p><strong>nblocks</strong> (<em>int</em>) – number of blocks for the block jacobi preconditioner</p></li>
+<li><p><strong>rtol</strong> (Optional[float], default is <span class="math notranslate nohighlight">\(10^{-10}\)</span>) – relative tolerance for GMRES</p></li>
+<li><p><strong>atol</strong> (Optional[float], default is <span class="math notranslate nohighlight">\(10^{-10}\)</span>) – absolute tolerance for GMRES</p></li>
+<li><p><strong>monitor</strong> (Optional[bool], default is <code class="code docutils literal notranslate"><span class="pre">False</span></code>) – <code class="code docutils literal notranslate"><span class="pre">True</span></code> to monitor convergence and print residual
+history to terminal. <code class="code docutils literal notranslate"><span class="pre">False</span></code> otherwise</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return ksp<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc KSP solver</p>
+</dd>
+<dt class="field-odd">Rtype ksp<span class="colon">:</span></dt>
+<dd class="field-odd"><p>PETSc.KSP</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.ksp.create_mumps_solver">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.ksp.</span></span><span class="sig-name descname"><span class="pre">create_mumps_solver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mat</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">KSP</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/ksp.html#create_mumps_solver"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.ksp.create_mumps_solver" title="Link to this definition"></a></dt>
+<dd><p>Compute an LU factorization of the matrix A using MUMPS.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>A</strong> (<em>PETSc.Mat</em>) – PETSc matrix</p>
+</dd>
+<dt class="field-even">Return ksp<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc KSP solver</p>
+</dd>
+<dt class="field-odd">Rtype ksp<span class="colon">:</span></dt>
+<dd class="field-odd"><p>PETSc.KSP</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-resolvent4py.utils.comms">
+<span id="comms"></span><h2>Comms<a class="headerlink" href="#module-resolvent4py.utils.comms" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.comms.compute_local_size">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.comms.</span></span><span class="sig-name descname"><span class="pre">compute_local_size</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Ng</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/comms.html#compute_local_size"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.comms.compute_local_size" title="Link to this definition"></a></dt>
+<dd><p>Given the global size <code class="code docutils literal notranslate"><span class="pre">Nglob</span></code> of a vector, compute
+the local size <code class="code docutils literal notranslate"><span class="pre">Nloc</span></code> that will be owned by each processor
+in the MPI pool according to the formula</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}N_l = \begin{cases}
+    \left\lfloor \frac{N_g}{S} \right\rfloor + 1 &amp; \text{if}
+        \, N_g \text{mod} S &gt; r \\
+    \left\lfloor \frac{N_g}{S} \right\rfloor &amp; \text{otherwise}
+\end{cases}\end{split}\]</div>
+<p>where <span class="math notranslate nohighlight">\(N_g\)</span> is the global size, <span class="math notranslate nohighlight">\(N_l\)</span> is the local size,
+<span class="math notranslate nohighlight">\(S\)</span> is the size of the MPI pool (i.e., the total number of processors)
+and <span class="math notranslate nohighlight">\(r\)</span> is the rank of the current processor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>Ng</strong> (<em>int</em>) – global size</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>local size</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.comms.distributed_to_sequential_matrix">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.comms.</span></span><span class="sig-name descname"><span class="pre">distributed_to_sequential_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Mat_dist</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mat</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Mat</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/comms.html#distributed_to_sequential_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.comms.distributed_to_sequential_matrix" title="Link to this definition"></a></dt>
+<dd><p>Allgather dense distributed PETSc matrix into a dense sequential PETSc
+matrix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>Mat_dist</strong> (<em>PETSc.Mat.Type.DENSE</em>) – a distributed dense matrix</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Mat.Type.DENSE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.comms.distributed_to_sequential_vector">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.comms.</span></span><span class="sig-name descname"><span class="pre">distributed_to_sequential_vector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vec_dist</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Vec</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Vec</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/comms.html#distributed_to_sequential_vector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.comms.distributed_to_sequential_vector" title="Link to this definition"></a></dt>
+<dd><p>Allgather distribued PETSc vector into PETSc sequential vector.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vec_dist</strong> (<em>PETSc.Vec.Type.STANDARD</em>) – a distributed vector</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec.Type.SEQ</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.comms.scatter_array_from_root_to_all">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.comms.</span></span><span class="sig-name descname"><span class="pre">scatter_array_from_root_to_all</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">array</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">locsize</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">array</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/comms.html#scatter_array_from_root_to_all"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.comms.scatter_array_from_root_to_all" title="Link to this definition"></a></dt>
+<dd><p>Scatter numpy array from root to all other processors</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>array</strong> (<em>numpy.array</em>) – numpy array to be scattered</p></li>
+<li><p><strong>locsize</strong> (<em>Optional</em><em>[</em><em>int</em><em>] </em><em>default to None</em>) – local size owned by each processor. If <code class="code docutils literal notranslate"><span class="pre">None</span></code>,
+this is computed using the same logic as in the
+<a class="reference internal" href="#resolvent4py.utils.comms.compute_local_size" title="resolvent4py.utils.comms.compute_local_size"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_local_size()</span></code></a> routine.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>numpy.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.comms.sequential_to_distributed_matrix">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.comms.</span></span><span class="sig-name descname"><span class="pre">sequential_to_distributed_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Mat_seq</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Mat_dist</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mat</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Mat</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/comms.html#sequential_to_distributed_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.comms.sequential_to_distributed_matrix" title="Link to this definition"></a></dt>
+<dd><p>Scatter a sequential dense PETSc matrix (type PETSc.Mat.Type.DENSE) to
+a distributed dense PETSc matrix (type PETSc.Mat.Type.DENSE)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Mat_seq</strong> (<em>PETSc.Mat.Type.DENSE</em>) – a sequential dense matrix</p></li>
+<li><p><strong>Mat_dist</strong> (<em>PETSc.Mat.Type.DENSE</em>) – a distributed dense matrix</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>a distributed dense matrix</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>PETSc.Mat.Type.DENSE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.comms.sequential_to_distributed_vector">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.comms.</span></span><span class="sig-name descname"><span class="pre">sequential_to_distributed_vector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vec_seq</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vec_dist</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Vec</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Vec</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/comms.html#sequential_to_distributed_vector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.comms.sequential_to_distributed_vector" title="Link to this definition"></a></dt>
+<dd><p>Scatter a sequential PETSc vector (type PETSc.Vec.Type.SEQ) to
+a distributed PETSc vector (type PETSc.Vec.Type.STANDARD)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vec_seq</strong> (<em>PETSc.Vec.Type.SEQ</em>) – a sequential vector</p></li>
+<li><p><strong>vec_dist</strong> (<em>PETSc.Vec.Type.STANDARD</em>) – a distributed vector</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>a distributed vector</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>PETSc.Vec.Type.STANDARD</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-resolvent4py.utils.io">
+<span id="i-o"></span><h2>I/O<a class="headerlink" href="#module-resolvent4py.utils.io" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.io.read_bv">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.io.</span></span><span class="sig-name descname"><span class="pre">read_bv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">BV</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/io.html#read_bv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.io.read_bv" title="Link to this definition"></a></dt>
+<dd><p>Read dense matrix from file and store as a SLEPc BV</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> (<em>str</em>) – name of the file that holds the matrix</p></li>
+<li><p><strong>sizes</strong> (<em>Tuple</em><em>[</em><em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>, </em><em>int</em><em>]</em>) – <code class="code docutils literal notranslate"><span class="pre">((local</span> <span class="pre">rows,</span> <span class="pre">global</span> <span class="pre">rows),</span> <span class="pre">global</span> <span class="pre">columns)</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.io.read_coo_matrix">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.io.</span></span><span class="sig-name descname"><span class="pre">read_coo_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filenames</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Mat</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/io.html#read_coo_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.io.read_coo_matrix" title="Link to this definition"></a></dt>
+<dd><p>Read COO matrix from file</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filenames</strong> (<em>Tuple</em><em>[</em><em>str</em><em>, </em><em>str</em><em>, </em><em>str</em><em>]</em>) – names of the files that hold the rows, columns and values
+of the sparse matrix (e.g., <code class="code docutils literal notranslate"><span class="pre">(rows,</span> <span class="pre">cols,</span> <span class="pre">values)</span></code>)</p></li>
+<li><p><strong>sizes</strong> (<em>Tuple</em><em>[</em><em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>, </em><em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>]</em>) – <code class="code docutils literal notranslate"><span class="pre">((local</span> <span class="pre">rows,</span> <span class="pre">global</span> <span class="pre">rows),</span> <span class="pre">(local</span> <span class="pre">cols,</span> <span class="pre">global</span> <span class="pre">cols))</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Mat</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.io.read_dense_matrix">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.io.</span></span><span class="sig-name descname"><span class="pre">read_dense_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Mat</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/io.html#read_dense_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.io.read_dense_matrix" title="Link to this definition"></a></dt>
+<dd><p>Read dense PETSc matrix from file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> (<em>str</em>) – name of the file that holds the matrix</p></li>
+<li><p><strong>sizes</strong> (<em>Tuple</em><em>[</em><em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>, </em><em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>]</em>) – <code class="code docutils literal notranslate"><span class="pre">((local</span> <span class="pre">rows,</span> <span class="pre">global</span> <span class="pre">rows),</span> <span class="pre">(local</span> <span class="pre">cols,</span> <span class="pre">global</span> <span class="pre">cols))</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Mat</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.io.read_harmonic_balanced_bv">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.io.</span></span><span class="sig-name descname"><span class="pre">read_harmonic_balanced_bv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filenames_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">real_bflow</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">full_sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">BV</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/io.html#read_harmonic_balanced_bv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.io.read_harmonic_balanced_bv" title="Link to this definition"></a></dt>
+<dd><p>Given <span class="math notranslate nohighlight">\(\{\ldots, A_{-1}, A_{0}, A_{1},\ldots\}\)</span>, where <span class="math notranslate nohighlight">\(A_j\)</span> is
+the <span class="math notranslate nohighlight">\(j\)</span> th Fourier coefficient of a time-periodic matrix <span class="math notranslate nohighlight">\(A(t)\)</span>,
+assemble the harmonic-balanced matrix</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}M = \begin{bmatrix}
+\ddots &amp; \ddots &amp; \ddots &amp; \ddots \\
+\ddots &amp; A_{0} &amp; A_{-1} &amp; A_{-2} &amp; \ddots \\
+\ddots &amp; A_{1} &amp; A_{0} &amp; A_{-1} &amp; A_{-2} &amp; \ddots \\
+\ddots &amp; A_{2} &amp; A_{1} &amp; A_{0} &amp; A_{-1} &amp; A_{-2} &amp;\ddots \\
+&amp; \ddots &amp; A_{2} &amp; A_{1} &amp; A_{0} &amp; A_{-1} &amp;\ddots \\
+&amp;  &amp; \ddots &amp; A_{2} &amp; A_{1} &amp; A_{0} &amp; \ddots\\
+&amp; &amp; &amp; \ddots &amp; \ddots &amp; \ddots &amp; \ddots \\
+\end{bmatrix}\end{split}\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>comm</strong> (<em>PETSc.Comm</em>) – MPI communicator (PETSc.COMM_WORLD)</p></li>
+<li><p><strong>filenames_lst</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – list of names of files where the Fourier modes
+<span class="math notranslate nohighlight">\(A_j\)</span> are stored as SLEPc BVs</p></li>
+<li><p><strong>real_bflow</strong> (<em>bool</em>) – set to <code class="code docutils literal notranslate"><span class="pre">True</span></code> if <code class="code docutils literal notranslate"><span class="pre">filenames_lst</span></code>
+contains the names of the COO arrays of the positive Fourier
+coefficients of <span class="math notranslate nohighlight">\(A(t)\)</span> (i.e., <span class="math notranslate nohighlight">\(\{A_0, A_1, A_2, \ldots\}\)</span>).
+The negative frequencies are assumed the complex-conjugates of the
+positive ones. Set to <code class="code docutils literal notranslate"><span class="pre">False</span></code> otherwise
+(i.e., <span class="math notranslate nohighlight">\(\{\ldots, A_{-2}, A_{-1}, A_0, A_1, A_2, \ldots\}\)</span>).</p></li>
+<li><p><strong>block_sizes</strong> (<em>Tuple</em><em>[</em><em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>, </em><em>int</em><em>]</em>) – sizes <code class="code docutils literal notranslate"><span class="pre">((local</span> <span class="pre">rows,</span> <span class="pre">global</span> <span class="pre">rows),</span> <span class="pre">global_cols)</span></code>
+of <span class="math notranslate nohighlight">\(A_j\)</span></p></li>
+<li><p><strong>full_sizes</strong> (<em>Tuple</em><em>[</em><em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>, </em><em>int</em><em>]</em>) – sizes <code class="code docutils literal notranslate"><span class="pre">((local</span> <span class="pre">rows,</span> <span class="pre">global</span> <span class="pre">rows),</span> <span class="pre">global_cols)</span></code>
+of <span class="math notranslate nohighlight">\(M\)</span></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc BV <span class="math notranslate nohighlight">\(M\)</span></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.io.read_harmonic_balanced_matrix">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.io.</span></span><span class="sig-name descname"><span class="pre">read_harmonic_balanced_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filenames_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">real_bflow</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">full_sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Mat</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/io.html#read_harmonic_balanced_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.io.read_harmonic_balanced_matrix" title="Link to this definition"></a></dt>
+<dd><p>Given <span class="math notranslate nohighlight">\(\{\ldots, A_{-1}, A_{0}, A_{1},\ldots\}\)</span>, where <span class="math notranslate nohighlight">\(A_j\)</span> is
+the <span class="math notranslate nohighlight">\(j\)</span> th Fourier coefficient of a time-periodic matrix <span class="math notranslate nohighlight">\(A(t)\)</span>,
+assemble the harmonic-balanced matrix</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}M = \begin{bmatrix}
+\ddots &amp; \ddots &amp; \ddots &amp; \ddots \\
+\ddots &amp; A_{0} &amp; A_{-1} &amp; A_{-2} &amp; \ddots \\
+\ddots &amp; A_{1} &amp; A_{0} &amp; A_{-1} &amp; A_{-2} &amp; \ddots \\
+\ddots &amp; A_{2} &amp; A_{1} &amp; A_{0} &amp; A_{-1} &amp; A_{-2} &amp;\ddots \\
+&amp; \ddots &amp; A_{2} &amp; A_{1} &amp; A_{0} &amp; A_{-1} &amp;\ddots \\
+&amp;  &amp; \ddots &amp; A_{2} &amp; A_{1} &amp; A_{0} &amp; \ddots\\
+&amp; &amp; &amp; \ddots &amp; \ddots &amp; \ddots &amp; \ddots \\
+\end{bmatrix}\end{split}\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filenames_lst</strong> (<em>List</em><em>[</em><em>Tuple</em><em>[</em><em>str</em><em>, </em><em>str</em><em>, </em><em>str</em><em>]</em><em>]</em>) – list of tuples, with each tuple of the form
+<code class="code docutils literal notranslate"><span class="pre">(rows_j.dat,</span> <span class="pre">cols_j.dat,</span> <span class="pre">vals_j.dat)</span></code> containing the COO arrays
+of the matrix <span class="math notranslate nohighlight">\(A_j\)</span></p></li>
+<li><p><strong>real_bflow</strong> (<em>bool</em>) – set to <code class="code docutils literal notranslate"><span class="pre">True</span></code> if <code class="code docutils literal notranslate"><span class="pre">filenames_lst</span></code>
+contains the names of the COO arrays of the positive Fourier
+coefficients of <span class="math notranslate nohighlight">\(A(t)\)</span> (i.e., <span class="math notranslate nohighlight">\(\{A_0, A_1, A_2, \ldots\}\)</span>).
+The negative frequencies are assumed the complex-conjugates of the
+positive ones. Set to <code class="code docutils literal notranslate"><span class="pre">False</span></code> otherwise
+(i.e., <span class="math notranslate nohighlight">\(\{\ldots, A_{-2}, A_{-1}, A_0, A_1, A_2, \ldots\}\)</span>).</p></li>
+<li><p><strong>block_sizes</strong> (<em>Tuple</em><em>[</em><em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>, </em><em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>]</em>) – sizes <code class="code docutils literal notranslate"><span class="pre">((local</span> <span class="pre">rows,</span> <span class="pre">global</span> <span class="pre">rows),</span>
+<span class="pre">(local</span> <span class="pre">cols,</span> <span class="pre">global</span> <span class="pre">cols))</span></code> of <span class="math notranslate nohighlight">\(A_j\)</span></p></li>
+<li><p><strong>full_sizes</strong> (<em>Tuple</em><em>[</em><em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>, </em><em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>]</em>) – sizes <code class="code docutils literal notranslate"><span class="pre">((local</span> <span class="pre">rows,</span> <span class="pre">global</span> <span class="pre">rows),</span>
+<span class="pre">(local</span> <span class="pre">cols,</span> <span class="pre">global</span> <span class="pre">cols))</span></code> of <span class="math notranslate nohighlight">\(M\)</span></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Sparse PETSc matrix <span class="math notranslate nohighlight">\(M\)</span></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>PETSc.Mat</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.io.read_harmonic_balanced_vector">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.io.</span></span><span class="sig-name descname"><span class="pre">read_harmonic_balanced_vector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filenames_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">real_bflow</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">full_sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Vec</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/io.html#read_harmonic_balanced_vector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.io.read_harmonic_balanced_vector" title="Link to this definition"></a></dt>
+<dd><p>Given <span class="math notranslate nohighlight">\(\{\ldots, v_{-1}, v_{0}, v_{1},\ldots\}\)</span>, where <span class="math notranslate nohighlight">\(v_j\)</span> is
+the <span class="math notranslate nohighlight">\(j\)</span> th Fourier coefficient of a time-periodic vector <span class="math notranslate nohighlight">\(v(t)\)</span>,
+assemble</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\hat{v} = \begin{bmatrix}
+    \vdots \\ v_{-1} \\ v_0 \\ v_{1} \\ \vdots
+\end{bmatrix}.\end{split}\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filenames_lst</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – list of names of files where the Fourier modes
+<span class="math notranslate nohighlight">\(v_j\)</span> are stored as PETSc Vec</p></li>
+<li><p><strong>real_bflow</strong> (<em>bool</em>) – set to <code class="code docutils literal notranslate"><span class="pre">True</span></code> if <code class="code docutils literal notranslate"><span class="pre">filenames_lst</span></code>
+contains the names of the COO arrays of the positive Fourier
+coefficients of <span class="math notranslate nohighlight">\(v(t)\)</span> (i.e., <span class="math notranslate nohighlight">\(\{v_0, v_1, v_2, \ldots\}\)</span>).
+The negative frequencies are assumed the complex-conjugates of the
+positive ones. Set to <code class="code docutils literal notranslate"><span class="pre">False</span></code> otherwise
+(i.e., <span class="math notranslate nohighlight">\(\{\ldots, v_{-2}, v_{-1}, v_0, v_1, v_2, \ldots\}\)</span>).</p></li>
+<li><p><strong>block_sizes</strong> (<em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em>) – sizes <code class="code docutils literal notranslate"><span class="pre">(local</span> <span class="pre">rows,</span> <span class="pre">global</span> <span class="pre">rows)</span></code> of <span class="math notranslate nohighlight">\(v_j\)</span></p></li>
+<li><p><strong>full_sizes</strong> (<em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em>) – sizes <code class="code docutils literal notranslate"><span class="pre">(local</span> <span class="pre">rows,</span> <span class="pre">global</span> <span class="pre">rows)</span></code> of <span class="math notranslate nohighlight">\(\hat{v}\)</span></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>vector <span class="math notranslate nohighlight">\(\hat{v}\)</span></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.io.read_vector">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.io.</span></span><span class="sig-name descname"><span class="pre">read_vector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Vec</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/io.html#read_vector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.io.read_vector" title="Link to this definition"></a></dt>
+<dd><p>Read PETSc vector from file</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> (<em>str</em>) – name of the file that holds the vector</p></li>
+<li><p><strong>sizes</strong> (<em>Optional</em><em>[</em><em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>]</em>) – <code class="code docutils literal notranslate"><span class="pre">(local</span> <span class="pre">size,</span> <span class="pre">global</span> <span class="pre">size)</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.io.write_to_file">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.io.</span></span><span class="sig-name descname"><span class="pre">write_to_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">object</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mat</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Vec</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">BV</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/io.html#write_to_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.io.write_to_file" title="Link to this definition"></a></dt>
+<dd><p>Write PETSc/SLEPc object (PETSc.Mat, PETSc.Vec or SLEPc.BV) to file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> (<em>str</em>) – name of the file to store the object</p></li>
+<li><p><strong>object</strong> (<em>Union</em><em>[</em><em>PETSc.Mat</em><em>, </em><em>PETSc.Vec</em><em>, </em><em>SLEPc.BV</em><em>]</em>) – any PETSc matrix or vector, or SLEPc BV</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-resolvent4py.utils.random">
+<span id="random"></span><h2>Random<a class="headerlink" href="#module-resolvent4py.utils.random" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.random.generate_random_petsc_sparse_matrix">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.random.</span></span><span class="sig-name descname"><span class="pre">generate_random_petsc_sparse_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nnz</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">complex</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Mat</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/random.html#generate_random_petsc_sparse_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.random.generate_random_petsc_sparse_matrix" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sizes</strong> (<em>Tuple</em><em>[</em><em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>, </em><em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>]</em>) – <code class="code docutils literal notranslate"><span class="pre">((local</span> <span class="pre">rows,</span> <span class="pre">global</span> <span class="pre">rows),</span> <span class="pre">(local</span> <span class="pre">cols,</span> <span class="pre">global</span> <span class="pre">cols))</span></code></p></li>
+<li><p><strong>nnz</strong> (<em>int</em>) – number of non-zero entries</p></li>
+<li><p><strong>complex</strong> (<em>Optional</em><em>[</em><em>bool</em><em>]</em><em>, </em><em>default is False</em>) – <code class="code docutils literal notranslate"><span class="pre">True</span></code> if you want a complex-valued matrix</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>a sparse PETSc matrix</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>PETSc.Mat</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.random.generate_random_petsc_vector">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.random.</span></span><span class="sig-name descname"><span class="pre">generate_random_petsc_vector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">complex</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Vec</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/random.html#generate_random_petsc_vector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.random.generate_random_petsc_vector" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sizes</strong> (<em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em>) – vector sizes</p></li>
+<li><p><strong>complex</strong> (<em>Optional</em><em>[</em><em>bool</em><em>]</em><em>, </em><em>default is False</em>) – <code class="code docutils literal notranslate"><span class="pre">True</span></code> if you want a complex-valued vector</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-resolvent4py.utils.miscellaneous">
+<span id="miscellaneous"></span><h2>Miscellaneous<a class="headerlink" href="#module-resolvent4py.utils.miscellaneous" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.miscellaneous.get_memory_usage">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.miscellaneous.</span></span><span class="sig-name descname"><span class="pre">get_memory_usage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Comm</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/miscellaneous.html#get_memory_usage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.miscellaneous.get_memory_usage" title="Link to this definition"></a></dt>
+<dd><p>Compute the used memory (in Mb) across the MPI pool</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.miscellaneous.get_mpi_type">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.miscellaneous.</span></span><span class="sig-name descname"><span class="pre">get_mpi_type</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dtype:</span> <span class="pre">&lt;module</span> <span class="pre">'numpy.dtypes'</span> <span class="pre">from</span> <span class="pre">'/Users/alberto/miniconda3/envs/res4pyenv/lib/python3.9/site-packages/numpy/dtypes.py'&gt;</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Datatype</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/miscellaneous.html#get_mpi_type"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.miscellaneous.get_mpi_type" title="Link to this definition"></a></dt>
+<dd><p>Get the corresponding MPI type for a given numpy data type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>dtype</strong> (<em>np.dtypes</em>) – (e.g., <code class="code docutils literal notranslate"><span class="pre">np.dtype(PETSc.IntType)</span></code>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>MPI.Datatype</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.utils.miscellaneous.petscprint">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.utils.miscellaneous.</span></span><span class="sig-name descname"><span class="pre">petscprint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Comm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">any</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/resolvent4py/utils/miscellaneous.html#petscprint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.utils.miscellaneous.petscprint" title="Link to this definition"></a></dt>
+<dd><p>Print to terminal</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>comm</strong> (<em>PETSc.Comm</em>) – MPI communicator (PETSc.COMM_WORLD or PETSc.COMM_SELF)</p></li>
+<li><p><strong>arg</strong> (<em>any</em>) – argument to be fed into print()</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="model_reduction.html" class="btn btn-neutral float-left" title="Model Reduction" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="refs.html" class="btn btn-neutral float-right" title="References" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Alberto Padovan.</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

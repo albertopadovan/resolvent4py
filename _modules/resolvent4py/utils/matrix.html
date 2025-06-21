@@ -1,0 +1,380 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>resolvent4py.utils.matrix &mdash; resolvent4py 0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css?v=d2d258e8" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
+      <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            resolvent4py
+              <img src="../../../_static/logo.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-reference.html">API-reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../refs.html">References</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../auto_examples/cgl/index.html">Complex Ginzburg-Landau Equation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../auto_examples/toy_model/index.html">Toy Model</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">resolvent4py</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">resolvent4py.utils.matrix</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for resolvent4py.utils.matrix</h1><div class="highlight"><pre>
+<span></span><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;create_dense_matrix&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_AIJ_identity&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;mat_solve_hermitian_transpose&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;hermitian_transpose&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;convert_coo_to_csr&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;assemble_harmonic_resolvent_generator&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">petsc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">PETSc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.miscellaneous</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_mpi_type</span>
+
+
+<div class="viewcode-block" id="create_dense_matrix">
+<a class="viewcode-back" href="../../../utils.html#resolvent4py.utils.matrix.create_dense_matrix">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_dense_matrix</span><span class="p">(</span>
+    <span class="n">comm</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span> <span class="n">sizes</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create dense matrix</span>
+
+<span class="sd">    :param comm: PETSc communicator</span>
+<span class="sd">    :type comm: PETSc.Comm</span>
+<span class="sd">    :param sizes: tuple[tuple[int, int], tuple[int, int]]</span>
+
+<span class="sd">    :rtype: PETSc.Mat.Type.DENSE</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">()</span><span class="o">.</span><span class="n">createDense</span><span class="p">(</span><span class="n">sizes</span><span class="p">,</span> <span class="n">comm</span><span class="o">=</span><span class="n">comm</span><span class="p">)</span>
+    <span class="n">M</span><span class="o">.</span><span class="n">setUp</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">M</span></div>
+
+
+
+<div class="viewcode-block" id="create_AIJ_identity">
+<a class="viewcode-back" href="../../../utils.html#resolvent4py.utils.matrix.create_AIJ_identity">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_AIJ_identity</span><span class="p">(</span>
+    <span class="n">comm</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span> <span class="n">sizes</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create identity matrix of sparse AIJ type</span>
+
+<span class="sd">    :param comm: MPI Communicator</span>
+<span class="sd">    :type comm: PETSc.Comm</span>
+<span class="sd">    :param sizes: see `MatSizeSpec &lt;MatSizeSpec_&gt;`_</span>
+<span class="sd">    :type sizes: tuple[tuple[int, int], tuple[int, int]]</span>
+
+<span class="sd">    :return: identity matrix</span>
+<span class="sd">    :rtype: PETSc.Mat.Type.AIJ</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">Id</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">()</span><span class="o">.</span><span class="n">createConstantDiagonal</span><span class="p">(</span><span class="n">sizes</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">comm</span><span class="p">)</span>
+    <span class="n">Id</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">AIJ</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Id</span></div>
+
+
+
+<div class="viewcode-block" id="mat_solve_hermitian_transpose">
+<a class="viewcode-back" href="../../../utils.html#resolvent4py.utils.matrix.mat_solve_hermitian_transpose">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">mat_solve_hermitian_transpose</span><span class="p">(</span>
+    <span class="n">ksp</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">KSP</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span> <span class="n">Y</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Solve :math:`A^{-*}X = Y`, where :math:`X` is a PETSc matrix of type</span>
+<span class="sd">    :code:`PETSc.Mat.Type.DENSE`</span>
+
+<span class="sd">    :param ksp: a KPS solver structure</span>
+<span class="sd">    :type ksp: PETSc.KSP</span>
+<span class="sd">    :param X: a dense PETSc matrix</span>
+<span class="sd">    :type X: PETSc.Mat.Type.DENSE</span>
+<span class="sd">    :param Y: a dense PETSc matrix</span>
+<span class="sd">    :type Y: Optional[PETSc.Mat.Type.DENSE] defaults to :code:`None`</span>
+
+<span class="sd">    :return: matrix to store the result</span>
+<span class="sd">    :rtype: PETSc.Mat.Type.DENSE</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sizes</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">getSizes</span><span class="p">()</span>
+    <span class="n">Yarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">sizes</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">sizes</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">duplicate</span><span class="p">()</span> <span class="k">if</span> <span class="n">Y</span> <span class="o">==</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">Y</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">createVecLeft</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">getSizes</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">getColumnVector</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="n">x</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span>
+        <span class="n">ksp</span><span class="o">.</span><span class="n">solveTranspose</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="n">x</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span>
+        <span class="n">y</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span>
+        <span class="n">Yarray</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">getArray</span><span class="p">()</span>
+        <span class="n">x</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+    <span class="n">y</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+    <span class="n">offset</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">getOwnershipRange</span><span class="p">()</span>
+    <span class="n">rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">Yarray</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span><span class="p">)</span> <span class="o">+</span> <span class="n">offset</span>
+    <span class="n">cols</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">Yarray</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span><span class="p">)</span>
+    <span class="n">Y</span><span class="o">.</span><span class="n">setValues</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">Yarray</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">Y</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Y</span></div>
+
+
+
+<div class="viewcode-block" id="hermitian_transpose">
+<a class="viewcode-back" href="../../../utils.html#resolvent4py.utils.matrix.hermitian_transpose">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">hermitian_transpose</span><span class="p">(</span>
+    <span class="n">Mat</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span> <span class="n">in_place</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">MatHT</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return the hermitian transpose of the matrix :code:`Mat`.</span>
+
+<span class="sd">    :param Mat: PETSc matrix</span>
+<span class="sd">    :type Mat: PETSc.Mat</span>
+<span class="sd">    :param in_place: in-place transposition if :code:`True` and</span>
+<span class="sd">        out of place otherwise</span>
+<span class="sd">    :type in_place: Optional[bool] defaults to :code:`False`</span>
+<span class="sd">    :param MatHT: [optional] matrix with the correct layout to hold the</span>
+<span class="sd">        hermitian transpose of :code:`Mat`</span>
+<span class="sd">    :param MatHT: Optional[PETSc.Mat] defaults to :code:`None`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">in_place</span> <span class="o">==</span> <span class="kc">False</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">MatHT</span> <span class="o">==</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sizes</span> <span class="o">=</span> <span class="n">Mat</span><span class="o">.</span><span class="n">getSizes</span><span class="p">()</span>
+            <span class="n">MatHT</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="o">=</span><span class="n">Mat</span><span class="o">.</span><span class="n">getComm</span><span class="p">())</span>
+            <span class="n">MatHT</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="n">Mat</span><span class="o">.</span><span class="n">getType</span><span class="p">())</span>
+            <span class="n">MatHT</span><span class="o">.</span><span class="n">setSizes</span><span class="p">((</span><span class="n">sizes</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">sizes</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+            <span class="n">MatHT</span><span class="o">.</span><span class="n">setUp</span><span class="p">()</span>
+        <span class="n">Mat</span><span class="o">.</span><span class="n">setTransposePrecursor</span><span class="p">(</span><span class="n">MatHT</span><span class="p">)</span>
+        <span class="n">Mat</span><span class="o">.</span><span class="n">hermitianTranspose</span><span class="p">(</span><span class="n">MatHT</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">MatHT</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">MatHT_</span> <span class="o">=</span> <span class="n">Mat</span><span class="o">.</span><span class="n">hermitianTranspose</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">MatHT_</span></div>
+
+
+
+<div class="viewcode-block" id="convert_coo_to_csr">
+<a class="viewcode-back" href="../../../utils.html#resolvent4py.utils.matrix.convert_coo_to_csr">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">convert_coo_to_csr</span><span class="p">(</span>
+    <span class="n">arrays</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">],</span>
+    <span class="n">sizes</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">]:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Convert arrays = [row indices, col indices, values] for COO matrix</span>
+<span class="sd">    assembly to [row pointers, col indices, values] for CSR matrix assembly.</span>
+<span class="sd">    (Petsc4py currently does not support COO matrix assembly, hence the need</span>
+<span class="sd">    to convert.)</span>
+
+<span class="sd">    :param arrays: a list of numpy arrays (e.g., arrays = [rows,cols,vals])</span>
+<span class="sd">    :type array: tuple[np.array, np.array, np.array]</span>
+<span class="sd">    :param sizes: see `MatSizeSpec &lt;MatSizeSpec_&gt;`_</span>
+<span class="sd">    :type sizes: tuple[np.array, np.array, np.array]</span>
+
+<span class="sd">    :return: csr row pointers, column indices and matrix values for CSR</span>
+<span class="sd">        matrix assembly</span>
+<span class="sd">    :rtype: tuple[np.array, np.array, np.array]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">comm</span> <span class="o">=</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span>
+    <span class="n">rank</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">Get_rank</span><span class="p">()</span>
+    <span class="n">pool</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">comm</span><span class="o">.</span><span class="n">Get_size</span><span class="p">())</span>
+    <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">vals</span> <span class="o">=</span> <span class="n">arrays</span>
+    <span class="n">idces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">vals</span> <span class="o">=</span> <span class="n">rows</span><span class="p">[</span><span class="n">idces</span><span class="p">],</span> <span class="n">cols</span><span class="p">[</span><span class="n">idces</span><span class="p">],</span> <span class="n">vals</span><span class="p">[</span><span class="n">idces</span><span class="p">]</span>
+
+    <span class="n">mat_row_sizes_local</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
+        <span class="n">comm</span><span class="o">.</span><span class="n">allgather</span><span class="p">(</span><span class="n">sizes</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span>
+    <span class="p">)</span>
+    <span class="n">mat_row_displ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(([</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">mat_row_sizes_local</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])))</span>
+    <span class="n">ownership_ranges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">comm</span><span class="o">.</span><span class="n">Get_size</span><span class="p">(),</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span><span class="p">)</span>
+    <span class="n">ownership_ranges</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat_row_displ</span>
+    <span class="n">ownership_ranges</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">ownership_ranges</span><span class="p">[</span><span class="mi">1</span><span class="p">:,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">ownership_ranges</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">sizes</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">send_rows</span><span class="p">,</span> <span class="n">send_cols</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="n">send_vals</span><span class="p">,</span> <span class="n">lengths</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">pool</span><span class="p">:</span>
+        <span class="n">idces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">rows</span> <span class="o">&gt;=</span> <span class="n">ownership_ranges</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">rows</span> <span class="o">&lt;</span> <span class="n">ownership_ranges</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">lengths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">idces</span><span class="p">)],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span><span class="p">))</span>
+        <span class="n">send_rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rows</span><span class="p">[</span><span class="n">idces</span><span class="p">])</span>
+        <span class="n">send_cols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cols</span><span class="p">[</span><span class="n">idces</span><span class="p">])</span>
+        <span class="n">send_vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vals</span><span class="p">[</span><span class="n">idces</span><span class="p">])</span>
+
+    <span class="n">recv_bufs</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">pool</span><span class="p">]</span>
+    <span class="n">recv_reqs</span> <span class="o">=</span> <span class="p">[</span><span class="n">comm</span><span class="o">.</span><span class="n">Irecv</span><span class="p">(</span><span class="n">bf</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="p">(</span><span class="n">bf</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">recv_bufs</span><span class="p">,</span> <span class="n">pool</span><span class="p">)]</span>
+    <span class="n">send_reqs</span> <span class="o">=</span> <span class="p">[</span><span class="n">comm</span><span class="o">.</span><span class="n">Isend</span><span class="p">(</span><span class="n">sz</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">sz</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lengths</span><span class="p">)]</span>
+    <span class="n">MPI</span><span class="o">.</span><span class="n">Request</span><span class="o">.</span><span class="n">waitall</span><span class="p">(</span><span class="n">send_reqs</span> <span class="o">+</span> <span class="n">recv_reqs</span><span class="p">)</span>
+    <span class="n">lengths</span> <span class="o">=</span> <span class="p">[</span><span class="n">buf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">buf</span> <span class="ow">in</span> <span class="n">recv_bufs</span><span class="p">]</span>
+
+    <span class="n">dtypes</span> <span class="o">=</span> <span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">]</span>
+    <span class="n">my_arrays</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">array</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">([</span><span class="n">send_rows</span><span class="p">,</span> <span class="n">send_cols</span><span class="p">,</span> <span class="n">send_vals</span><span class="p">]):</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="n">dtypes</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+        <span class="n">mpi_type</span> <span class="o">=</span> <span class="n">get_mpi_type</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">))</span>
+        <span class="n">recv_bufs</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">lengths</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">),</span> <span class="n">mpi_type</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">pool</span>
+        <span class="p">]</span>
+        <span class="n">recv_reqs</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">comm</span><span class="o">.</span><span class="n">Irecv</span><span class="p">(</span><span class="n">bf</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="p">(</span><span class="n">bf</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">recv_bufs</span><span class="p">,</span> <span class="n">pool</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">send_reqs</span> <span class="o">=</span> <span class="p">[</span><span class="n">comm</span><span class="o">.</span><span class="n">Isend</span><span class="p">(</span><span class="n">array</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">dest</span><span class="o">=</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">pool</span><span class="p">]</span>
+        <span class="n">MPI</span><span class="o">.</span><span class="n">Request</span><span class="o">.</span><span class="n">waitall</span><span class="p">(</span><span class="n">send_reqs</span> <span class="o">+</span> <span class="n">recv_reqs</span><span class="p">)</span>
+        <span class="n">my_arrays</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">recv_bufs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">pool</span><span class="p">])</span>
+
+    <span class="n">my_rows</span><span class="p">,</span> <span class="n">my_cols</span><span class="p">,</span> <span class="n">my_vals</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">pool</span><span class="p">:</span>
+        <span class="n">my_rows</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">my_arrays</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">my_cols</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">my_arrays</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">my_vals</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">my_arrays</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+
+    <span class="n">my_rows</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">my_rows</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span><span class="p">)</span> <span class="o">-</span> <span class="n">ownership_ranges</span><span class="p">[</span><span class="n">rank</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">my_cols</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">my_cols</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span><span class="p">)</span>
+    <span class="n">my_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">my_vals</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
+
+    <span class="n">idces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">my_rows</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">my_rows</span> <span class="o">=</span> <span class="n">my_rows</span><span class="p">[</span><span class="n">idces</span><span class="p">]</span>
+    <span class="n">my_cols</span> <span class="o">=</span> <span class="n">my_cols</span><span class="p">[</span><span class="n">idces</span><span class="p">]</span>
+    <span class="n">my_vals</span> <span class="o">=</span> <span class="n">my_vals</span><span class="p">[</span><span class="n">idces</span><span class="p">]</span>
+
+    <span class="n">ni</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">my_rows_ptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sizes</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sizes</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="n">ni</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">my_rows</span> <span class="o">==</span> <span class="n">i</span><span class="p">)</span>
+        <span class="n">my_rows_ptr</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">ni</span>
+
+    <span class="k">return</span> <span class="n">my_rows_ptr</span><span class="p">,</span> <span class="n">my_cols</span><span class="p">,</span> <span class="n">my_vals</span></div>
+
+
+
+<div class="viewcode-block" id="assemble_harmonic_resolvent_generator">
+<a class="viewcode-back" href="../../../utils.html#resolvent4py.utils.matrix.assemble_harmonic_resolvent_generator">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">assemble_harmonic_resolvent_generator</span><span class="p">(</span>
+    <span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span> <span class="n">freqs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Assemble :math:`T = -M + A`, where :math:`A` is the output of</span>
+<span class="sd">    :func:`resolvent4py.utils.io.read_harmonic_balanced_matrix`</span>
+<span class="sd">    and :math:`M` is a block</span>
+<span class="sd">    diagonal matrix with block :math:`k` given by :math:`M_k = i k \omega I`</span>
+<span class="sd">    and :math:`k\omega` is the :math:`k` th entry of :code:`freqs`.</span>
+
+<span class="sd">    :param A: assembled PETSc matrix</span>
+<span class="sd">    :type A: PETSc.Mat</span>
+<span class="sd">    :param freqs: array :math:`\omega\left(\ldots, -1, 0, 1, \ldots\right)`</span>
+<span class="sd">    :type freqs: np.array</span>
+
+<span class="sd">    :rtype: PETSc.Mat</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">rows_lst</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">vals_lst</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="n">rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">*</span><span class="n">A</span><span class="o">.</span><span class="n">getOwnershipRange</span><span class="p">())</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getSizes</span><span class="p">()[</span><span class="mi">0</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">//</span> <span class="nb">len</span><span class="p">(</span><span class="n">freqs</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">freqs</span><span class="p">)):</span>
+        <span class="n">idces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">N</span> <span class="o">*</span> <span class="n">i</span><span class="p">,</span> <span class="n">N</span> <span class="o">*</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">idces</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">rows_lst</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">idces</span><span class="p">)</span>
+            <span class="n">vals_lst</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">freqs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">idces</span><span class="p">)))</span>
+
+    <span class="n">rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">rows_lst</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span><span class="p">)</span>
+    <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">vals_lst</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
+    
+    <span class="n">rows_ptr</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">vals</span> <span class="o">=</span> <span class="n">convert_coo_to_csr</span><span class="p">([</span><span class="n">rows</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">vals</span><span class="p">],</span> <span class="n">A</span><span class="o">.</span><span class="n">getSizes</span><span class="p">())</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">getComm</span><span class="p">())</span>
+    <span class="n">M</span><span class="o">.</span><span class="n">setSizes</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">getSizes</span><span class="p">())</span>
+    <span class="n">M</span><span class="o">.</span><span class="n">setPreallocationCSR</span><span class="p">((</span><span class="n">rows_ptr</span><span class="p">,</span> <span class="n">cols</span><span class="p">))</span>
+    <span class="n">M</span><span class="o">.</span><span class="n">setValuesCSR</span><span class="p">(</span><span class="n">rows_ptr</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">vals</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+    <span class="n">M</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">M</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">A</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">M</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Alberto Padovan.</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,1228 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Linear Operators &mdash; resolvent4py 0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/sg_gallery.css?v=d2d258e8" />
+      <link rel="stylesheet" type="text/css" href="_static/sg_gallery-binder.css?v=f4aeca0c" />
+      <link rel="stylesheet" type="text/css" href="_static/sg_gallery-dataframe.css?v=2082cf3c" />
+      <link rel="stylesheet" type="text/css" href="_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=2709fde1"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Linalg" href="linalg.html" />
+    <link rel="prev" title="API-reference" href="api-reference.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            resolvent4py
+              <img src="_static/logo.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="api-reference.html">API-reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Linear Operators</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-resolvent4py.linear_operators.linear_operator">Linear Operator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.linear_operators.linear_operator.LinearOperator"><code class="docutils literal notranslate"><span class="pre">LinearOperator</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-resolvent4py.linear_operators.matrix">Matrix Linear Operator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.linear_operators.matrix.MatrixLinearOperator"><code class="docutils literal notranslate"><span class="pre">MatrixLinearOperator</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-resolvent4py.linear_operators.low_rank">Low-Rank Linear Operator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.linear_operators.low_rank.LowRankLinearOperator"><code class="docutils literal notranslate"><span class="pre">LowRankLinearOperator</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-resolvent4py.linear_operators.low_rank_updated">Low-Rank-Updated Linear Operator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator"><code class="docutils literal notranslate"><span class="pre">LowRankUpdatedLinearOperator</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-resolvent4py.linear_operators.product">Product Linear Operator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.linear_operators.product.ProductLinearOperator"><code class="docutils literal notranslate"><span class="pre">ProductLinearOperator</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-resolvent4py.linear_operators.projection">Projection Linear Operator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.linear_operators.projection.ProjectionLinearOperator"><code class="docutils literal notranslate"><span class="pre">ProjectionLinearOperator</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="linalg.html">Linalg</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_reduction.html">Model Reduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utils.html">Utils</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="refs.html">References</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="auto_examples/cgl/index.html">Complex Ginzburg-Landau Equation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="auto_examples/toy_model/index.html">Toy Model</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">resolvent4py</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="api-reference.html">API-reference</a></li>
+      <li class="breadcrumb-item active">Linear Operators</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/linear_operators.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="linear-operators">
+<h1>Linear Operators<a class="headerlink" href="#linear-operators" title="Link to this heading"></a></h1>
+<section id="module-resolvent4py.linear_operators.linear_operator">
+<span id="linear-operator"></span><h2>Linear Operator<a class="headerlink" href="#module-resolvent4py.linear_operators.linear_operator" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">resolvent4py.linear_operators.linear_operator.</span></span><span class="sig-name descname"><span class="pre">LinearOperator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Comm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dimensions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nblocks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Abstract base class for linear operators <span class="math notranslate nohighlight">\(L\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>comm</strong> (<em>PETSc.Comm</em>) – MPI communicator <code class="code docutils literal notranslate"><span class="pre">PETSc.COMM_WORLD</span></code></p></li>
+<li><p><strong>name</strong> (<em>str</em>) – name of the linear operator</p></li>
+<li><p><strong>dimensions</strong> (<em>tuple</em><em>[</em><em>tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>, </em><em>tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>]</em>) – local and global sizes of the range and domain
+of the linear operator, <code class="code docutils literal notranslate"><span class="pre">[[local</span> <span class="pre">rows,</span> <span class="pre">global</span> <span class="pre">rows],</span>
+<span class="pre">[local</span> <span class="pre">columns,</span> <span class="pre">global</span> <span class="pre">columns]]</span></code></p></li>
+<li><p><strong>nblocks</strong> (<em>Optional</em><em>[</em><em>Unions</em><em>[</em><em>int</em><em>, </em><em>None</em><em>]</em><em>]</em><em>, </em><em>default is None</em>) – number of blocks (if the linear operator has block structure)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.apply">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Vec</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Vec</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.apply"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.apply" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = Lx\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.apply_hermitian_transpose">
+<span class="sig-name descname"><span class="pre">apply_hermitian_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Vec</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Vec</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.apply_hermitian_transpose"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.apply_hermitian_transpose" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = L^*x\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.apply_hermitian_transpose_mat">
+<span class="sig-name descname"><span class="pre">apply_hermitian_transpose_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">BV</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.apply_hermitian_transpose_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.apply_hermitian_transpose_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = L^*X\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.apply_mat">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">apply_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">BV</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.apply_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.apply_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = LX\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.check_if_complex_conjugate_structure">
+<span class="sig-name descname"><span class="pre">check_if_complex_conjugate_structure</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.check_if_complex_conjugate_structure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.check_if_complex_conjugate_structure" title="Link to this definition"></a></dt>
+<dd><p>Given a vector</p>
+<div class="math notranslate nohighlight">
+\[x = \left(\ldots,x_{-1},x_{0},x_{1},\ldots\right)\]</div>
+<p>with vector-valued entries that satisfy <span class="math notranslate nohighlight">\(x_{-i} = \overline{x_i}\)</span>, check if the vector <span class="math notranslate nohighlight">\(Lx\)</span> satisfies <span class="math notranslate nohighlight">\((Lx)_{-i}=\overline{(Lx)_{i}}\)</span>. (Here, the overline denote complex conjugation.)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="code docutils literal notranslate"><span class="pre">True</span></code> if the linear operator has complex-conjugate
+structure, <code class="code docutils literal notranslate"><span class="pre">False</span></code> otherwise.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.check_if_real_valued">
+<span class="sig-name descname"><span class="pre">check_if_real_valued</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.check_if_real_valued"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.check_if_real_valued" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="code docutils literal notranslate"><span class="pre">True</span></code> if the linear operator is real-valued,
+<code class="code docutils literal notranslate"><span class="pre">False</span></code> otherwise</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.create_left_bv">
+<span class="sig-name descname"><span class="pre">create_left_bv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ncols</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">BV</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.create_left_bv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.create_left_bv" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ncols</strong> – number of columns in the BV</p></li>
+<li><p><strong>type</strong> – int</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>a SLEPc BV where <span class="math notranslate nohighlight">\(LX\)</span> can be stored into</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.create_left_vector">
+<span class="sig-name descname"><span class="pre">create_left_vector</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Vec</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.create_left_vector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.create_left_vector" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>a PETSc vector where <span class="math notranslate nohighlight">\(Lx\)</span> can be stored into</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.create_right_bv">
+<span class="sig-name descname"><span class="pre">create_right_bv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ncols</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">BV</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.create_right_bv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.create_right_bv" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ncols</strong> (<em>int</em>) – number of columns in the BV</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>a SLEPc BV that <span class="math notranslate nohighlight">\(L\)</span> can be multiplied against</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.create_right_vector">
+<span class="sig-name descname"><span class="pre">create_right_vector</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Vec</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.create_right_vector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.create_right_vector" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>a PETSc vector that <span class="math notranslate nohighlight">\(L\)</span> can be multiplied against</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.destroy">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">destroy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.destroy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.destroy" title="Link to this definition"></a></dt>
+<dd><p>Destroy the PETSc and SLEPc objects associated with <span class="math notranslate nohighlight">\(L\)</span></p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.get_block_cc_flag">
+<span class="sig-name descname"><span class="pre">get_block_cc_flag</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.get_block_cc_flag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.get_block_cc_flag" title="Link to this definition"></a></dt>
+<dd><p>Returns <code class="code docutils literal notranslate"><span class="pre">True</span></code> if the operator has complex-conjugate block
+structure (like in the harmonic-balancing operator). <code class="code docutils literal notranslate"><span class="pre">False</span></code> if
+the operator does not have complex-conjugate block structure,
+<code class="code docutils literal notranslate"><span class="pre">None</span></code> if <code class="code docutils literal notranslate"><span class="pre">.get_nblocks</span></code> returns <code class="code docutils literal notranslate"><span class="pre">None</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Union[bool, None]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.get_comm">
+<span class="sig-name descname"><span class="pre">get_comm</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Comm</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.get_comm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.get_comm" title="Link to this definition"></a></dt>
+<dd><p>The MPI communicator</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>PETSc.Comm</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.get_dimensions">
+<span class="sig-name descname"><span class="pre">get_dimensions</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.get_dimensions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.get_dimensions" title="Link to this definition"></a></dt>
+<dd><p>The local and global dimensions of the linear operator</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[tuple[int, int], tuple[int, int]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.get_name">
+<span class="sig-name descname"><span class="pre">get_name</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.get_name"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.get_name" title="Link to this definition"></a></dt>
+<dd><p>The name of the linear operator</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.get_nblocks">
+<span class="sig-name descname"><span class="pre">get_nblocks</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.get_nblocks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.get_nblocks" title="Link to this definition"></a></dt>
+<dd><p>The number of blocks of the linear operator</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Union[int, None]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.get_real_flag">
+<span class="sig-name descname"><span class="pre">get_real_flag</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.get_real_flag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.get_real_flag" title="Link to this definition"></a></dt>
+<dd><p><code class="code docutils literal notranslate"><span class="pre">True</span></code> if the operator is real-valued, <code class="code docutils literal notranslate"><span class="pre">False</span></code>
+otherwise.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.solve">
+<span class="sig-name descname"><span class="pre">solve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Vec</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Vec</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.solve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.solve" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = L^{-1}x\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.solve_hermitian_transpose">
+<span class="sig-name descname"><span class="pre">solve_hermitian_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Vec</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Vec</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.solve_hermitian_transpose"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.solve_hermitian_transpose" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = L^{-*}x\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.solve_hermitian_transpose_mat">
+<span class="sig-name descname"><span class="pre">solve_hermitian_transpose_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">BV</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.solve_hermitian_transpose_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.solve_hermitian_transpose_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = L^{-*}X\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.linear_operator.LinearOperator.solve_mat">
+<span class="sig-name descname"><span class="pre">solve_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">BV</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/linear_operator.html#LinearOperator.solve_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.solve_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = L^{-1}X\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-resolvent4py.linear_operators.matrix">
+<span id="matrix-linear-operator"></span><h2>Matrix Linear Operator<a class="headerlink" href="#module-resolvent4py.linear_operators.matrix" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.matrix.MatrixLinearOperator">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">resolvent4py.linear_operators.matrix.</span></span><span class="sig-name descname"><span class="pre">MatrixLinearOperator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ksp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">KSP</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nblocks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/matrix.html#MatrixLinearOperator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.matrix.MatrixLinearOperator" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#resolvent4py.linear_operators.linear_operator.LinearOperator" title="resolvent4py.linear_operators.linear_operator.LinearOperator"><code class="xref py py-class docutils literal notranslate"><span class="pre">LinearOperator</span></code></a></p>
+<p>Class for a linear operator <span class="math notranslate nohighlight">\(L = A\)</span>, where <span class="math notranslate nohighlight">\(A\)</span> is a matrix.
+In general, <code class="code docutils literal notranslate"><span class="pre">A</span></code> can be any matrix (rectangular or square,
+invertible or non-invertible). For an invertible <span class="math notranslate nohighlight">\(A\)</span>, the user
+may also provide a PETSc KSP object <code class="code docutils literal notranslate"><span class="pre">ksp</span></code> to act with <span class="math notranslate nohighlight">\(A^{-1}\)</span>
+on vectors and matrices.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<em>PETSc.Mat</em>) – a PETSc matrix</p></li>
+<li><p><strong>ksp</strong> (<em>Optional</em><em>[</em><em>Union</em><em>[</em><em>PETSc.KSP</em><em>, </em><em>None</em><em>]</em><em>]</em><em>, </em><em>defaults to None</em>) – a PETSc KSP object to enable the <code class="code docutils literal notranslate"><span class="pre">solve()</span></code>
+and <code class="code docutils literal notranslate"><span class="pre">solve_hermitian_transpose()</span></code> methods</p></li>
+<li><p><strong>nblocks</strong> (<em>Optional</em><em>[</em><em>Union</em><em>[</em><em>int</em><em>, </em><em>None</em><em>]</em><em>]</em><em>, </em><em>default is None</em>) – number of blocks (if the linear operator has block
+structure). This must be an odd number.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.matrix.MatrixLinearOperator.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/matrix.html#MatrixLinearOperator.apply"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.matrix.MatrixLinearOperator.apply" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = Lx\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.matrix.MatrixLinearOperator.apply_hermitian_transpose">
+<span class="sig-name descname"><span class="pre">apply_hermitian_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/matrix.html#MatrixLinearOperator.apply_hermitian_transpose"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.matrix.MatrixLinearOperator.apply_hermitian_transpose" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = L^*x\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.matrix.MatrixLinearOperator.apply_hermitian_transpose_mat">
+<span class="sig-name descname"><span class="pre">apply_hermitian_transpose_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/matrix.html#MatrixLinearOperator.apply_hermitian_transpose_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.matrix.MatrixLinearOperator.apply_hermitian_transpose_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = L^*X\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.matrix.MatrixLinearOperator.apply_mat">
+<span class="sig-name descname"><span class="pre">apply_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/matrix.html#MatrixLinearOperator.apply_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.matrix.MatrixLinearOperator.apply_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = LX\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.matrix.MatrixLinearOperator.destroy">
+<span class="sig-name descname"><span class="pre">destroy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/matrix.html#MatrixLinearOperator.destroy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.matrix.MatrixLinearOperator.destroy" title="Link to this definition"></a></dt>
+<dd><p>Destroy the PETSc and SLEPc objects associated with <span class="math notranslate nohighlight">\(L\)</span></p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.matrix.MatrixLinearOperator.solve">
+<span class="sig-name descname"><span class="pre">solve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/matrix.html#MatrixLinearOperator.solve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.matrix.MatrixLinearOperator.solve" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = L^{-1}x\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.matrix.MatrixLinearOperator.solve_hermitian_transpose">
+<span class="sig-name descname"><span class="pre">solve_hermitian_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/matrix.html#MatrixLinearOperator.solve_hermitian_transpose"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.matrix.MatrixLinearOperator.solve_hermitian_transpose" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = L^{-*}x\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.matrix.MatrixLinearOperator.solve_hermitian_transpose_mat">
+<span class="sig-name descname"><span class="pre">solve_hermitian_transpose_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/matrix.html#MatrixLinearOperator.solve_hermitian_transpose_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.matrix.MatrixLinearOperator.solve_hermitian_transpose_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = L^{-*}X\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.matrix.MatrixLinearOperator.solve_mat">
+<span class="sig-name descname"><span class="pre">solve_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/matrix.html#MatrixLinearOperator.solve_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.matrix.MatrixLinearOperator.solve_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = L^{-1}X\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-resolvent4py.linear_operators.low_rank">
+<span id="low-rank-linear-operator"></span><h2>Low-Rank Linear Operator<a class="headerlink" href="#module-resolvent4py.linear_operators.low_rank" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank.LowRankLinearOperator">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">resolvent4py.linear_operators.low_rank.</span></span><span class="sig-name descname"><span class="pre">LowRankLinearOperator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">U</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Sigma</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">V</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nblocks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank.html#LowRankLinearOperator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank.LowRankLinearOperator" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#resolvent4py.linear_operators.linear_operator.LinearOperator" title="resolvent4py.linear_operators.linear_operator.LinearOperator"><code class="xref py py-class docutils literal notranslate"><span class="pre">LinearOperator</span></code></a></p>
+<p>Class for a linear operator of the form</p>
+<div class="math notranslate nohighlight">
+\[L = U \Sigma V^*,\]</div>
+<p>where <span class="math notranslate nohighlight">\(U\)</span>, <span class="math notranslate nohighlight">\(\Sigma\)</span> and <span class="math notranslate nohighlight">\(V\)</span> are matrices of
+conformal sizes (and <span class="math notranslate nohighlight">\(\Sigma\)</span> is not necessarily diagonal).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>U</strong> (<em>SLEPc.BV</em>) – a tall and skinny matrix</p></li>
+<li><p><strong>Sigma</strong> (<em>numpy.ndarray</em>) – 2D numpy array</p></li>
+<li><p><strong>V</strong> (<em>SLEPc.BV</em>) – a tall and skinny matrix</p></li>
+<li><p><strong>nblocks</strong> (<em>Optional</em><em>[</em><em>Union</em><em>[</em><em>int</em><em>, </em><em>None</em><em>]</em><em>]</em><em>, </em><em>default is None</em>) – number of blocks (if the operator has block structure)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank.LowRankLinearOperator.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank.html#LowRankLinearOperator.apply"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank.LowRankLinearOperator.apply" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = Lx\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank.LowRankLinearOperator.apply_hermitian_transpose">
+<span class="sig-name descname"><span class="pre">apply_hermitian_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank.html#LowRankLinearOperator.apply_hermitian_transpose"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank.LowRankLinearOperator.apply_hermitian_transpose" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = L^*x\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank.LowRankLinearOperator.apply_hermitian_transpose_mat">
+<span class="sig-name descname"><span class="pre">apply_hermitian_transpose_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank.html#LowRankLinearOperator.apply_hermitian_transpose_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank.LowRankLinearOperator.apply_hermitian_transpose_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = L^*X\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank.LowRankLinearOperator.apply_mat">
+<span class="sig-name descname"><span class="pre">apply_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank.html#LowRankLinearOperator.apply_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank.LowRankLinearOperator.apply_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = LX\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank.LowRankLinearOperator.destroy">
+<span class="sig-name descname"><span class="pre">destroy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank.html#LowRankLinearOperator.destroy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank.LowRankLinearOperator.destroy" title="Link to this definition"></a></dt>
+<dd><p>Destroy the PETSc and SLEPc objects associated with <span class="math notranslate nohighlight">\(L\)</span></p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-resolvent4py.linear_operators.low_rank_updated">
+<span id="low-rank-updated-linear-operator"></span><h2>Low-Rank-Updated Linear Operator<a class="headerlink" href="#module-resolvent4py.linear_operators.low_rank_updated" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">resolvent4py.linear_operators.low_rank_updated.</span></span><span class="sig-name descname"><span class="pre">LowRankUpdatedLinearOperator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#resolvent4py.linear_operators.linear_operator.LinearOperator" title="resolvent4py.linear_operators.linear_operator.LinearOperator"><span class="pre">LinearOperator</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">B</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">K</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">C</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">woodbury_factors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">BV</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">BV</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nblocks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank_updated.html#LowRankUpdatedLinearOperator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#resolvent4py.linear_operators.linear_operator.LinearOperator" title="resolvent4py.linear_operators.linear_operator.LinearOperator"><code class="xref py py-class docutils literal notranslate"><span class="pre">LinearOperator</span></code></a></p>
+<p>Class for a linear operator of the form</p>
+<div class="math notranslate nohighlight">
+\[L = A + B K C^*\]</div>
+<p>where <span class="math notranslate nohighlight">\(A\)</span> is an instance of the <a class="reference internal" href="#resolvent4py.linear_operators.linear_operator.LinearOperator" title="resolvent4py.linear_operators.linear_operator.LinearOperator"><code class="xref py py-class docutils literal notranslate"><span class="pre">LinearOperator</span></code></a> class,
+and <span class="math notranslate nohighlight">\(B\)</span>, <span class="math notranslate nohighlight">\(K\)</span> and <span class="math notranslate nohighlight">\(C\)</span> are low-rank (dense) matrices of
+conformal sizes. If <code class="code docutils literal notranslate"><span class="pre">A.solve()</span></code> is enabled, then the <code class="code docutils literal notranslate"><span class="pre">solve()</span></code>
+method in this class is implemented using the Woodbury matrix identity</p>
+<div class="math notranslate nohighlight">
+\[L^{-1} = A^{-1} - X D Y^*,\]</div>
+<p>where <span class="math notranslate nohighlight">\(X\)</span>, <span class="math notranslate nohighlight">\(D\)</span> and <span class="math notranslate nohighlight">\(Y\)</span> the Woodbury factors defined as</p>
+<div class="math notranslate nohighlight">
+\[\textcolor{black}{X}
+= A^{-1}B,\quad \textcolor{black}{D} =
+K\left(I + C^* A^{-1}B K\right)^{-1},\quad
+\textcolor{black}{Y} = A^{-*}C,\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> – instance of the <a class="reference internal" href="#resolvent4py.linear_operators.linear_operator.LinearOperator" title="resolvent4py.linear_operators.linear_operator.LinearOperator"><code class="xref py py-class docutils literal notranslate"><span class="pre">LinearOperator</span></code></a> class</p></li>
+<li><p><strong>B</strong> (<em>SLEPc.BV</em>) – tall and skinny matrix</p></li>
+<li><p><strong>K</strong> (<em>numpy.ndarray</em>) – dense matrix</p></li>
+<li><p><strong>C</strong> (<em>SLEPc.BV</em>) – tall and skinny matrix</p></li>
+<li><p><strong>woodbury_factors</strong> (<em>Optional</em><em>[</em><em>Union</em><em>[</em><em>Tuple</em><em>[</em><em>SLEPc.BV</em><em>, </em><em>numpy.ndarray</em><em>,
+</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>None</em><em>]</em><em>]</em><em>, </em><em>default is None</em>) – tuple <span class="math notranslate nohighlight">\((X, D, Y)\)</span> of Woodbury factors. If
+<code class="code docutils literal notranslate"><span class="pre">A.solve()</span></code> is enabled and the argument <code class="code docutils literal notranslate"><span class="pre">woodbury_factors</span></code>
+is <code class="code docutils literal notranslate"><span class="pre">None</span></code>, the factors <span class="math notranslate nohighlight">\(X\)</span>, <span class="math notranslate nohighlight">\(D\)</span> and <span class="math notranslate nohighlight">\(Y\)</span> are
+computed at initialization</p></li>
+<li><p><strong>nblocks</strong> (<em>Optional</em><em>[</em><em>Union</em><em>[</em><em>int</em><em>, </em><em>None</em><em>]</em><em>]</em><em>, </em><em>default is None</em>) – number of blocks (if the operator has block structure)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank_updated.html#LowRankUpdatedLinearOperator.apply"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.apply" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = Lx\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.apply_hermitian_transpose">
+<span class="sig-name descname"><span class="pre">apply_hermitian_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank_updated.html#LowRankUpdatedLinearOperator.apply_hermitian_transpose"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.apply_hermitian_transpose" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = L^*x\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.apply_hermitian_transpose_mat">
+<span class="sig-name descname"><span class="pre">apply_hermitian_transpose_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Z</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank_updated.html#LowRankUpdatedLinearOperator.apply_hermitian_transpose_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.apply_hermitian_transpose_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = L^*X\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.apply_mat">
+<span class="sig-name descname"><span class="pre">apply_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Z</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank_updated.html#LowRankUpdatedLinearOperator.apply_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.apply_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = LX\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.compute_woodbury_operator">
+<span class="sig-name descname"><span class="pre">compute_woodbury_operator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nblocks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#resolvent4py.linear_operators.low_rank.LowRankLinearOperator" title="resolvent4py.linear_operators.low_rank.LowRankLinearOperator"><span class="pre">LowRankLinearOperator</span></a></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank_updated.html#LowRankUpdatedLinearOperator.compute_woodbury_operator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.compute_woodbury_operator" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>nblocks</strong> (<em>Unions</em><em>[</em><em>int</em><em>, </em><em>None</em><em>]</em>) – number of blocks (if the operator has block structure)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>a <a class="reference internal" href="#resolvent4py.linear_operators.low_rank.LowRankLinearOperator" title="resolvent4py.linear_operators.low_rank.LowRankLinearOperator"><code class="xref py py-class docutils literal notranslate"><span class="pre">LowRankLinearOperator</span></code></a> constructed from the
+Woodbury factors <code class="code docutils literal notranslate"><span class="pre">X</span></code>, <code class="code docutils literal notranslate"><span class="pre">D</span></code> and <code class="code docutils literal notranslate"><span class="pre">Y</span></code></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator" title="resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator">LowRankUpdatedLinearOperator</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.create_intermediate_bv">
+<span class="sig-name descname"><span class="pre">create_intermediate_bv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">m</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">BV</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank_updated.html#LowRankUpdatedLinearOperator.create_intermediate_bv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.create_intermediate_bv" title="Link to this definition"></a></dt>
+<dd><p>Create matrix to store <span class="math notranslate nohighlight">\(X D Y^* Z\)</span>, for any matrix
+Z with <span class="math notranslate nohighlight">\(m\)</span> columns.</p>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>It is the user’s responsibility to destroy this object
+when no longer needed.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>m</strong> (<em>int</em>) – number of columns of <span class="math notranslate nohighlight">\(Z\)</span></p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.create_intermediate_bv_hermitian_transpose">
+<span class="sig-name descname"><span class="pre">create_intermediate_bv_hermitian_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">m</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">BV</span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank_updated.html#LowRankUpdatedLinearOperator.create_intermediate_bv_hermitian_transpose"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.create_intermediate_bv_hermitian_transpose" title="Link to this definition"></a></dt>
+<dd><p>Create matrix to store <span class="math notranslate nohighlight">\(Y D X^* Z\)</span>, for any matrix
+Z with <span class="math notranslate nohighlight">\(m\)</span> columns.</p>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>It is the user’s responsibility to destroy this object
+when no longer needed.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>m</strong> (<em>int</em>) – number of columns of <span class="math notranslate nohighlight">\(Z\)</span></p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.destroy">
+<span class="sig-name descname"><span class="pre">destroy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank_updated.html#LowRankUpdatedLinearOperator.destroy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.destroy" title="Link to this definition"></a></dt>
+<dd><p>Destroy the PETSc and SLEPc objects associated with <span class="math notranslate nohighlight">\(L\)</span></p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.solve">
+<span class="sig-name descname"><span class="pre">solve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank_updated.html#LowRankUpdatedLinearOperator.solve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.solve" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = L^{-1}x\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.solve_hermitian_transpose">
+<span class="sig-name descname"><span class="pre">solve_hermitian_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank_updated.html#LowRankUpdatedLinearOperator.solve_hermitian_transpose"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.solve_hermitian_transpose" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = L^{-*}x\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.solve_hermitian_transpose_mat">
+<span class="sig-name descname"><span class="pre">solve_hermitian_transpose_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Z</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank_updated.html#LowRankUpdatedLinearOperator.solve_hermitian_transpose_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.solve_hermitian_transpose_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = L^{-*}X\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.solve_mat">
+<span class="sig-name descname"><span class="pre">solve_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Z</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/low_rank_updated.html#LowRankUpdatedLinearOperator.solve_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.low_rank_updated.LowRankUpdatedLinearOperator.solve_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = L^{-1}X\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-resolvent4py.linear_operators.product">
+<span id="product-linear-operator"></span><h2>Product Linear Operator<a class="headerlink" href="#module-resolvent4py.linear_operators.product" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.product.ProductLinearOperator">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">resolvent4py.linear_operators.product.</span></span><span class="sig-name descname"><span class="pre">ProductLinearOperator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">linops</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#resolvent4py.linear_operators.linear_operator.LinearOperator" title="resolvent4py.linear_operators.linear_operator.LinearOperator"><span class="pre">LinearOperator</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">linops_actions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">Vec</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Vec</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Vec</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nblocks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/product.html#ProductLinearOperator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.product.ProductLinearOperator" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#resolvent4py.linear_operators.linear_operator.LinearOperator" title="resolvent4py.linear_operators.linear_operator.LinearOperator"><code class="xref py py-class docutils literal notranslate"><span class="pre">LinearOperator</span></code></a></p>
+<p>Linear operator of the form</p>
+<div class="math notranslate nohighlight">
+\[L = L_{r}L_{r-1}\ldots L_{2}L_{1}\]</div>
+<p>where <span class="math notranslate nohighlight">\(L_i\)</span> are instances of the <a class="reference internal" href="#resolvent4py.linear_operators.linear_operator.LinearOperator" title="resolvent4py.linear_operators.linear_operator.LinearOperator"><code class="xref py py-class docutils literal notranslate"><span class="pre">LinearOperator</span></code></a> class.
+For example, by setting <code class="code docutils literal notranslate"><span class="pre">linops</span> <span class="pre">=</span> <span class="pre">(L2,</span> <span class="pre">L1)</span></code> and
+<code class="code docutils literal notranslate"><span class="pre">linops_actions</span> <span class="pre">=</span> <span class="pre">(L2.solve,</span> <span class="pre">L1.apply_hermitian_transpose)</span></code>
+we define a linear operator</p>
+<div class="math notranslate nohighlight">
+\[L = L_2^{-1}L_1^*.\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>linops</strong> (<em>List</em><em>[</em><a class="reference internal" href="#resolvent4py.linear_operators.linear_operator.LinearOperator" title="resolvent4py.linear_operators.linear_operator.LinearOperator"><em>LinearOperator</em></a><em>]</em>) – list of linear operators (see example above).</p></li>
+<li><p><strong>linops_actions</strong> (<em>List</em><em>[</em><em>Callable</em><em>[</em><em>[</em><em>PETSc.Vec</em><em>, </em><em>PETSc.Vec</em><em>]</em><em>, </em><em>PETSc.Vec</em><em>]</em><em>]</em>) – list of actions (see example above). Must be one of
+<a class="reference internal" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.apply" title="resolvent4py.linear_operators.linear_operator.LinearOperator.apply"><code class="xref py py-meth docutils literal notranslate"><span class="pre">LinearOperator.apply()</span></code></a>, <a class="reference internal" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.solve" title="resolvent4py.linear_operators.linear_operator.LinearOperator.solve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">LinearOperator.solve()</span></code></a>,
+<a class="reference internal" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.apply_hermitian_transpose" title="resolvent4py.linear_operators.linear_operator.LinearOperator.apply_hermitian_transpose"><code class="xref py py-meth docutils literal notranslate"><span class="pre">LinearOperator.apply_hermitian_transpose()</span></code></a> or
+<a class="reference internal" href="#resolvent4py.linear_operators.linear_operator.LinearOperator.solve_hermitian_transpose" title="resolvent4py.linear_operators.linear_operator.LinearOperator.solve_hermitian_transpose"><code class="xref py py-meth docutils literal notranslate"><span class="pre">LinearOperator.solve_hermitian_transpose()</span></code></a></p></li>
+<li><p><strong>nblocks</strong> (<em>Optional</em><em>[</em><em>Union</em><em>[</em><em>int</em><em>, </em><em>None</em><em>]</em><em>]</em><em>, </em><em>default is None</em>) – number of blocks (if the operator has block structure)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.product.ProductLinearOperator.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/product.html#ProductLinearOperator.apply"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.product.ProductLinearOperator.apply" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = Lx\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.product.ProductLinearOperator.apply_hermitian_transpose">
+<span class="sig-name descname"><span class="pre">apply_hermitian_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/product.html#ProductLinearOperator.apply_hermitian_transpose"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.product.ProductLinearOperator.apply_hermitian_transpose" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = L^*x\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.product.ProductLinearOperator.apply_hermitian_transpose_mat">
+<span class="sig-name descname"><span class="pre">apply_hermitian_transpose_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Z</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/product.html#ProductLinearOperator.apply_hermitian_transpose_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.product.ProductLinearOperator.apply_hermitian_transpose_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = L^*X\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.product.ProductLinearOperator.apply_mat">
+<span class="sig-name descname"><span class="pre">apply_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Z</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/product.html#ProductLinearOperator.apply_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.product.ProductLinearOperator.apply_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = LX\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.product.ProductLinearOperator.create_intermediate_bvs">
+<span class="sig-name descname"><span class="pre">create_intermediate_bvs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">m</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">BV</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/product.html#ProductLinearOperator.create_intermediate_bvs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.product.ProductLinearOperator.create_intermediate_bvs" title="Link to this definition"></a></dt>
+<dd><p>Create list of matrices to store <span class="math notranslate nohighlight">\(L_i Z\)</span>, for any matrix
+Z with <span class="math notranslate nohighlight">\(m\)</span> columns.</p>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>It is the user’s responsibility to destroy this object
+when no longer needed.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>m</strong> (<em>int</em>) – number of columns of <span class="math notranslate nohighlight">\(Z\)</span></p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>List[SLEPc.BV]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.product.ProductLinearOperator.create_intermediate_bvs_hermitian_transpose">
+<span class="sig-name descname"><span class="pre">create_intermediate_bvs_hermitian_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">m</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">BV</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/resolvent4py/linear_operators/product.html#ProductLinearOperator.create_intermediate_bvs_hermitian_transpose"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.product.ProductLinearOperator.create_intermediate_bvs_hermitian_transpose" title="Link to this definition"></a></dt>
+<dd><p>Create list of matrices to store <span class="math notranslate nohighlight">\(L_i^* Z\)</span>, for any matrix
+Z with <span class="math notranslate nohighlight">\(m\)</span> columns.</p>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>It is the user’s responsibility to destroy this object
+when no longer needed.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>m</strong> (<em>int</em>) – number of columns of <span class="math notranslate nohighlight">\(Z\)</span></p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>List[SLEPc.BV]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.product.ProductLinearOperator.destroy">
+<span class="sig-name descname"><span class="pre">destroy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/product.html#ProductLinearOperator.destroy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.product.ProductLinearOperator.destroy" title="Link to this definition"></a></dt>
+<dd><p>Destroy the PETSc and SLEPc objects associated with <span class="math notranslate nohighlight">\(L\)</span></p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-resolvent4py.linear_operators.projection">
+<span id="projection-linear-operator"></span><h2>Projection Linear Operator<a class="headerlink" href="#module-resolvent4py.linear_operators.projection" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.projection.ProjectionLinearOperator">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">resolvent4py.linear_operators.projection.</span></span><span class="sig-name descname"><span class="pre">ProjectionLinearOperator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Phi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Psi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">complement</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nblocks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/projection.html#ProjectionLinearOperator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.projection.ProjectionLinearOperator" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#resolvent4py.linear_operators.linear_operator.LinearOperator" title="resolvent4py.linear_operators.linear_operator.LinearOperator"><code class="xref py py-class docutils literal notranslate"><span class="pre">LinearOperator</span></code></a></p>
+<p>Class for a linear operator of the form</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}L = \begin{cases}
+\Phi \left(\Psi^*\Phi\right)^{-1} \Psi^{*} &amp; \text{if } \texttt{complement=False} \\
+I - \Phi \left(\Psi^*\Phi\right)^{-1} \Psi^{*} &amp; \text{otherwise}
+\end{cases}\end{split}\]</div>
+<p>where <span class="math notranslate nohighlight">\(\Phi\)</span> and <span class="math notranslate nohighlight">\(\Psi\)</span> are tall and skinny matrices of size
+<span class="math notranslate nohighlight">\(N\times r\)</span> stored as SLEPc BVs. (It is easy to check that <span class="math notranslate nohighlight">\(L\)</span>
+is a projection since <span class="math notranslate nohighlight">\(L^2 = L\)</span>.)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Phi</strong> (<em>SLEPc.BV</em>) – tall and skinny matrix</p></li>
+<li><p><strong>Psi</strong> (<em>SLEPc.BV</em>) – tall and skinny matrix</p></li>
+<li><p><strong>complement</strong> (<em>Optional</em><em>[</em><em>bool</em><em>]</em><em>, </em><em>default if False</em>) – see definition of <span class="math notranslate nohighlight">\(L\)</span></p></li>
+<li><p><strong>nblocks</strong> (<em>Optional</em><em>[</em><em>Union</em><em>[</em><em>int</em><em>, </em><em>None</em><em>]</em><em>]</em><em>, </em><em>default is None</em>) – number of blocks (if the operator has block structure)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.projection.ProjectionLinearOperator.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/projection.html#ProjectionLinearOperator.apply"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.projection.ProjectionLinearOperator.apply" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = Lx\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.projection.ProjectionLinearOperator.apply_hermitian_transpose">
+<span class="sig-name descname"><span class="pre">apply_hermitian_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/projection.html#ProjectionLinearOperator.apply_hermitian_transpose"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.projection.ProjectionLinearOperator.apply_hermitian_transpose" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(y = L^*x\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>PETSc.Vec</em>) – a PETSc vector</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>PETSc.Vec</em><em>]</em><em>, </em><em>default is None</em>) – a PETSc vector to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>PETSc.Vec</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.projection.ProjectionLinearOperator.apply_hermitian_transpose_mat">
+<span class="sig-name descname"><span class="pre">apply_hermitian_transpose_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/projection.html#ProjectionLinearOperator.apply_hermitian_transpose_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.projection.ProjectionLinearOperator.apply_hermitian_transpose_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = L^*X\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.projection.ProjectionLinearOperator.apply_mat">
+<span class="sig-name descname"><span class="pre">apply_mat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/projection.html#ProjectionLinearOperator.apply_mat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.projection.ProjectionLinearOperator.apply_mat" title="Link to this definition"></a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(Y = LX\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>SLEPc.BV</em>) – a SLEPc BV</p></li>
+<li><p><strong>Y</strong> (<em>Optional</em><em>[</em><em>SLEPc.BV</em><em>]</em><em>, </em><em>default is None</em>) – a SLEPc BV to store the result</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SLEPc.BV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="resolvent4py.linear_operators.projection.ProjectionLinearOperator.destroy">
+<span class="sig-name descname"><span class="pre">destroy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/resolvent4py/linear_operators/projection.html#ProjectionLinearOperator.destroy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.linear_operators.projection.ProjectionLinearOperator.destroy" title="Link to this definition"></a></dt>
+<dd><p>Destroy the PETSc and SLEPc objects associated with <span class="math notranslate nohighlight">\(L\)</span></p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="api-reference.html" class="btn btn-neutral float-left" title="API-reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="linalg.html" class="btn btn-neutral float-right" title="Linalg" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Alberto Padovan.</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
