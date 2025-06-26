@@ -1,0 +1,377 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>resolvent4py.linalg.eigendecomposition &mdash; resolvent4py 0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css?v=d2d258e8" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
+      <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            resolvent4py
+              <img src="../../../_static/logo.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-reference.html">API-reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../refs.html">References</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../auto_examples/cgl/index.html">Complex Ginzburg-Landau Equation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../auto_examples/toy_model/index.html">Toy Model</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">resolvent4py</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">resolvent4py.linalg.eigendecomposition</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for resolvent4py.linalg.eigendecomposition</h1><div class="highlight"><pre>
+<span></span><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;arnoldi_iteration&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;eig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;match_right_and_left_eigenvectors&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;check_eig_convergence&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">petsc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">PETSc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">slepc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">SLEPc</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..linear_operators</span><span class="w"> </span><span class="kn">import</span> <span class="n">LinearOperator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils.miscellaneous</span><span class="w"> </span><span class="kn">import</span> <span class="n">petscprint</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils.random</span><span class="w"> </span><span class="kn">import</span> <span class="n">generate_random_petsc_vector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils.vector</span><span class="w"> </span><span class="kn">import</span> <span class="n">enforce_complex_conjugacy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils.matrix</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_dense_matrix</span>
+
+
+<div class="viewcode-block" id="arnoldi_iteration">
+<a class="viewcode-back" href="../../../linalg.html#resolvent4py.linalg.eigendecomposition.arnoldi_iteration">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">arnoldi_iteration</span><span class="p">(</span>
+    <span class="n">L</span><span class="p">:</span> <span class="n">LinearOperator</span><span class="p">,</span>
+    <span class="n">action</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Callable</span><span class="p">[</span>
+        <span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]],</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span>
+    <span class="p">],</span>
+    <span class="n">krylov_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Perform the Arnoldi iteration algorithm to compute an </span>
+<span class="sd">    orthonormal basis and the corresponding Hessenberg matrix </span>
+<span class="sd">    for the range of the linear operator specified by</span>
+<span class="sd">    :code:`L` and :code:`action`.</span>
+<span class="sd">    </span>
+<span class="sd">    :param L: instance of the :class:`.LinearOperator` class</span>
+<span class="sd">    :type L: :class:`.LinearOperator`</span>
+<span class="sd">    :param action: one of :meth:`.LinearOperator.apply`, </span>
+<span class="sd">        :meth:`.LinearOperator.apply_hermitian_transpose`, </span>
+<span class="sd">        :meth:`.LinearOperator.solve` or </span>
+<span class="sd">        :meth:`.LinearOperator.solve_hermitian_transpose`</span>
+<span class="sd">    :type action: Callable[[PETSc.Vec, PETSc.Vec], PETSc.Vec]</span>
+<span class="sd">    :param krylov_dim: dimension of the Arnoldi Krylov subspace</span>
+<span class="sd">    :type krylov_dim: int</span>
+<span class="sd">    :param verbose: 0 = no printout to terminal, 1 = print progress</span>
+<span class="sd">    :type verbose: Optional[int], default is 0</span>
+<span class="sd">    </span>
+<span class="sd">    :return: tuple with an orthonormal basis for the Krylov subspace</span>
+<span class="sd">        and the Hessenberg matrix</span>
+<span class="sd">    :rtype: (`BV`_ with :code:`krylov_dim` columns, \</span>
+<span class="sd">        numpy.ndarray of size :code:`krylov_dim x krylov_dim`)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">comm</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">get_comm</span><span class="p">()</span>
+    <span class="n">sizes</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">L</span><span class="o">.</span><span class="n">get_dimensions</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">action</span> <span class="o">==</span> <span class="n">L</span><span class="o">.</span><span class="n">apply</span> <span class="ow">or</span> <span class="n">action</span> <span class="o">==</span> <span class="n">L</span><span class="o">.</span><span class="n">solve</span>
+        <span class="k">else</span> <span class="n">L</span><span class="o">.</span><span class="n">get_dimensions</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">nblocks</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">get_nblocks</span><span class="p">()</span>
+    <span class="n">block_cc</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">get_block_cc_flag</span><span class="p">()</span>
+    <span class="c1"># Initialize the Hessenberg matrix and the BV for the Krylov subspace</span>
+    <span class="n">Q</span> <span class="o">=</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="o">=</span><span class="n">comm</span><span class="p">)</span>
+    <span class="n">Q</span><span class="o">.</span><span class="n">setSizes</span><span class="p">(</span><span class="n">sizes</span><span class="p">,</span> <span class="n">krylov_dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">Q</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;mat&quot;</span><span class="p">)</span>
+    <span class="n">H</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">krylov_dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">krylov_dim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
+    <span class="nb">complex</span> <span class="o">=</span> <span class="kc">False</span> <span class="k">if</span> <span class="n">L</span><span class="o">.</span><span class="n">get_real_flag</span><span class="p">()</span> <span class="k">else</span> <span class="kc">True</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">generate_random_petsc_vector</span><span class="p">(</span><span class="n">sizes</span><span class="p">,</span> <span class="nb">complex</span><span class="p">)</span>
+    <span class="n">enforce_complex_conjugacy</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">nblocks</span><span class="p">)</span> <span class="k">if</span> <span class="n">block_cc</span> <span class="o">==</span> <span class="kc">True</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">q</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">q</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span>
+    <span class="n">Q</span><span class="o">.</span><span class="n">insertVec</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
+    <span class="c1"># Perform the Arnoldi iterations</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">L</span><span class="o">.</span><span class="n">create_left_vector</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">action</span> <span class="o">==</span> <span class="n">L</span><span class="o">.</span><span class="n">apply</span> <span class="ow">or</span> <span class="n">action</span> <span class="o">==</span> <span class="n">L</span><span class="o">.</span><span class="n">solve</span>
+        <span class="k">else</span> <span class="n">L</span><span class="o">.</span><span class="n">create_right_vector</span><span class="p">()</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">krylov_dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">verbose</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">petscprint</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="s2">&quot;Arnoldi iteration </span><span class="si">%d</span><span class="s2">/</span><span class="si">%d</span><span class="s2">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">krylov_dim</span><span class="p">))</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">action</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
+            <span class="n">qj</span> <span class="o">=</span> <span class="n">Q</span><span class="o">.</span><span class="n">getColumn</span><span class="p">(</span><span class="n">j</span><span class="p">)</span>
+            <span class="n">H</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">qj</span><span class="p">)</span>
+            <span class="n">v</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="o">-</span><span class="n">H</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">qj</span><span class="p">)</span>
+            <span class="n">Q</span><span class="o">.</span><span class="n">restoreColumn</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">qj</span><span class="p">)</span>
+        <span class="n">H</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span>
+        <span class="n">v</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">H</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">Q</span><span class="o">.</span><span class="n">insertVec</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+        <span class="n">v</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+    <span class="n">q</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+    <span class="n">v</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+    <span class="n">Q</span><span class="o">.</span><span class="n">setActiveColumns</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">krylov_dim</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">H</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">,])</span></div>
+
+
+
+<div class="viewcode-block" id="eig">
+<a class="viewcode-back" href="../../../linalg.html#resolvent4py.linalg.eigendecomposition.eig">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">eig</span><span class="p">(</span>
+    <span class="n">L</span><span class="p">:</span> <span class="n">LinearOperator</span><span class="p">,</span>
+    <span class="n">action</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Callable</span><span class="p">[[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">],</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">],</span>
+    <span class="n">krylov_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">n_evals</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">process_evals</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span>
+        <span class="n">typing</span><span class="o">.</span><span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">]:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the eigendecomposition of the linear operator specified by</span>
+<span class="sd">    :code:`L` and :code:`action`. For example,</span>
+<span class="sd">    to compute the eigenvalues of :math:`L` closest to the origin,</span>
+<span class="sd">    set :code:`action = L.solve` and</span>
+<span class="sd">    :code:`process_evals = lambda x: 1./x`.</span>
+
+<span class="sd">    :param L: instance of the :class:`.LinearOperator` class</span>
+<span class="sd">    :type L: :class:`.LinearOperator`</span>
+<span class="sd">    :param action: one of :meth:`.LinearOperator.apply`,</span>
+<span class="sd">        :meth:`.LinearOperator.apply_hermitian_transpose`,</span>
+<span class="sd">        :meth:`.LinearOperator.solve` or</span>
+<span class="sd">        :meth:`.LinearOperator.solve_hermitian_transpose`</span>
+<span class="sd">    :type action: Callable[[PETSc.Vec, PETSc.Vec], PETSc.Vec]</span>
+<span class="sd">    :param krylov_dim: dimension of the Arnoldi Krylov subspace</span>
+<span class="sd">    :type krylov_dim: int</span>
+<span class="sd">    :param n_evals: number of eigenvalues to return</span>
+<span class="sd">    :type n_evals: int</span>
+<span class="sd">    :param process_evals: function to extract the desired eigenvalues</span>
+<span class="sd">        (see description above for an example).</span>
+<span class="sd">    :type process_evals: Optional[Callable[[np.ndarray], np.ndarray]], default</span>
+<span class="sd">        is :code:`lambda x: x`</span>
+<span class="sd">    :param verbose: 0 = no printout to terminal, 1 = print progress</span>
+<span class="sd">    :type verbose: Optional[int], default is 0</span>
+
+<span class="sd">    :return: tuple with the desired eigenvalues and corresponding eigenvectors</span>
+<span class="sd">    :rtype: (numpy.ndarray of size :code:`n_evals x n_evals`,</span>
+<span class="sd">        SLEPc.BV with :code:`n_evals` columns)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">Q</span><span class="p">,</span> <span class="n">H</span> <span class="o">=</span> <span class="n">arnoldi_iteration</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">krylov_dim</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
+    <span class="n">evals</span><span class="p">,</span> <span class="n">evecs</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">H</span><span class="p">)</span>
+    <span class="n">idces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flipud</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">evals</span><span class="p">)))[:</span><span class="n">n_evals</span><span class="p">]</span>
+    <span class="n">evals</span> <span class="o">=</span> <span class="n">evals</span><span class="p">[</span><span class="n">idces</span><span class="p">]</span>
+    <span class="n">evecs</span> <span class="o">=</span> <span class="n">evecs</span><span class="p">[:,</span> <span class="n">idces</span><span class="p">]</span>
+    <span class="n">evecs_</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">()</span><span class="o">.</span><span class="n">createDense</span><span class="p">(</span>
+        <span class="n">evecs</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">evecs</span><span class="p">,</span> <span class="n">comm</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">COMM_SELF</span>
+    <span class="p">)</span>
+    <span class="n">Q</span><span class="o">.</span><span class="n">multInPlace</span><span class="p">(</span><span class="n">evecs_</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">n_evals</span><span class="p">)</span>
+    <span class="n">Q</span><span class="o">.</span><span class="n">setActiveColumns</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_evals</span><span class="p">)</span>
+    <span class="n">Q</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">n_evals</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">evals</span> <span class="o">=</span> <span class="n">evals</span> <span class="k">if</span> <span class="n">process_evals</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">process_evals</span><span class="p">(</span><span class="n">evals</span><span class="p">)</span>
+    <span class="n">evecs_</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">evals</span><span class="p">),</span> <span class="n">Q</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="match_right_and_left_eigenvectors">
+<a class="viewcode-back" href="../../../linalg.html#resolvent4py.linalg.eigendecomposition.match_right_and_left_eigenvectors">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">match_right_and_left_eigenvectors</span><span class="p">(</span>
+    <span class="n">V</span><span class="p">:</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">,</span> <span class="n">W</span><span class="p">:</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">,</span> <span class="n">Dv</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Dw</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">,</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Scale and sort the right and left eigenvectors and corresponding eigenvalues</span>
+<span class="sd">    of an underlying operator :math:`L`, so that</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        W^* L V = D_v = D_w,\quad W^* V = I \in\mathbb{R}^{m\times m}.</span>
+
+
+<span class="sd">    :param V: :code:`m` right eigenvectors</span>
+<span class="sd">    :type V: SLEPc.BV</span>
+<span class="sd">    :param W: :code:`m` left eigenvectors</span>
+<span class="sd">    :type W: SLEPc.BV</span>
+<span class="sd">    :param Dv: right eigenvalues</span>
+<span class="sd">    :type Dv: numpy.ndarray of size :code:`m x m`</span>
+<span class="sd">    :param Dv: eigenvalues computed from the right eigendecomposition</span>
+<span class="sd">        of :math:`L`</span>
+<span class="sd">    :type Dv: numpy.ndarray of size :code:`m x m`</span>
+<span class="sd">    :param Dw: eigenvalues computed from the left eigendecomposition</span>
+<span class="sd">        of :math:`L`. (Attention: these have already been complex conjugated.)</span>
+<span class="sd">    :type Dw: numpy.ndarray of size :code:`m x m`</span>
+
+<span class="sd">    :return: tuple :math:`(V, W, D_v, D_w)` with the biorthogonalized</span>
+<span class="sd">        eigenvectors and corresponding eigenvalues</span>
+<span class="sd">    :rtype: (SLEPc.BV with :code:`m` columns, SLEPc.BV with :code:`m` columns,</span>
+<span class="sd">        numpy.ndarray of size :code:`m x m`,</span>
+<span class="sd">        numpy.ndarray of size :code:`m x m`)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Match the right and left eigenvalues/vectors</span>
+    <span class="n">Dv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">Dv</span><span class="p">)</span>
+    <span class="n">Dw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">Dw</span><span class="p">)</span>
+    <span class="n">idces</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Dv</span> <span class="o">-</span> <span class="n">val</span><span class="p">))</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">Dw</span><span class="p">]</span>
+    <span class="n">Dw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">Dw</span><span class="p">[</span><span class="n">idces</span><span class="p">])</span>
+    <span class="n">Dv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">Dv</span><span class="p">)</span>
+    <span class="n">Qadj</span> <span class="o">=</span> <span class="n">W</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">idces</span><span class="p">)):</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">Qadj</span><span class="o">.</span><span class="n">getColumn</span><span class="p">(</span><span class="n">idces</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+        <span class="n">W</span><span class="o">.</span><span class="n">insertVec</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
+        <span class="n">Qadj</span><span class="o">.</span><span class="n">restoreColumn</span><span class="p">(</span><span class="n">idces</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">q</span><span class="p">)</span>
+    <span class="n">Qadj</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+    <span class="c1"># Biorthogonalize the eigenvectors</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">W</span><span class="p">)</span>
+    <span class="n">evals</span><span class="p">,</span> <span class="n">evecs</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">M</span><span class="o">.</span><span class="n">getDenseArray</span><span class="p">())</span>
+    <span class="n">idces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">evals</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-10</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">evals</span><span class="p">[</span><span class="n">idces</span><span class="p">]</span> <span class="o">+=</span> <span class="mf">1e-10</span>
+    <span class="n">Minv</span> <span class="o">=</span> <span class="n">evecs</span> <span class="o">@</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">evals</span><span class="p">)</span> <span class="o">@</span> <span class="n">sp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">evecs</span><span class="p">)</span>
+    <span class="n">Minv</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">()</span><span class="o">.</span><span class="n">createDense</span><span class="p">(</span><span class="n">Minv</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Minv</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">COMM_SELF</span><span class="p">)</span>
+    <span class="n">V</span><span class="o">.</span><span class="n">multInPlace</span><span class="p">(</span><span class="n">Minv</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">V</span><span class="o">.</span><span class="n">getSizes</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">M</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+    <span class="n">Minv</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">Dv</span><span class="p">,</span> <span class="n">Dw</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="check_eig_convergence">
+<a class="viewcode-back" href="../../../linalg.html#resolvent4py.linalg.eigendecomposition.check_eig_convergence">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">check_eig_convergence</span><span class="p">(</span>
+    <span class="n">action</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Callable</span><span class="p">[[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">],</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">],</span>
+    <span class="n">D</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">V</span><span class="p">:</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">,</span>
+    <span class="n">monitor</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Check convergence of the eigenpairs by measuring</span>
+<span class="sd">    :math:`\lVert L v - \lambda v\rVert` for each pair :math:`(\lambda, v)`.</span>
+
+<span class="sd">    :param action: one of :meth:`.LinearOperator.apply` or</span>
+<span class="sd">        :meth:`.LinearOperator.apply_hermitian_transpose`</span>
+<span class="sd">    :type action: Callable[[PETSc.Vec, PETSc.Vec], PETSc.Vec]</span>
+<span class="sd">    :param D: diagonal 2D numpy array with the eigenvalues</span>
+<span class="sd">    :type D: numpy.ndarray</span>
+<span class="sd">    :param V: corresponding eigenvectors</span>
+<span class="sd">    :type V: SLEPc.BV</span>
+
+<span class="sd">    :return: Error vector (each entry is the error of the corresponding</span>
+<span class="sd">        eigen pair)</span>
+<span class="sd">    :rtype: np.array</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">monitor</span><span class="p">:</span>
+        <span class="n">petscprint</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span>
+        <span class="n">petscprint</span><span class="p">(</span>
+            <span class="n">PETSc</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="s2">&quot;Executing eigenpair convergence check...&quot;</span>
+        <span class="p">)</span>
+    <span class="n">error_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">D</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">createVec</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">D</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">getColumn</span><span class="p">(</span><span class="n">j</span><span class="p">)</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">e</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="n">D</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">j</span><span class="p">])</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">action</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+        <span class="n">e</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span>
+        <span class="n">error_vec</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">error</span><span class="o">.</span><span class="n">real</span>
+        <span class="n">V</span><span class="o">.</span><span class="n">restoreColumn</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+        <span class="n">e</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">monitor</span><span class="p">:</span>
+            <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Error for eigenpair </span><span class="si">%d</span><span class="s2"> = </span><span class="si">%1.15e</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
+            <span class="n">petscprint</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+    <span class="n">w</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">monitor</span><span class="p">:</span>
+        <span class="n">petscprint</span><span class="p">(</span>
+            <span class="n">PETSc</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="s2">&quot;Executing eigenpair convergence check...&quot;</span>
+        <span class="p">)</span>
+        <span class="n">petscprint</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">error_vec</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Alberto Padovan.</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

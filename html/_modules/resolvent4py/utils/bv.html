@@ -1,0 +1,287 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>resolvent4py.utils.bv &mdash; resolvent4py 0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css?v=d2d258e8" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
+      <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            resolvent4py
+              <img src="../../../_static/logo.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-reference.html">API-reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../refs.html">References</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../auto_examples/cgl/index.html">Complex Ginzburg-Landau Equation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../auto_examples/toy_model/index.html">Toy Model</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">resolvent4py</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">resolvent4py.utils.bv</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for resolvent4py.utils.bv</h1><div class="highlight"><pre>
+<span></span><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;bv_add&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;bv_conj&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;bv_real&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;bv_imag&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">slepc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">SLEPc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">petsc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">PETSc</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.matrix</span><span class="w"> </span><span class="kn">import</span> <span class="n">convert_coo_to_csr</span>
+
+
+<div class="viewcode-block" id="bv_add">
+<a class="viewcode-back" href="../../../utils.html#resolvent4py.utils.bv.bv_add">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">bv_add</span><span class="p">(</span><span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">,</span> <span class="n">Y</span><span class="p">:</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute in-place addition :math:`X \leftarrow X + \alpha Y`</span>
+
+<span class="sd">    :type alpha: float</span>
+<span class="sd">    :type X: SLEPc.BV</span>
+<span class="sd">    :type Y: SLEPc.BV</span>
+
+<span class="sd">    :rtype: SLEPc.BV</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">Xm</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">getMat</span><span class="p">()</span>
+    <span class="n">Ym</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">getMat</span><span class="p">()</span>
+    <span class="n">Xm</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">Ym</span><span class="p">)</span>
+    <span class="n">X</span><span class="o">.</span><span class="n">restoreMat</span><span class="p">(</span><span class="n">Xm</span><span class="p">)</span>
+    <span class="n">Y</span><span class="o">.</span><span class="n">restoreMat</span><span class="p">(</span><span class="n">Ym</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">X</span></div>
+
+
+
+<div class="viewcode-block" id="bv_conj">
+<a class="viewcode-back" href="../../../utils.html#resolvent4py.utils.bv.bv_conj">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">bv_conj</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">,</span> <span class="n">inplace</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the complex conjugate :math:`\overline{X}` of the BV structure</span>
+
+<span class="sd">    :type X: SLEPc.BV</span>
+<span class="sd">    :param inplace: in-place if :code:`True`, else the result is stored in a</span>
+<span class="sd">        new SLEPc.BV structure</span>
+<span class="sd">    :type inplace: Optional[bool], default is False</span>
+
+<span class="sd">    :rtype: SLEPc.BV</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">X</span> <span class="k">if</span> <span class="n">inplace</span> <span class="k">else</span> <span class="n">X</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">Ym</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">getMat</span><span class="p">()</span>
+    <span class="n">Ym</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span>
+    <span class="n">Y</span><span class="o">.</span><span class="n">restoreMat</span><span class="p">(</span><span class="n">Ym</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Y</span></div>
+
+
+
+<div class="viewcode-block" id="bv_real">
+<a class="viewcode-back" href="../../../utils.html#resolvent4py.utils.bv.bv_real">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">bv_real</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">,</span> <span class="n">inplace</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the real part :math:`\text{Re}(X)` of the BV structure</span>
+
+<span class="sd">    :type X: SLEPc.BV</span>
+<span class="sd">    :param inplace: in-place if :code:`True`, else the result is stored in a</span>
+<span class="sd">        new SLEPc.BV structure</span>
+<span class="sd">    :type inplace: Optional[bool], default is False</span>
+
+<span class="sd">    :rtype: SLEPc.BV</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">X</span> <span class="k">if</span> <span class="n">inplace</span> <span class="k">else</span> <span class="n">X</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">Ym</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">getMat</span><span class="p">()</span>
+    <span class="n">Ym</span><span class="o">.</span><span class="n">realPart</span><span class="p">()</span>
+    <span class="n">Y</span><span class="o">.</span><span class="n">restoreMat</span><span class="p">(</span><span class="n">Ym</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Y</span></div>
+
+
+
+<div class="viewcode-block" id="bv_imag">
+<a class="viewcode-back" href="../../../utils.html#resolvent4py.utils.bv.bv_imag">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">bv_imag</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">,</span> <span class="n">inplace</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the imaginary part :math:`\text{Im}(X)` of the BV structure</span>
+
+<span class="sd">    :type X: SLEPc.BV</span>
+<span class="sd">    :param inplace: in-place if :code:`True`, else the result is stored in a</span>
+<span class="sd">        new SLEPc.BV structure</span>
+<span class="sd">    :type inplace: Optional[bool], default is False</span>
+
+<span class="sd">    :rtype: SLEPc.BV</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">X</span> <span class="k">if</span> <span class="n">inplace</span> <span class="k">else</span> <span class="n">X</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">Ym</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">getMat</span><span class="p">()</span>
+    <span class="n">Ym</span><span class="o">.</span><span class="n">imagPart</span><span class="p">()</span>
+    <span class="n">Y</span><span class="o">.</span><span class="n">restoreMat</span><span class="p">(</span><span class="n">Ym</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Y</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">bv_slice</span><span class="p">(</span>
+    <span class="n">comm</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span>
+    <span class="n">X</span><span class="p">:</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">,</span>
+    <span class="n">columns</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">,</span>
+    <span class="n">Y</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Extract a subset of columns from X and store into Y</span>
+
+<span class="sd">    :type X: SLEPc.BV</span>
+<span class="sd">    :param columns: array of columns to extract</span>
+<span class="sd">    :type columns: np.array</span>
+<span class="sd">    :type Y: Optional[SLEPc.BV], default is None</span>
+
+<span class="sd">    :rtype: SLEPc.BV</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">Y</span> <span class="o">==</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">Y</span> <span class="o">=</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="p">)</span>
+        <span class="n">Y</span><span class="o">.</span><span class="n">setSizes</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">getSizes</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="n">columns</span><span class="p">))</span>
+        <span class="n">Y</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;mat&quot;</span><span class="p">)</span>
+    <span class="n">Q</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">X</span><span class="o">.</span><span class="n">getSizes</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="n">columns</span><span class="p">)))</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">columns</span><span class="p">)):</span>
+        <span class="n">Q</span><span class="p">[</span><span class="n">columns</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="n">Q</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">()</span><span class="o">.</span><span class="n">createDense</span><span class="p">(</span><span class="n">Q</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Q</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">COMM_SELF</span><span class="p">)</span>
+    <span class="n">Y</span><span class="o">.</span><span class="n">mult</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Q</span><span class="p">)</span>
+    <span class="n">Q</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">Y</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">bv_roll</span><span class="p">(</span>
+    <span class="n">comm</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span>
+    <span class="n">X</span><span class="p">:</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">,</span>
+    <span class="n">roll</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">axis</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">in_place</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    If :code:`axis=0` roll the rows of X by amount :code:`roll`, if</span>
+<span class="sd">    :code:`axis=-1` roll the columns of X by amount :code:`roll`. This operation</span>
+<span class="sd">    can be done in place if :code:`in_place == True` (default is :code:`False`).</span>
+
+<span class="sd">    :type X: SLEPc.BV</span>
+<span class="sd">    :type roll: int</span>
+<span class="sd">    :type axis: int</span>
+<span class="sd">    :type in_place: Optional[bool], default is :code:`False`</span>
+
+<span class="sd">    :rtype: SLEPc.BV</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">in_place</span> <span class="k">else</span> <span class="n">X</span>
+
+    <span class="k">if</span> <span class="n">axis</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+        <span class="n">Q</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">Y</span><span class="o">.</span><span class="n">getSizes</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="n">Q</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">roll</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">Q</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">()</span><span class="o">.</span><span class="n">createDense</span><span class="p">(</span><span class="n">Q</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Q</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">COMM_SELF</span><span class="p">)</span>
+        <span class="n">Y</span><span class="o">.</span><span class="n">multInPlace</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">Y</span><span class="o">.</span><span class="n">getSizes</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">Q</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># from ..linear_operators import MatrixLinearOperator</span>
+        <span class="n">Ym</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">getMat</span><span class="p">()</span>
+        <span class="n">r0</span><span class="p">,</span> <span class="n">r1</span> <span class="o">=</span> <span class="n">Ym</span><span class="o">.</span><span class="n">getOwnershipRange</span><span class="p">()</span>
+        <span class="n">cols</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">r1</span> <span class="o">-</span> <span class="n">r0</span><span class="p">)</span> <span class="o">+</span> <span class="n">r0</span>
+        <span class="n">rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mod</span><span class="p">(</span><span class="n">cols</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="o">+</span> <span class="n">roll</span><span class="p">,</span> <span class="n">Y</span><span class="o">.</span><span class="n">getSizes</span><span class="p">()[</span><span class="mi">0</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">))</span>
+        <span class="n">sizes</span> <span class="o">=</span> <span class="p">(</span><span class="n">Y</span><span class="o">.</span><span class="n">getSizes</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span> <span class="n">Y</span><span class="o">.</span><span class="n">getSizes</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">row_ptr</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="n">val</span> <span class="o">=</span> <span class="n">convert_coo_to_csr</span><span class="p">([</span><span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">vals</span><span class="p">],</span> <span class="n">sizes</span><span class="p">)</span>
+        <span class="n">M</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">()</span><span class="o">.</span><span class="n">createAIJ</span><span class="p">(</span><span class="n">sizes</span><span class="p">,</span> <span class="n">comm</span><span class="o">=</span><span class="n">comm</span><span class="p">)</span>
+        <span class="n">M</span><span class="o">.</span><span class="n">setPreallocationCSR</span><span class="p">((</span><span class="n">row_ptr</span><span class="p">,</span> <span class="n">col</span><span class="p">))</span>
+        <span class="n">M</span><span class="o">.</span><span class="n">setValuesCSR</span><span class="p">(</span><span class="n">row_ptr</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">M</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;This error is coming from utils.bv.bv_roll(). &quot;</span>
+            <span class="o">+</span> <span class="s2">&quot;Need to fix this function because it was causing a&quot;</span>
+            <span class="o">+</span> <span class="s2">&quot;circular import.&quot;</span>
+        <span class="p">)</span>
+        <span class="c1"># Mlop = MatrixLinearOperator(comm, M)</span>
+        <span class="c1"># Y = Mlop.apply_mat(X, Y)</span>
+        <span class="c1"># Mlop.destroy()</span>
+    <span class="k">return</span> <span class="n">Y</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Alberto Padovan.</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

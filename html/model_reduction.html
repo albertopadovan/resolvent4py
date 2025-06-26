@@ -1,0 +1,240 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Model Reduction &mdash; resolvent4py 0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/sg_gallery.css?v=d2d258e8" />
+      <link rel="stylesheet" type="text/css" href="_static/sg_gallery-binder.css?v=f4aeca0c" />
+      <link rel="stylesheet" type="text/css" href="_static/sg_gallery-dataframe.css?v=2082cf3c" />
+      <link rel="stylesheet" type="text/css" href="_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=2709fde1"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Utils" href="utils.html" />
+    <link rel="prev" title="Linalg" href="linalg.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            resolvent4py
+              <img src="_static/logo.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="api-reference.html">API-reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="linear_operators.html">Linear Operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="linalg.html">Linalg</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Model Reduction</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-resolvent4py.model_reduction.balanced_truncation">Balanced Truncation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.model_reduction.balanced_truncation.assemble_reduced_order_tensors"><code class="docutils literal notranslate"><span class="pre">assemble_reduced_order_tensors()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.model_reduction.balanced_truncation.compute_balanced_projection"><code class="docutils literal notranslate"><span class="pre">compute_balanced_projection()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resolvent4py.model_reduction.balanced_truncation.compute_gramian_factors"><code class="docutils literal notranslate"><span class="pre">compute_gramian_factors()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="utils.html">Utils</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="refs.html">References</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="auto_examples/cgl/index.html">Complex Ginzburg-Landau Equation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="auto_examples/toy_model/index.html">Toy Model</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">resolvent4py</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="api-reference.html">API-reference</a></li>
+      <li class="breadcrumb-item active">Model Reduction</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/model_reduction.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="model-reduction">
+<h1>Model Reduction<a class="headerlink" href="#model-reduction" title="Link to this heading"></a></h1>
+<section id="module-resolvent4py.model_reduction.balanced_truncation">
+<span id="balanced-truncation"></span><h2>Balanced Truncation<a class="headerlink" href="#module-resolvent4py.model_reduction.balanced_truncation" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.model_reduction.balanced_truncation.assemble_reduced_order_tensors">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.model_reduction.balanced_truncation.</span></span><span class="sig-name descname"><span class="pre">assemble_reduced_order_tensors</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">L</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="linear_operators.html#resolvent4py.linear_operators.linear_operator.LinearOperator" title="resolvent4py.linear_operators.linear_operator.LinearOperator"><span class="pre">LinearOperator</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">B</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">C</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Phi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Psi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/resolvent4py/model_reduction/balanced_truncation.html#assemble_reduced_order_tensors"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.model_reduction.balanced_truncation.assemble_reduced_order_tensors" title="Link to this definition"></a></dt>
+<dd><p>Assemble the reduced-order tensors <span class="math notranslate nohighlight">\(A_r = \Psi^\intercal L \Phi\)</span>,
+<span class="math notranslate nohighlight">\(B_r = \Psi^\intercal B\)</span> and <span class="math notranslate nohighlight">\(C_r = \Phi^\intercal C\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>L</strong> (<a class="reference internal" href="linear_operators.html#resolvent4py.linear_operators.linear_operator.LinearOperator" title="resolvent4py.linear_operators.linear_operator.LinearOperator"><em>LinearOperator</em></a>) – linear operator governing the dynamics of the full-order system</p></li>
+<li><p><strong>B</strong> (<em>SLEPc.BV</em>) – input matrix of the full-order system</p></li>
+<li><p><strong>C</strong> (<em>SLEPc.BV</em>) – (complex-conj. transpose) of the output matrix of the full-order
+system</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Tuple with <span class="math notranslate nohighlight">\(A_r\)</span>, <span class="math notranslate nohighlight">\(B_r\)</span> and <span class="math notranslate nohighlight">\(C_r\)</span></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.model_reduction.balanced_truncation.compute_balanced_projection">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.model_reduction.balanced_truncation.</span></span><span class="sig-name descname"><span class="pre">compute_balanced_projection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">BV</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">BV</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/resolvent4py/model_reduction/balanced_truncation.html#compute_balanced_projection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.model_reduction.balanced_truncation.compute_balanced_projection" title="Link to this definition"></a></dt>
+<dd><p>Given the output <span class="math notranslate nohighlight">\((X, Y)\)</span> of <a class="reference internal" href="#resolvent4py.model_reduction.balanced_truncation.compute_gramian_factors" title="resolvent4py.model_reduction.balanced_truncation.compute_gramian_factors"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_gramian_factors()</span></code></a>, compute
+<span class="math notranslate nohighlight">\(\Phi\)</span> and <span class="math notranslate nohighlight">\(\Psi\)</span> (each of dimension <span class="math notranslate nohighlight">\(N\times r\)</span>).
+Given the singular value decomposition <span class="math notranslate nohighlight">\(Y^*X = U\Sigma V^*\)</span>, these
+are given by</p>
+<div class="math notranslate nohighlight">
+\[\Phi = X V \Sigma^{-1/2},\quad \Psi = Y U \Sigma^{-1/2}.\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>PETSc.Mat</em>) – reachability Gramian factor</p></li>
+<li><p><strong>Y</strong> (<em>PETSc. Mat</em>) – observability Gramian factor</p></li>
+<li><p><strong>r</strong> (<em>int</em>) – number of columns of <span class="math notranslate nohighlight">\(\Phi\)</span> and <span class="math notranslate nohighlight">\(\Psi\)</span></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple <span class="math notranslate nohighlight">\((\Phi, \Psi, \Sigma)\)</span></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[SLEPc.BV, SLEPc.BV, numpy.ndarray]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="resolvent4py.model_reduction.balanced_truncation.compute_gramian_factors">
+<span class="sig-prename descclassname"><span class="pre">resolvent4py.model_reduction.balanced_truncation.</span></span><span class="sig-name descname"><span class="pre">compute_gramian_factors</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">L_generators</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frequencies</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">B</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">C</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BV</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Mat</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Mat</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/resolvent4py/model_reduction/balanced_truncation.html#compute_gramian_factors"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#resolvent4py.model_reduction.balanced_truncation.compute_gramian_factors" title="Link to this definition"></a></dt>
+<dd><p>Compute the Gramian factors as outlined in section 2 of <a class="reference internal" href="#dergham2011" id="id1"><span>[Dergham2011]</span></a>.
+In particular, we approximate the Reachability and Observability
+Gramians as follows</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{align}
+G_R &amp;= \frac{1}{2\pi}\int_{-\infty}^{\infty}R(\omega)BB^*R(\omega)^*\
+    \,d\omega \approx \sum_j w_j X(\omega_j)X(\omega_j)^* = XX^* \\
+G_O &amp;= \frac{1}{2\pi}\int_{-\infty}^{\infty}R(\omega)^*CC^*R(\omega)\,\
+    d\omega \approx \sum_j w_j Y(\omega_j)Y(\omega_j)^* = YY^*
+\end{align}\end{split}\]</div>
+<p>where <span class="math notranslate nohighlight">\(\omega_j\in\Omega\)</span> are quadrature points and <span class="math notranslate nohighlight">\(w_j\)</span> are
+corresponding quadrature weights. Here, <span class="math notranslate nohighlight">\(X(\omega_j) = R(\omega_j)B\)</span>,
+and <span class="math notranslate nohighlight">\(R(\omega) = \left(i\omega I - A\right)^{-1}\)</span>.
+When the linear operator <span class="math notranslate nohighlight">\(A\)</span> is real valued, the Gramians may be
+further manipulated into</p>
+<div class="math notranslate nohighlight">
+\[G_R = \frac{1}{\pi}\int_{0}^{\infty}R(\omega)BB^*R(\omega)^*\
+\,d\omega \approx \sum_j \delta_j w_j\left(X_\mathrm{r}(\omega_i)\
+X_\mathrm{r}(\omega)^* + X_{\mathrm{i}}(\omega_j)\
+    X_{\mathrm{i}}(\omega_j)^*\right),\]</div>
+<p>where the subscripts “r” and “i” denote the real and imaginary parts,
+and <span class="math notranslate nohighlight">\(\delta_j = 1\)</span> if <span class="math notranslate nohighlight">\(\omega_j = 0\)</span> and
+<span class="math notranslate nohighlight">\(\delta_j = 1/2\)</span> otherwise.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>L_generators</strong> (<em>Tuple</em><em>[</em><em>[</em><em>Callable</em><em>, </em><em>Callable</em><em>, </em><em>Tuple</em><em>[</em><em>Callable</em><em>, </em><em>Callable</em><em>, </em><em>...</em><em>]</em><em>]</em><em>]</em>) – tuple of functions that define the linear operator <span class="math notranslate nohighlight">\(R(\omega)^{-1}\)</span>, the action of <span class="math notranslate nohighlight">\(R(\omega)\)</span> on matrices,
+and destructors to avoid memory leaks. (See examples.)</p></li>
+<li><p><strong>frequencies</strong> (<em>numpy.ndarray</em>) – quadrature points <span class="math notranslate nohighlight">\(\omega_j\)</span></p></li>
+<li><p><strong>weights</strong> (<em>numpy.ndarray</em>) – quadrature weights <span class="math notranslate nohighlight">\(w_j\)</span> (see description above to
+see how the definition of <span class="math notranslate nohighlight">\(w_j\)</span> changes depending on whether the
+system is real-valued).</p></li>
+<li><p><strong>B</strong> (<em>SLEPc.BV</em>) – input matrix</p></li>
+<li><p><strong>C</strong> (<em>SLEPc.BV</em>) – output matrix</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple <span class="math notranslate nohighlight">\((X, Y)\)</span> (see definitions above)</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[PETSc.Mat, PETSc.Mat]</p>
+</dd>
+</dl>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="dergham2011" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">Dergham2011</a><span class="fn-bracket">]</span></span>
+<p>Dergham et al., <em>Model reduction for fluids using frequential snapshots</em>, Physics of Fluids, 2011</p>
+</div>
+</div>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="linalg.html" class="btn btn-neutral float-left" title="Linalg" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="utils.html" class="btn btn-neutral float-right" title="Utils" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Alberto Padovan.</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

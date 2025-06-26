@@ -1,0 +1,219 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Balanced Truncation Demonstration &mdash; resolvent4py 0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=2709fde1"></script>
+      <script src="../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Resolvent Analysis Demonstration" href="demonstrate_rsvd.html" />
+    <link rel="prev" title="Complex Ginzburg-Landau Equation" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            resolvent4py
+              <img src="../../_static/logo.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api-reference.html">API-reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../refs.html">References</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Complex Ginzburg-Landau Equation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="index.html#instructions">Instructions</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#scripts">Scripts</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Balanced Truncation Demonstration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="demonstrate_rsvd.html">Resolvent Analysis Demonstration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="demonstrate_eigendecomposition.html">Eigendecomposition Demonstration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="demonstrate_rsvd_dt.html">Resolvent Analysis Demonstration via Time Stepping</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../toy_model/index.html">Toy Model</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">resolvent4py</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Complex Ginzburg-Landau Equation</a></li>
+      <li class="breadcrumb-item active">Balanced Truncation Demonstration</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/auto_examples/cgl/demonstrate_balanced_truncation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="#sphx-glr-download-auto-examples-cgl-demonstrate-balanced-truncation-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="balanced-truncation-demonstration">
+<span id="sphx-glr-auto-examples-cgl-demonstrate-balanced-truncation-py"></span><h1>Balanced Truncation Demonstration<a class="headerlink" href="#balanced-truncation-demonstration" title="Link to this heading"></a></h1>
+<p>Given the linear input-output dynamics</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{aligned}
+    \frac{d}{dt}q &amp;= A q + B u \\
+    y &amp;= C q
+\end{aligned}\end{split}\]</div>
+<p>with the input and output matrices <span class="math notranslate nohighlight">\(B\)</span> and <span class="math notranslate nohighlight">\(C\)</span> defined as in
+<span id="id1">[<a class="reference internal" href="../../refs.html#id5" title="Miloš Ilak, Shervin Bagheri, Luca Brandt, Clarence W. Rowley, and Dan S. Henningson. Model reduction of the nonlinear complex Ginzburg–Landau equation. SIAM J. on Applied Dynamical Systems, 9(4):1284–1302, 2010.">IBB+10</a>]</span>, we perform balanced truncation in the frequency domain
+using the algorithm presented in <span id="id2">[<a class="reference internal" href="../../refs.html#id6" title="G. Dergham, D. Sipp, J.-C. Robinet, and A. Barbagallo. Model reduction for fluids using frequential snapshots. Physics of Fluids, 23(6):064101, 2011.">DSRB11</a>]</span>.</p>
+<ul class="simple">
+<li><p>LU decomposition using <a class="reference internal" href="../../utils.html#resolvent4py.utils.ksp.create_mumps_solver" title="resolvent4py.utils.ksp.create_mumps_solver"><code class="xref py py-func docutils literal notranslate"><span class="pre">create_mumps_solver()</span></code></a></p></li>
+<li><p>Balanced truncation in the frequency domain using
+<a class="reference internal" href="../../model_reduction.html#module-resolvent4py.model_reduction.balanced_truncation" title="resolvent4py.model_reduction.balanced_truncation"><code class="xref py py-func docutils literal notranslate"><span class="pre">balanced_truncation()</span></code></a></p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">resolvent4py</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">res4py</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">petsc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">PETSc</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;font.family&quot;</span><span class="p">:</span> <span class="s2">&quot;serif&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;font.sans-serif&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Computer Modern&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;font.size&quot;</span><span class="p">:</span> <span class="mi">18</span><span class="p">,</span>
+        <span class="s2">&quot;text.usetex&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">L_generator</span><span class="p">(</span><span class="n">omega</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+    <span class="n">comm</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">COMM_WORLD</span>
+    <span class="n">Rinv</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">create_AIJ_identity</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">getSizes</span><span class="p">())</span>
+    <span class="n">Rinv</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">omega</span><span class="p">)</span>
+    <span class="n">Rinv</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">A</span><span class="p">)</span>
+    <span class="n">ksp</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">create_mumps_solver</span><span class="p">(</span><span class="n">Rinv</span><span class="p">)</span>
+    <span class="n">L</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">linear_operators</span><span class="o">.</span><span class="n">MatrixLinearOperator</span><span class="p">(</span><span class="n">Rinv</span><span class="p">,</span> <span class="n">ksp</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">L</span><span class="o">.</span><span class="n">solve_mat</span><span class="p">,</span> <span class="p">(</span><span class="n">L</span><span class="o">.</span><span class="n">destroy</span><span class="p">,))</span>
+
+
+<span class="n">comm</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">COMM_WORLD</span>
+
+<span class="c1"># Read the A matrix from file</span>
+<span class="n">res4py</span><span class="o">.</span><span class="n">petscprint</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="s2">&quot;Reading matrix from file...&quot;</span><span class="p">)</span>
+<span class="n">load_path</span> <span class="o">=</span> <span class="s2">&quot;data/&quot;</span>
+<span class="n">N</span> <span class="o">=</span> <span class="mi">2000</span>
+<span class="n">Nl</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">compute_local_size</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
+<span class="n">sizes</span> <span class="o">=</span> <span class="p">((</span><span class="n">Nl</span><span class="p">,</span> <span class="n">N</span><span class="p">),</span> <span class="p">(</span><span class="n">Nl</span><span class="p">,</span> <span class="n">N</span><span class="p">))</span>
+<span class="n">names</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">load_path</span> <span class="o">+</span> <span class="s2">&quot;rows.dat&quot;</span><span class="p">,</span>
+    <span class="n">load_path</span> <span class="o">+</span> <span class="s2">&quot;cols.dat&quot;</span><span class="p">,</span>
+    <span class="n">load_path</span> <span class="o">+</span> <span class="s2">&quot;vals.dat&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+<span class="n">A</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">read_coo_matrix</span><span class="p">(</span><span class="n">names</span><span class="p">,</span> <span class="n">sizes</span><span class="p">)</span>
+<span class="n">B</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">read_bv</span><span class="p">(</span><span class="n">load_path</span> <span class="o">+</span> <span class="s2">&quot;B.dat&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">getSizes</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">C</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">read_bv</span><span class="p">(</span><span class="n">load_path</span> <span class="o">+</span> <span class="s2">&quot;C.dat&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">getSizes</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">3</span><span class="p">))</span>
+
+<span class="n">domega</span> <span class="o">=</span> <span class="mf">0.648</span> <span class="o">/</span> <span class="mi">2</span>
+<span class="n">omegas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="mi">30</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="n">domega</span><span class="p">)</span>
+<span class="n">weights</span> <span class="o">=</span> <span class="n">domega</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">omegas</span><span class="p">))</span>
+<span class="n">L_gen</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">L_generator</span><span class="p">,</span> <span class="n">A</span><span class="o">=</span><span class="n">A</span><span class="p">)</span>
+<span class="n">L_generators</span> <span class="o">=</span> <span class="p">[</span><span class="n">L_gen</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">omegas</span><span class="p">))]</span>
+
+<span class="n">res4py</span><span class="o">.</span><span class="n">petscprint</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="s2">&quot;Computing Gramian factors...&quot;</span><span class="p">)</span>
+<span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">model_reduction</span><span class="o">.</span><span class="n">compute_gramian_factors</span><span class="p">(</span>
+    <span class="n">L_generators</span><span class="p">,</span> <span class="n">omegas</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span>
+<span class="p">)</span>
+
+<span class="n">res4py</span><span class="o">.</span><span class="n">petscprint</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="s2">&quot;Computing balanced projection...&quot;</span><span class="p">)</span>
+<span class="n">Phi</span><span class="p">,</span> <span class="n">Psi</span><span class="p">,</span> <span class="n">S</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">model_reduction</span><span class="o">.</span><span class="n">compute_balanced_projection</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-cgl-demonstrate-balanced-truncation-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/3b36092b37f6c91e2a23d7117e1d65bd/demonstrate_balanced_truncation.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">demonstrate_balanced_truncation.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/91df585f21b1f4204990d57c99113b43/demonstrate_balanced_truncation.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">demonstrate_balanced_truncation.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/a9726c3903675323c60996084b3062e4/demonstrate_balanced_truncation.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">demonstrate_balanced_truncation.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Complex Ginzburg-Landau Equation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="demonstrate_rsvd.html" class="btn btn-neutral float-right" title="Resolvent Analysis Demonstration" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Alberto Padovan.</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
