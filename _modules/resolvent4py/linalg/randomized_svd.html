@@ -106,18 +106,19 @@
     <span class="n">n_rand</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">n_loops</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">n_svals</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">]:</span>
 <span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Compute the singular value decomposition (SVD) of the linear operator </span>
+<span class="sd">    Compute the singular value decomposition (SVD) of the linear operator</span>
 <span class="sd">    specified by :code:`L` and :code:`action` using a randomized SVD algorithm.</span>
 <span class="sd">    (See [Halko2011]_.)</span>
-<span class="sd">    For example, with :code:`L.solve_mat` we compute </span>
+<span class="sd">    For example, with :code:`L.solve_mat` we compute</span>
 
 <span class="sd">    .. math::</span>
 
 <span class="sd">        L^{-1} = U \Sigma V^*.</span>
 
-<span class="sd">    </span>
+
 <span class="sd">    :param L: instance of the :class:`.LinearOperator` class</span>
 <span class="sd">    :type L: :class:`.LinearOperator`</span>
 <span class="sd">    :param action: one of :meth:`.LinearOperator.apply_mat` or</span>
@@ -125,24 +126,29 @@
 <span class="sd">    :type action: Callable[[SLEPc.BV, SLEPc.BV], SLEPc.BV]</span>
 <span class="sd">    :param n_rand: number of random vectors</span>
 <span class="sd">    :type n_rand: int</span>
-<span class="sd">    :param n_loops: number of randomized svd power iterations </span>
+<span class="sd">    :param n_loops: number of randomized svd power iterations</span>
 <span class="sd">        (see [Ribeiro2020]_ for additional details on this parameter)</span>
 <span class="sd">    :type n_loops: int</span>
 <span class="sd">    :param n_svals: number of singular triplets to return</span>
 <span class="sd">    :type n_svals: int</span>
-<span class="sd">    </span>
-<span class="sd">    :return: leading :code:`n_svals` left singular vectors, </span>
+<span class="sd">    :param verbose: defines verbosity of output to terminal (useful to</span>
+<span class="sd">        monitor progress during time stepping). = 0 no printout to terminal,</span>
+<span class="sd">        = 1 monitor randomized SVD iterations.</span>
+<span class="sd">    :type verbose: Optional[int], default is 0</span>
+
+<span class="sd">    :return: leading :code:`n_svals` left singular vectors,</span>
 <span class="sd">        singular values and right singular vectors</span>
 <span class="sd">    :rtype: Tuple[SLEPc.BV, np.ndarray, SLEPc.BV]</span>
 
 <span class="sd">    References</span>
 <span class="sd">    ----------</span>
-<span class="sd">    .. [Halko2011] Halko et al., *Finding Structure With Randomness: </span>
-<span class="sd">        Probabilistic Algorithms For Constructing Approximate Matrix </span>
+<span class="sd">    .. [Halko2011] Halko et al., *Finding Structure With Randomness:</span>
+<span class="sd">        Probabilistic Algorithms For Constructing Approximate Matrix</span>
 <span class="sd">        Decompositions*, SIAM Review, 2011</span>
-<span class="sd">    .. [Ribeiro2020] Ribeiro et al., *Randomized resolvent analysis*, </span>
+<span class="sd">    .. [Ribeiro2020] Ribeiro et al., *Randomized resolvent analysis*,</span>
 <span class="sd">        Physical Review Fluids, 2020</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">comm</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">get_comm</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">action</span> <span class="o">!=</span> <span class="n">L</span><span class="o">.</span><span class="n">apply_mat</span> <span class="ow">and</span> <span class="n">action</span> <span class="o">!=</span> <span class="n">L</span><span class="o">.</span><span class="n">solve_mat</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;action must be L.apply_mat or L.solve_mat.&quot;</span><span class="p">)</span>
     <span class="n">action_adj</span> <span class="o">=</span> <span class="p">(</span>
@@ -154,10 +160,10 @@
     <span class="n">rowsizes</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">get_dimensions</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
     <span class="c1"># Set seed</span>
     <span class="n">rank</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">get_comm</span><span class="p">()</span><span class="o">.</span><span class="n">getRank</span><span class="p">()</span>
-    <span class="n">rand</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Random</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="o">=</span><span class="n">L</span><span class="o">.</span><span class="n">get_comm</span><span class="p">())</span>
+    <span class="n">rand</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Random</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="o">=</span><span class="n">comm</span><span class="p">)</span>
     <span class="n">rand</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Random</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">RAND</span><span class="p">)</span>
     <span class="n">rand</span><span class="o">.</span><span class="n">setSeed</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">100000</span><span class="p">)</span> <span class="o">+</span> <span class="n">rank</span><span class="p">))</span>
-    <span class="n">X</span> <span class="o">=</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="o">=</span><span class="n">L</span><span class="o">.</span><span class="n">get_comm</span><span class="p">())</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="o">=</span><span class="n">comm</span><span class="p">)</span>
     <span class="n">X</span><span class="o">.</span><span class="n">setSizes</span><span class="p">(</span><span class="n">rowsizes</span><span class="p">,</span> <span class="n">n_rand</span><span class="p">)</span>
     <span class="n">X</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;mat&quot;</span><span class="p">)</span>
     <span class="n">X</span><span class="o">.</span><span class="n">setRandomContext</span><span class="p">(</span><span class="n">rand</span><span class="p">)</span>
@@ -171,23 +177,29 @@
             <span class="n">xj</span><span class="o">.</span><span class="n">setValues</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">xj</span><span class="o">.</span><span class="n">getArray</span><span class="p">()</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>
             <span class="n">xj</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">L</span><span class="o">.</span><span class="n">get_block_cc_flag</span><span class="p">():</span>
-            <span class="n">enforce_complex_conjugacy</span><span class="p">(</span><span class="n">L</span><span class="o">.</span><span class="n">get_comm</span><span class="p">(),</span> <span class="n">xj</span><span class="p">,</span> <span class="n">L</span><span class="o">.</span><span class="n">get_nblocks</span><span class="p">())</span>
+            <span class="n">enforce_complex_conjugacy</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">xj</span><span class="p">,</span> <span class="n">L</span><span class="o">.</span><span class="n">get_nblocks</span><span class="p">())</span>
         <span class="n">X</span><span class="o">.</span><span class="n">restoreColumn</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">xj</span><span class="p">)</span>
     <span class="n">X</span><span class="o">.</span><span class="n">orthogonalize</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
     <span class="c1"># Perform randomized SVD loop</span>
-    <span class="n">Qadj</span> <span class="o">=</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="o">=</span><span class="n">L</span><span class="o">.</span><span class="n">get_comm</span><span class="p">())</span>
+    <span class="n">Qadj</span> <span class="o">=</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="o">=</span><span class="n">comm</span><span class="p">)</span>
     <span class="n">Qadj</span><span class="o">.</span><span class="n">setSizes</span><span class="p">(</span><span class="n">L</span><span class="o">.</span><span class="n">get_dimensions</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">n_rand</span><span class="p">)</span>
     <span class="n">Qadj</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;mat&quot;</span><span class="p">)</span>
     <span class="n">Qadj</span> <span class="o">=</span> <span class="n">action_adj</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Qadj</span><span class="p">)</span>
     <span class="n">Qadj</span><span class="o">.</span><span class="n">orthogonalize</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
     <span class="n">X</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
-    <span class="n">Qfwd</span> <span class="o">=</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="o">=</span><span class="n">L</span><span class="o">.</span><span class="n">get_comm</span><span class="p">())</span>
+    <span class="n">Qfwd</span> <span class="o">=</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="o">=</span><span class="n">comm</span><span class="p">)</span>
     <span class="n">Qfwd</span><span class="o">.</span><span class="n">setSizes</span><span class="p">(</span><span class="n">L</span><span class="o">.</span><span class="n">get_dimensions</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span> <span class="n">n_rand</span><span class="p">)</span>
     <span class="n">Qfwd</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;mat&quot;</span><span class="p">)</span>
     <span class="n">R</span> <span class="o">=</span> <span class="n">create_dense_matrix</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">COMM_SELF</span><span class="p">,</span> <span class="p">(</span><span class="n">n_rand</span><span class="p">,</span> <span class="n">n_rand</span><span class="p">))</span>
     <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_loops</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">verbose</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Loop </span><span class="si">%d</span><span class="s2">/</span><span class="si">%d</span><span class="s2">, forward action&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_loops</span><span class="p">)</span>
+            <span class="n">petscprint</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
         <span class="n">Qfwd</span> <span class="o">=</span> <span class="n">action</span><span class="p">(</span><span class="n">Qadj</span><span class="p">,</span> <span class="n">Qfwd</span><span class="p">)</span>
         <span class="n">Qfwd</span><span class="o">.</span><span class="n">orthogonalize</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">verbose</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Loop </span><span class="si">%d</span><span class="s2">/</span><span class="si">%d</span><span class="s2">, adjoint action&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_loops</span><span class="p">)</span>
+            <span class="n">petscprint</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
         <span class="n">Qadj</span> <span class="o">=</span> <span class="n">action_adj</span><span class="p">(</span><span class="n">Qfwd</span><span class="p">,</span> <span class="n">Qadj</span><span class="p">)</span>
         <span class="n">Qadj</span><span class="o">.</span><span class="n">orthogonalize</span><span class="p">(</span><span class="n">R</span><span class="p">)</span>
     <span class="c1"># Compute low-rank SVD</span>

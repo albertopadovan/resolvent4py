@@ -212,12 +212,8 @@ Floquet exponents associated with the underlying time-periodic linear system
 <span class="n">Phi</span><span class="o">.</span><span class="n">insertVec</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dQ</span><span class="p">)</span>
 <span class="n">Psi</span><span class="o">.</span><span class="n">insertVec</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
 
-<span class="n">Pd</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">linear_operators</span><span class="o">.</span><span class="n">ProjectionLinearOperator</span><span class="p">(</span>
-    <span class="n">Psi</span><span class="p">,</span> <span class="n">Psi</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">nblocks</span>
-<span class="p">)</span>
-<span class="n">Pr</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">linear_operators</span><span class="o">.</span><span class="n">ProjectionLinearOperator</span><span class="p">(</span>
-    <span class="n">Phi</span><span class="p">,</span> <span class="n">Phi</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">nblocks</span>
-<span class="p">)</span>
+<span class="n">Pd</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">linear_operators</span><span class="o">.</span><span class="n">ProjectionLinearOperator</span><span class="p">(</span><span class="n">Psi</span><span class="p">,</span> <span class="n">Psi</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">nblocks</span><span class="p">)</span>
+<span class="n">Pr</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">linear_operators</span><span class="o">.</span><span class="n">ProjectionLinearOperator</span><span class="p">(</span><span class="n">Phi</span><span class="p">,</span> <span class="n">Phi</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">nblocks</span><span class="p">)</span>
 
 <span class="n">lops</span> <span class="o">=</span> <span class="p">[</span><span class="n">Pr</span><span class="p">,</span> <span class="n">Top</span><span class="p">,</span> <span class="n">Pd</span><span class="p">]</span>
 <span class="n">lops_actions</span> <span class="o">=</span> <span class="p">[</span><span class="n">Pr</span><span class="o">.</span><span class="n">apply</span><span class="p">,</span> <span class="n">Top</span><span class="o">.</span><span class="n">solve</span><span class="p">,</span> <span class="n">Pd</span><span class="o">.</span><span class="n">apply</span><span class="p">]</span>
@@ -254,9 +250,7 @@ Floquet exponents associated with the underlying time-periodic linear system
     <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">res_path</span> <span class="o">+</span> <span class="s2">&quot;singular_values.png&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 
 
-<span class="n">P</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">linear_operators</span><span class="o">.</span><span class="n">ProjectionLinearOperator</span><span class="p">(</span>
-    <span class="n">Phi</span><span class="p">,</span> <span class="n">Psi</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">nblocks</span>
-<span class="p">)</span>
+<span class="n">P</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">linear_operators</span><span class="o">.</span><span class="n">ProjectionLinearOperator</span><span class="p">(</span><span class="n">Phi</span><span class="p">,</span> <span class="n">Psi</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">nblocks</span><span class="p">)</span>
 <span class="n">lops</span> <span class="o">=</span> <span class="p">[</span><span class="n">P</span><span class="p">,</span> <span class="n">Top</span><span class="p">,</span> <span class="n">P</span><span class="p">]</span>
 <span class="n">lops_actions</span> <span class="o">=</span> <span class="p">[</span><span class="n">P</span><span class="o">.</span><span class="n">apply</span><span class="p">,</span> <span class="n">Top</span><span class="o">.</span><span class="n">solve</span><span class="p">,</span> <span class="n">P</span><span class="o">.</span><span class="n">apply</span><span class="p">]</span>
 <span class="n">Linop</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">linear_operators</span><span class="o">.</span><span class="n">ProductLinearOperator</span><span class="p">(</span>

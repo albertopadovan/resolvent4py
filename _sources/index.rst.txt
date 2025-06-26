@@ -20,6 +20,21 @@ Current functionalities include:
 - Balanced truncation (time-invariant)
 
 
+If you use resolvent4py in your work, please cite the following arXiv preprint 
+(see `here <https://arxiv.org/pdf/2506.20539>`_ for the pdf)
+
+   .. code-block::
+
+      @misc{padovan2025resolvent4pyparallelpythonpackage,
+         title={Resolvent4py: a parallel Python package for analysis, model reduction and control of large-scale linear systems}, 
+         author={Alberto Padovan and Vishal Anantharaman and Clarence W. Rowley and Blaine Vollmer and Tim Colonius and Daniel J. Bodony},
+         year={2025},
+         eprint={2506.20539},
+         archivePrefix={arXiv},
+         primaryClass={physics.comp-ph},
+         url={https://arxiv.org/abs/2506.20539}, 
+      }
+
 
 .. toctree::
    :maxdepth: 1

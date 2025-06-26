@@ -128,7 +128,7 @@
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_nblocks</span><span class="p">()</span> <span class="o">!=</span> <span class="kc">None</span>
             <span class="k">else</span> <span class="kc">None</span>
         <span class="p">)</span>
-    
+
 <div class="viewcode-block" id="LinearOperator.get_comm">
 <a class="viewcode-back" href="../../../linear_operators.html#resolvent4py.linear_operators.linear_operator.LinearOperator.get_comm">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_comm</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="s2">&quot;LinearOperator&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Comm</span><span class="p">:</span>
@@ -191,8 +191,8 @@
 <a class="viewcode-back" href="../../../linear_operators.html#resolvent4py.linear_operators.linear_operator.LinearOperator.get_block_cc_flag">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_block_cc_flag</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="s2">&quot;LinearOperator&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
 <span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Returns :code:`True` if the operator has complex-conjugate block </span>
-<span class="sd">        structure (like in the harmonic-balancing operator). :code:`False` if </span>
+<span class="sd">        Returns :code:`True` if the operator has complex-conjugate block</span>
+<span class="sd">        structure (like in the harmonic-balancing operator). :code:`False` if</span>
 <span class="sd">        the operator does not have complex-conjugate block structure,</span>
 <span class="sd">        :code:`None` if :code:`.get_nblocks` returns :code:`None`.</span>
 

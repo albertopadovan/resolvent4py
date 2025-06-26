@@ -170,8 +170,19 @@ equation. This script demonstrates the following:</p>
 <span class="n">tol</span> <span class="o">=</span> <span class="mf">1e-3</span>
 <span class="n">verbose</span> <span class="o">=</span> <span class="mi">2</span>
 <span class="n">L</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">linear_operators</span><span class="o">.</span><span class="n">MatrixLinearOperator</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
-<span class="n">U</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="n">res4py</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">resolvent_analysis_time_stepping</span><span class="o">.</span><span class="n">resolvent_analysis_rsvd_dt</span><span class="p">(</span>
-    <span class="n">L</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">n_omegas</span><span class="p">,</span> <span class="n">n_periods</span><span class="p">,</span> <span class="n">n_rand</span><span class="p">,</span> <span class="n">n_loops</span><span class="p">,</span> <span class="n">n_svals</span><span class="p">,</span> <span class="n">tol</span><span class="p">,</span> <span class="n">verbose</span>
+<span class="n">U</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">res4py</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">resolvent_analysis_time_stepping</span><span class="o">.</span><span class="n">resolvent_analysis_rsvd_dt</span><span class="p">(</span>
+        <span class="n">L</span><span class="p">,</span>
+        <span class="n">dt</span><span class="p">,</span>
+        <span class="n">omega</span><span class="p">,</span>
+        <span class="n">n_omegas</span><span class="p">,</span>
+        <span class="n">n_periods</span><span class="p">,</span>
+        <span class="n">n_rand</span><span class="p">,</span>
+        <span class="n">n_loops</span><span class="p">,</span>
+        <span class="n">n_svals</span><span class="p">,</span>
+        <span class="n">tol</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">,</span>
+    <span class="p">)</span>
 <span class="p">)</span>
 <span class="n">St</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">S</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
 <span class="n">Ut</span> <span class="o">=</span> <span class="n">U</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>

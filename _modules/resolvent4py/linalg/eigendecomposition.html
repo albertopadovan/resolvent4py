@@ -99,6 +99,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">..utils.miscellaneous</span><span class="w"> </span><span class="kn">import</span> <span class="n">petscprint</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">..utils.random</span><span class="w"> </span><span class="kn">import</span> <span class="n">generate_random_petsc_vector</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">..utils.vector</span><span class="w"> </span><span class="kn">import</span> <span class="n">enforce_complex_conjugacy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils.matrix</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_dense_matrix</span>
 
 
 <div class="viewcode-block" id="arnoldi_iteration">
@@ -109,6 +110,7 @@
         <span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]],</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span>
     <span class="p">],</span>
     <span class="n">krylov_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Perform the Arnoldi iteration algorithm to compute an </span>
@@ -125,6 +127,8 @@
 <span class="sd">    :type action: Callable[[PETSc.Vec, PETSc.Vec], PETSc.Vec]</span>
 <span class="sd">    :param krylov_dim: dimension of the Arnoldi Krylov subspace</span>
 <span class="sd">    :type krylov_dim: int</span>
+<span class="sd">    :param verbose: 0 = no printout to terminal, 1 = print progress</span>
+<span class="sd">    :type verbose: Optional[int], default is 0</span>
 <span class="sd">    </span>
 <span class="sd">    :return: tuple with an orthonormal basis for the Krylov subspace</span>
 <span class="sd">        and the Hessenberg matrix</span>
@@ -141,9 +145,9 @@
     <span class="n">block_cc</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">get_block_cc_flag</span><span class="p">()</span>
     <span class="c1"># Initialize the Hessenberg matrix and the BV for the Krylov subspace</span>
     <span class="n">Q</span> <span class="o">=</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="o">=</span><span class="n">comm</span><span class="p">)</span>
-    <span class="n">Q</span><span class="o">.</span><span class="n">setSizes</span><span class="p">(</span><span class="n">sizes</span><span class="p">,</span> <span class="n">krylov_dim</span><span class="p">)</span>
+    <span class="n">Q</span><span class="o">.</span><span class="n">setSizes</span><span class="p">(</span><span class="n">sizes</span><span class="p">,</span> <span class="n">krylov_dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
     <span class="n">Q</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;mat&quot;</span><span class="p">)</span>
-    <span class="n">H</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">krylov_dim</span><span class="p">,</span> <span class="n">krylov_dim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
+    <span class="n">H</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">krylov_dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">krylov_dim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
     <span class="nb">complex</span> <span class="o">=</span> <span class="kc">False</span> <span class="k">if</span> <span class="n">L</span><span class="o">.</span><span class="n">get_real_flag</span><span class="p">()</span> <span class="k">else</span> <span class="kc">True</span>
     <span class="n">q</span> <span class="o">=</span> <span class="n">generate_random_petsc_vector</span><span class="p">(</span><span class="n">sizes</span><span class="p">,</span> <span class="nb">complex</span><span class="p">)</span>
     <span class="n">enforce_complex_conjugacy</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">nblocks</span><span class="p">)</span> <span class="k">if</span> <span class="n">block_cc</span> <span class="o">==</span> <span class="kc">True</span> <span class="k">else</span> <span class="kc">None</span>
@@ -156,21 +160,22 @@
         <span class="k">else</span> <span class="n">L</span><span class="o">.</span><span class="n">create_right_vector</span><span class="p">()</span>
     <span class="p">)</span>
     <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">krylov_dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">verbose</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">petscprint</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="s2">&quot;Arnoldi iteration </span><span class="si">%d</span><span class="s2">/</span><span class="si">%d</span><span class="s2">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">krylov_dim</span><span class="p">))</span>
         <span class="n">v</span> <span class="o">=</span> <span class="n">action</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
             <span class="n">qj</span> <span class="o">=</span> <span class="n">Q</span><span class="o">.</span><span class="n">getColumn</span><span class="p">(</span><span class="n">j</span><span class="p">)</span>
             <span class="n">H</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">qj</span><span class="p">)</span>
             <span class="n">v</span><span class="o">.</span><span class="n">axpy</span><span class="p">(</span><span class="o">-</span><span class="n">H</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">qj</span><span class="p">)</span>
             <span class="n">Q</span><span class="o">.</span><span class="n">restoreColumn</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">qj</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">k</span> <span class="o">&lt;</span> <span class="n">krylov_dim</span><span class="p">:</span>
-            <span class="n">H</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span>
-            <span class="n">v</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">H</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
-            <span class="n">Q</span><span class="o">.</span><span class="n">insertVec</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
-        <span class="n">q</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
-        <span class="n">q</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">H</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span>
+        <span class="n">v</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">H</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">Q</span><span class="o">.</span><span class="n">insertVec</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+        <span class="n">v</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
     <span class="n">q</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
     <span class="n">v</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
-    <span class="k">return</span> <span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">H</span><span class="p">)</span></div>
+    <span class="n">Q</span><span class="o">.</span><span class="n">setActiveColumns</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">krylov_dim</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">H</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">,])</span></div>
 
 
 
@@ -184,6 +189,7 @@
     <span class="n">process_evals</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span>
         <span class="n">typing</span><span class="o">.</span><span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
     <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">]:</span>
 <span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute the eigendecomposition of the linear operator specified by</span>
@@ -207,12 +213,14 @@
 <span class="sd">        (see description above for an example).</span>
 <span class="sd">    :type process_evals: Optional[Callable[[np.ndarray], np.ndarray]], default</span>
 <span class="sd">        is :code:`lambda x: x`</span>
+<span class="sd">    :param verbose: 0 = no printout to terminal, 1 = print progress</span>
+<span class="sd">    :type verbose: Optional[int], default is 0</span>
 
 <span class="sd">    :return: tuple with the desired eigenvalues and corresponding eigenvectors</span>
 <span class="sd">    :rtype: (numpy.ndarray of size :code:`n_evals x n_evals`,</span>
 <span class="sd">        SLEPc.BV with :code:`n_evals` columns)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">Q</span><span class="p">,</span> <span class="n">H</span> <span class="o">=</span> <span class="n">arnoldi_iteration</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">krylov_dim</span><span class="p">)</span>
+    <span class="n">Q</span><span class="p">,</span> <span class="n">H</span> <span class="o">=</span> <span class="n">arnoldi_iteration</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">krylov_dim</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
     <span class="n">evals</span><span class="p">,</span> <span class="n">evecs</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">H</span><span class="p">)</span>
     <span class="n">idces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flipud</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">evals</span><span class="p">)))[:</span><span class="n">n_evals</span><span class="p">]</span>
     <span class="n">evals</span> <span class="o">=</span> <span class="n">evals</span><span class="p">[</span><span class="n">idces</span><span class="p">]</span>

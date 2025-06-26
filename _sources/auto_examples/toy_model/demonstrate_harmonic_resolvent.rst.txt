@@ -67,7 +67,7 @@ In particular, we demonstrate the following:
   Floquet exponents associated with the underlying time-periodic linear system
   (see :cite:`Wereley91`).
 
-.. GENERATED FROM PYTHON SOURCE LINES 52-201
+.. GENERATED FROM PYTHON SOURCE LINES 52-195
 
 .. code-block:: Python
 
@@ -149,12 +149,8 @@ In particular, we demonstrate the following:
     Phi.insertVec(0, dQ)
     Psi.insertVec(0, w)
 
-    Pd = res4py.linear_operators.ProjectionLinearOperator(
-        Psi, Psi, True, nblocks
-    )
-    Pr = res4py.linear_operators.ProjectionLinearOperator(
-        Phi, Phi, True, nblocks
-    )
+    Pd = res4py.linear_operators.ProjectionLinearOperator(Psi, Psi, True, nblocks)
+    Pr = res4py.linear_operators.ProjectionLinearOperator(Phi, Phi, True, nblocks)
 
     lops = [Pr, Top, Pd]
     lops_actions = [Pr.apply, Top.solve, Pd.apply]
@@ -191,9 +187,7 @@ In particular, we demonstrate the following:
         plt.savefig(res_path + "singular_values.png", dpi=100)
 
 
-    P = res4py.linear_operators.ProjectionLinearOperator(
-        Phi, Psi, True, nblocks
-    )
+    P = res4py.linear_operators.ProjectionLinearOperator(Phi, Psi, True, nblocks)
     lops = [P, Top, P]
     lops_actions = [P.apply, Top.solve, P.apply]
     Linop = res4py.linear_operators.ProductLinearOperator(

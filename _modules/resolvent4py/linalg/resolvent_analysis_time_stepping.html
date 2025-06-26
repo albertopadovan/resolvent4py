@@ -209,10 +209,13 @@
                 <span class="n">error</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">x0</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span> <span class="o">/</span> <span class="n">x</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span>
                 <span class="n">x</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">x0</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">verbose</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                    <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Deviation from periodicity at period </span><span class="si">%d</span><span class="s2">/</span><span class="si">%d</span><span class="s2"> = </span><span class="si">%1.5e</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
-                        <span class="n">period</span><span class="p">,</span>
-                        <span class="n">n_periods</span><span class="p">,</span>
-                        <span class="n">error</span><span class="p">,</span>
+                    <span class="nb">str</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="s2">&quot;Deviation from periodicity at period </span><span class="si">%d</span><span class="s2">/</span><span class="si">%d</span><span class="s2"> = </span><span class="si">%1.5e</span><span class="s2">&quot;</span>
+                        <span class="o">%</span> <span class="p">(</span>
+                            <span class="n">period</span><span class="p">,</span>
+                            <span class="n">n_periods</span><span class="p">,</span>
+                            <span class="n">error</span><span class="p">,</span>
+                        <span class="p">)</span>
                     <span class="p">)</span>
                     <span class="n">petscprint</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
                 <span class="k">if</span> <span class="p">(</span>
@@ -268,18 +271,18 @@
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">BV</span><span class="p">]:</span>
 <span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Perform resolvent analysis using randomized linear algebra and time</span>
-<span class="sd">    stepping. </span>
+<span class="sd">    stepping.</span>
 <span class="sd">    In particular, it can be shown that</span>
 
 <span class="sd">    .. math::</span>
 
 <span class="sd">        x_\omega e^{i\omega t} = \left(i\omega I - A\right)^{-1}f_\omega</span>
-<span class="sd">            e^{i\omega t} </span>
+<span class="sd">            e^{i\omega t}</span>
 <span class="sd">            \to \int_0^t e^{A(t-\tau)}f_\omega e^{i\omega\tau} d\tau</span>
 
-<span class="sd">    for sufficiently long time :math:`t \gg 1` and for any complex-valued </span>
+<span class="sd">    for sufficiently long time :math:`t \gg 1` and for any complex-valued</span>
 <span class="sd">    forcing :math:`f(t) = f_\omega e^{i\omega t}` (assuming that :math:`A` is</span>
-<span class="sd">    stable). </span>
+<span class="sd">    stable).</span>
 <span class="sd">    Computing the integral on the right-hand side can be done by integrating</span>
 
 <span class="sd">    .. math::</span>
@@ -287,8 +290,8 @@
 <span class="sd">        \frac{d}{dt}x(t) = Ax(t) + f(t)</span>
 
 <span class="sd">    forward in time with initial condition :math:`x(0) = 0`.</span>
-<span class="sd">    Thus, the action of the resolvent operator </span>
-<span class="sd">    :math:`R(i\omega) = \left(i\omega I - A\right)^{-1}` on a vector </span>
+<span class="sd">    Thus, the action of the resolvent operator</span>
+<span class="sd">    :math:`R(i\omega) = \left(i\omega I - A\right)^{-1}` on a vector</span>
 <span class="sd">    :math:`f_\omega` can be computed by time-stepping the ODE above.</span>
 <span class="sd">    For now, time integration is performed explicitly via the</span>
 <span class="sd">    Adams-Bashforth scheme.</span>
@@ -297,12 +300,12 @@
 <span class="sd">    .. note::</span>
 
 <span class="sd">        This function is meant for systems whose dimension is so large</span>
-<span class="sd">        that linear systems of the form </span>
+<span class="sd">        that linear systems of the form</span>
 <span class="sd">        :math:`(i\omega I - A)x_\omega = f_\omega`</span>
-<span class="sd">        cannot be solved easily. Typically, this happens when </span>
+<span class="sd">        cannot be solved easily. Typically, this happens when</span>
 <span class="sd">        :math:`\text{dim}(x_\omega) \sim O(10^7)` or larger.</span>
 <span class="sd">        If you have a &quot;small enough&quot; system, then we highly recommend using</span>
-<span class="sd">        :func:`.randomized_svd.randomized_svd` instead for the singular </span>
+<span class="sd">        :func:`.randomized_svd.randomized_svd` instead for the singular</span>
 <span class="sd">        value decomposition of the resolvent.</span>
 
 <span class="sd">    :param L: linear operator representing :math:`A`</span>
@@ -335,23 +338,25 @@
 <span class="sd">        :math:`\lVert x(kT) - x((k-1)T) \rVert &lt; \mathrm{tol}`.</span>
 <span class="sd">    :type tol: Optional[float], default is :math:`10^{-3}`</span>
 
-<span class="sd">    :param verbose: defines verbosity of output to terminal (useful to </span>
-<span class="sd">        monitor progress during time stepping)</span>
+<span class="sd">    :param verbose: defines verbosity of output to terminal (useful to</span>
+<span class="sd">        monitor progress during time stepping). = 0 no printout to terminal,</span>
+<span class="sd">        = 1 monitor randomized SVD iterations, = 2 monitor randomized SVD</span>
+<span class="sd">        iterations and time-stepping progress.</span>
 <span class="sd">    :type verbose: Optional[int], default is 0</span>
 
 <span class="sd">    :return: left singular vectors, singular values, and right singular vectors</span>
-<span class="sd">        of the resolvent operators :math:`R(i\omega)` evaluated at frequencies </span>
-<span class="sd">        :math:`\Omega = \omega\{0, 1, 2, \ldots, n_{\omega}\}` if </span>
+<span class="sd">        of the resolvent operators :math:`R(i\omega)` evaluated at frequencies</span>
+<span class="sd">        :math:`\Omega = \omega\{0, 1, 2, \ldots, n_{\omega}\}` if</span>
 <span class="sd">        the linear operator :math:`A` is real-valued; otherwise at frequencies</span>
 <span class="sd">        :math:`\Omega = \omega\{0, 1, 2, \ldots, n_{\omega}, -n_{\omega},-(n_{\omega}-1) \ldots, -1\}`</span>
 <span class="sd">    :rtype: Tuple[List[SLEPc.BV], List[np.ndarray], List[SLEPc.BV]]</span>
 
 <span class="sd">    References</span>
 <span class="sd">    ----------</span>
-<span class="sd">    .. [Martini2021] Martini et al., *Efficient computation of global </span>
+<span class="sd">    .. [Martini2021] Martini et al., *Efficient computation of global</span>
 <span class="sd">        resolvent modes*, Journal of Fluid Mechanics, 2021</span>
-<span class="sd">    .. [Farghadan2025] Farghadan et al., *Scalable resolvent analysis </span>
-<span class="sd">        for three-dimensional flows*, Journal of Computational Physics, 2025 </span>
+<span class="sd">    .. [Farghadan2025] Farghadan et al., *Scalable resolvent analysis</span>
+<span class="sd">        for three-dimensional flows*, Journal of Computational Physics, 2025</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">size</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">get_dimensions</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
@@ -404,7 +409,12 @@
     <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_loops</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_rand</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">verbose</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Loop </span><span class="si">%d</span><span class="s1">/</span><span class="si">%d</span><span class="s1">, Random vec. </span><span class="si">%d</span><span class="s1">/</span><span class="si">%d</span><span class="s1"> (forward action)&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_loops</span><span class="p">,</span> <span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_rand</span><span class="p">)</span>
+                <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Loop </span><span class="si">%d</span><span class="s2">/</span><span class="si">%d</span><span class="s2">, random vector </span><span class="si">%d</span><span class="s2">/</span><span class="si">%d</span><span class="s2"> (forward action)&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+                    <span class="n">n_loops</span><span class="p">,</span>
+                    <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+                    <span class="n">n_rand</span><span class="p">,</span>
+                <span class="p">)</span>
                 <span class="n">petscprint</span><span class="p">(</span><span class="n">L</span><span class="o">.</span><span class="n">get_comm</span><span class="p">(),</span> <span class="nb">str</span><span class="p">)</span>
             <span class="n">x</span><span class="o">.</span><span class="n">zeroEntries</span><span class="p">()</span>
             <span class="n">Qfwd_hat_lst</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">_action</span><span class="p">(</span>
@@ -427,7 +437,12 @@
 
         <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_rand</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">verbose</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Loop </span><span class="si">%d</span><span class="s1">/</span><span class="si">%d</span><span class="s1">, Random vec. </span><span class="si">%d</span><span class="s1">/</span><span class="si">%d</span><span class="s1"> (adjoint action)&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_loops</span><span class="p">,</span> <span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_rand</span><span class="p">)</span>
+                <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Loop </span><span class="si">%d</span><span class="s2">/</span><span class="si">%d</span><span class="s2">, random vector </span><span class="si">%d</span><span class="s2">/</span><span class="si">%d</span><span class="s2"> (adjoint action)&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+                    <span class="n">n_loops</span><span class="p">,</span>
+                    <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+                    <span class="n">n_rand</span><span class="p">,</span>
+                <span class="p">)</span>
                 <span class="n">petscprint</span><span class="p">(</span><span class="n">L</span><span class="o">.</span><span class="n">get_comm</span><span class="p">(),</span> <span class="nb">str</span><span class="p">)</span>
             <span class="n">x</span><span class="o">.</span><span class="n">zeroEntries</span><span class="p">()</span>
             <span class="n">Qadj_hat_lst</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">_action</span><span class="p">(</span>

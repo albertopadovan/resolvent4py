@@ -76,8 +76,19 @@ dt = 1e-4
 tol = 1e-3
 verbose = 2
 L = res4py.linear_operators.MatrixLinearOperator(A)
-U, S, V = res4py.linalg.resolvent_analysis_time_stepping.resolvent_analysis_rsvd_dt(
-    L, dt, omega, n_omegas, n_periods, n_rand, n_loops, n_svals, tol, verbose
+U, S, V = (
+    res4py.linalg.resolvent_analysis_time_stepping.resolvent_analysis_rsvd_dt(
+        L,
+        dt,
+        omega,
+        n_omegas,
+        n_periods,
+        n_rand,
+        n_loops,
+        n_svals,
+        tol,
+        verbose,
+    )
 )
 St = np.diag(S[-1])
 Ut = U[-1]

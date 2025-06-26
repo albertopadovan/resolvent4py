@@ -34,7 +34,7 @@ equation. This script demonstrates the following:
 - Resolvent analysis using time-stepping via
   :func:`~resolvent4py.linalg.resolvent_analysis_time_stepping.resolvent_analysis_rsvd_dt`
 
-.. GENERATED FROM PYTHON SOURCE LINES 19-139
+.. GENERATED FROM PYTHON SOURCE LINES 19-151
 
 .. code-block:: Python
 
@@ -98,8 +98,19 @@ equation. This script demonstrates the following:
     tol = 1e-3
     verbose = 2
     L = res4py.linear_operators.MatrixLinearOperator(A)
-    U, S, V = res4py.linalg.resolvent_analysis_time_stepping.resolvent_analysis_rsvd_dt(
-        L, dt, omega, n_omegas, n_periods, n_rand, n_loops, n_svals, tol, verbose
+    U, S, V = (
+        res4py.linalg.resolvent_analysis_time_stepping.resolvent_analysis_rsvd_dt(
+            L,
+            dt,
+            omega,
+            n_omegas,
+            n_periods,
+            n_rand,
+            n_loops,
+            n_svals,
+            tol,
+            verbose,
+        )
     )
     St = np.diag(S[-1])
     Ut = U[-1]
@@ -159,6 +170,7 @@ equation. This script demonstrates the following:
         plt.legend()
         plt.tight_layout()
         plt.savefig(save_path + "input_mode_compare.png")
+
 
 .. _sphx_glr_download_auto_examples_cgl_demonstrate_rsvd_dt.py:
 
