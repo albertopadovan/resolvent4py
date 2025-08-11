@@ -101,7 +101,7 @@ equation. This script demonstrates the following:
     V.destroy()
     U.destroy()
 
-
+    res4py.petscprint(comm, "Making figures...")
     l = 30 * 2
     x = np.linspace(-l / 2, l / 2, num=N, endpoint=True)
     nu = 1.0 * (2 + 0.4 * 1j)

@@ -130,13 +130,13 @@
 <span class="sd">    .. math::</span>
 
 <span class="sd">        G_R = \frac{1}{\pi}\int_{0}^{\infty}R(\omega)BB^*R(\omega)^*\</span>
-<span class="sd">        \,d\omega \approx \sum_j \delta_j w_j\left(X_\mathrm{r}(\omega_i)\</span>
-<span class="sd">        X_\mathrm{r}(\omega)^* + X_{\mathrm{i}}(\omega_j)\</span>
+<span class="sd">        \,d\omega \approx \sum_j \delta_j w_j\left(X_\mathrm{r}(\omega_j)\</span>
+<span class="sd">        X_\mathrm{r}(\omega_j)^* + X_{\mathrm{i}}(\omega_j)\</span>
 <span class="sd">            X_{\mathrm{i}}(\omega_j)^*\right),</span>
 
 <span class="sd">    where the subscripts &quot;r&quot; and &quot;i&quot; denote the real and imaginary parts,</span>
-<span class="sd">    and :math:`\delta_j = 1` if :math:`\omega_j = 0` and </span>
-<span class="sd">    :math:`\delta_j = 1/2` otherwise.</span>
+<span class="sd">    and :math:`\delta_j = 1/2` if :math:`\omega_j = 0` and </span>
+<span class="sd">    :math:`\delta_j = 1` otherwise.</span>
 
 <span class="sd">    :param L_generators: tuple of functions that define the linear operator \</span>
 <span class="sd">        :math:`R(\omega)^{-1}`, the action of :math:`R(\omega)` on matrices,</span>
@@ -268,13 +268,13 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">comm</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">COMM_WORLD</span>
     <span class="c1"># Compute product Y^*@X</span>
-    <span class="n">Y</span><span class="o">.</span><span class="n">hermitianTranspose</span><span class="p">()</span>
-    <span class="n">Z</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">matMult</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-    <span class="n">Y</span><span class="o">.</span><span class="n">hermitianTranspose</span><span class="p">()</span>
+    <span class="n">Y</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">transposeMatMult</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+    <span class="n">Y</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span>
     <span class="n">svd</span> <span class="o">=</span> <span class="n">SLEPc</span><span class="o">.</span><span class="n">SVD</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="p">)</span>
     <span class="n">svd</span><span class="o">.</span><span class="n">setOperators</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span>
     <span class="n">svd</span><span class="o">.</span><span class="n">setProblemType</span><span class="p">(</span><span class="n">SLEPc</span><span class="o">.</span><span class="n">SVD</span><span class="o">.</span><span class="n">ProblemType</span><span class="o">.</span><span class="n">STANDARD</span><span class="p">)</span>
-    <span class="n">svd</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="n">SLEPc</span><span class="o">.</span><span class="n">SVD</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">CROSS</span><span class="p">)</span>
+    <span class="n">svd</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="n">SLEPc</span><span class="o">.</span><span class="n">SVD</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">LAPACK</span><span class="p">)</span>
     <span class="n">svd</span><span class="o">.</span><span class="n">setWhichSingularTriplets</span><span class="p">(</span><span class="n">SLEPc</span><span class="o">.</span><span class="n">SVD</span><span class="o">.</span><span class="n">Which</span><span class="o">.</span><span class="n">LARGEST</span><span class="p">)</span>
     <span class="n">svd</span><span class="o">.</span><span class="n">setUp</span><span class="p">()</span>
     <span class="n">svd</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
