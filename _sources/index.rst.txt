@@ -39,6 +39,11 @@ open access pdf):
       }
 
 
+Installation Instructions
+=========================
+
+Please see `README <https://github.com/albertopadovan/resolvent4py/blob/main/README.md>`_ on GitHub.
+
 .. toctree::
    :maxdepth: 1
    :caption: Getting Started
