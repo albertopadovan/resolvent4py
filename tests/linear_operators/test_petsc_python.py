@@ -15,7 +15,7 @@ def test_matrix_on_vectors(comm, square_random_matrix):
     actions_petsc = [Ashell.mult, Ashell.multHermitian]
 
     y = linop.create_left_vector()
-    print("Size = %d"%y.getSize())
+    print("Size = %d" % y.getSize())
     error_vec = [
         pytest_utils.compute_error_vector_shell_operator(
             comm, actions_petsc[i], x, y, actions_python[i], xpython
@@ -27,5 +27,3 @@ def test_matrix_on_vectors(comm, square_random_matrix):
     y.destroy()
     linop.destroy()
     assert error < 1e-10
-
-

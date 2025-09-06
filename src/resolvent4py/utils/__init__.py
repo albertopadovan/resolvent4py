@@ -7,5 +7,17 @@ from .matrix import *
 from .miscellaneous import *
 from .random import *
 from .vector import *
+from .time_stepping import *
 
-del bv, comms, errors, io, ksp, matrix, miscellaneous, random, vector
+del (
+    bv,
+    comms,
+    errors,
+    io,
+    ksp,
+    matrix,
+    miscellaneous,
+    random,
+    vector,
+    time_stepping,
+)

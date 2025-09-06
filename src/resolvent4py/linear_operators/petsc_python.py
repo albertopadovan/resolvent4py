@@ -11,7 +11,7 @@ class PetscPythonLinearOperator:
 
     .. note::
 
-        Unlike all other linear operators defined within `resolvent4py`, 
+        Unlike all other linear operators defined within `resolvent4py`,
         this is not a child class of the :class:`.LinearOperator` class
 
     :param L: linear operator

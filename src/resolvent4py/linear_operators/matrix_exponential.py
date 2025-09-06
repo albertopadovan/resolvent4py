@@ -3,6 +3,7 @@ import typing
 
 from petsc4py import PETSc
 from .linear_operator import LinearOperator
+from ..utils.time_stepping import solve_ivp
 
 
 def _integrate(
@@ -61,6 +62,7 @@ class MatrixExponentialLinearOperator(LinearOperator):
         A: LinearOperator,
         tf: float,
         dt: float,
+        method: typing.Optional[str] = "RK2",
         nblocks: typing.Optional[int] = None,
     ) -> None:
         comm = A.get_comm()
@@ -72,21 +74,36 @@ class MatrixExponentialLinearOperator(LinearOperator):
                 f"Currently nrows = {nrows} and ncols = {ncols}."
             )
         self.tf = tf
-        self.dt = self.tf / (
-            self.tf // dt
-        )  # Adjust dt so that tf = dt * m where m is an integer
+        self.nsteps = int(self.tf // dt)
+        self.method = method
         self.A = A
         super().__init__(
             comm, "MatrixExponentialLinearOperator", dimensions, nblocks
         )
 
     def apply(self, x, y=None):
-        return _integrate(self.A.apply, self.tf, self.dt, x, y)
+        y = x.duplicate() if y == None else y
+        sol = solve_ivp(
+            x, self.A.apply, 0.0, self.tf, self.nsteps, self.method
+        )
+        sol.copy(y)
+        sol.destroy()
+        return y
 
     def apply_hermitian_transpose(self, x, y=None):
-        return _integrate(
-            self.A.apply_hermitian_transpose, self.tf, self.dt, x, y
+        y = x.duplicate() if y == None else y
+        sol = solve_ivp(
+            x,
+            self.A.apply_hermitian_transpose,
+            0.0,
+            self.tf,
+            self.nsteps,
+            self.method,
+            adjoint=True,
         )
+        sol.copy(y)
+        sol.destroy()
+        return y
 
     def apply_mat(self, X, Y=None):
         Y = X.copy() if Y == None else Y

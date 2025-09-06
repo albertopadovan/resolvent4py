@@ -75,7 +75,9 @@ def compute_error_vector(comm, linop_action, x, y, python_action, xpython):
     return np.linalg.norm(ypython - ysa) / np.linalg.norm(ypython)
 
 
-def compute_error_vector_shell_operator(comm, linop_action, x, y, python_action, xpython):
+def compute_error_vector_shell_operator(
+    comm, linop_action, x, y, python_action, xpython
+):
     r"""Compute error between the action of a PetscPython (shell) operator
     and the analogue in scipy on vectors"""
     linop_action(x, y)
