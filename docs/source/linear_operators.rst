@@ -43,3 +43,9 @@ Projection Linear Operator
 .. automodule:: resolvent4py.linear_operators.projection
    :members:
    :show-inheritance:
+
+Petsc/Python Linear Operator
+----------------------------
+.. automodule:: resolvent4py.linear_operators.petsc_python
+   :members:
+   :show-inheritance:

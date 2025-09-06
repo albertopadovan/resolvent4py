@@ -19,12 +19,12 @@ def _integrate(
     x_temp = x.duplicate()
     # Integrate using Heun's method (2nd order in time)
     for _ in range(int(tf // dt)):
-        k1 = Aaction(x, k1) 
+        k1 = Aaction(x, k1)
         x.copy(x_temp)
         x_temp.axpy(dt, k1)
         k2 = Aaction(x_temp, k2)
-        x.axpy(dt/2, k1)
-        x.axpy(dt/2, k2)
+        x.axpy(dt / 2, k1)
+        x.axpy(dt / 2, k2)
 
     vecs = [k1, k2, x_temp]
     for v in vecs:
@@ -42,10 +42,10 @@ class MatrixExponentialLinearOperator(LinearOperator):
         L = e^{A t_f}
 
     where :math:`A` is a resolvent4py Linear operator
-    (see :class:`.LinearOperator`). 
+    (see :class:`.LinearOperator`).
     The action of this operator on vectors and matrices is computed
     via time-stepping with a second-order accurate explicit stepper.
-    
+
     :param A: square linear operator
     :type A: LinearOperator
     :param tf: time at which to evaluate :math:`e^{A t_f}`.
