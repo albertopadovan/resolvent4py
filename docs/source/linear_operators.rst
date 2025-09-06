@@ -26,9 +26,9 @@ Low-Rank-Updated Linear Operator
    :members:
    :show-inheritance:
 
-LTI-Exponential Linear Operator
---------------------------------
-.. automodule:: resolvent4py.linear_operators.lti_exponential
+Matrix Exponential Linear Operator
+----------------------------------
+.. automodule:: resolvent4py.linear_operators.matrix_exponential
    :members:
    :show-inheritance:
 

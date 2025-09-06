@@ -2,7 +2,7 @@ __all__ = [
     "MatrixLinearOperator",
     "LowRankLinearOperator",
     "LowRankUpdatedLinearOperator",
-    "LTIExponentialLinearOperator",
+    "MatrixExponentialLinearOperator",
     "ProductLinearOperator",
     "ProjectionLinearOperator",
     "LinearOperator",
@@ -14,6 +14,6 @@ from .low_rank_updated import LowRankUpdatedLinearOperator
 from .matrix import MatrixLinearOperator
 from .product import ProductLinearOperator
 from .projection import ProjectionLinearOperator
-from .lti_exponential import LTIExponentialLinearOperator
+from .matrix_exponential import MatrixExponentialLinearOperator
 
-del linear_operator, low_rank, low_rank_updated, matrix, product, lti_exponential
+del linear_operator, low_rank, low_rank_updated, matrix, product, matrix_exponential

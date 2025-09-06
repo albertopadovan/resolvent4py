@@ -5,13 +5,13 @@ from petsc4py import PETSc
 from .. import pytest_utils
 
 
-def test_lti_exponential_on_vectors(comm, square_stable_random_matrix):
-    r"""Test LTIExponentialLinearOperator on vectors"""
+def test_matrix_exponential_on_vectors(comm, square_stable_random_matrix):
+    r"""Test MatrixExponentialLinearOperator on vectors"""
     tf = 2.1
     dt = 1e-5
     Apetsc, Apython = square_stable_random_matrix
     Alop = res4py.linear_operators.MatrixLinearOperator(Apetsc)
-    linop = res4py.linear_operators.LTIExponentialLinearOperator(Alop, tf, dt)
+    linop = res4py.linear_operators.MatrixExponentialLinearOperator(Alop, tf, dt)
     x, xpython = pytest_utils.generate_random_vector(comm, Apython.shape[-1])
 
     ExpPython = sp.linalg.expm(Apython * tf)
@@ -32,19 +32,19 @@ def test_lti_exponential_on_vectors(comm, square_stable_random_matrix):
     assert error < 1e-5
 
 
-def test_lti_exponential_on_bvs(comm, square_stable_random_matrix):
-    r"""Test LTIExponentialLinearOperator on BVs"""
+def test_matrix_exponential_on_bvs(comm, square_stable_random_matrix):
+    r"""Test MatrixExponentialLinearOperator on BVs"""
     tf = 2.1
     dt = 1e-5
     Apetsc, Apython = square_stable_random_matrix
     Alop = res4py.linear_operators.MatrixLinearOperator(Apetsc)
-    linop = res4py.linear_operators.LTIExponentialLinearOperator(Alop, tf, dt)
+    linop = res4py.linear_operators.MatrixExponentialLinearOperator(Alop, tf, dt)
     X, Xpython = pytest_utils.generate_random_bv(comm, (Apython.shape[0], 3))
 
     ExpPython = sp.linalg.expm(Apython * tf)
     actions_python = [ExpPython.dot, ExpPython.conj().T.dot]
     actions_petsc = [linop.apply_mat, linop.apply_hermitian_transpose_mat]
-
+    
     Y = linop.create_left_bv(X.getSizes()[-1])
     error_vec = [
         pytest_utils.compute_error_bv(

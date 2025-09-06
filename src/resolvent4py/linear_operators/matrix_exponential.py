@@ -1,14 +1,8 @@
 import typing
 
-import scipy as sp
-from petsc4py import PETSc
-from slepc4py import SLEPc
 
-from ..utils.matrix import create_AIJ_identity
+from petsc4py import PETSc
 from .linear_operator import LinearOperator
-from .low_rank import LowRankLinearOperator
-from .low_rank_updated import LowRankUpdatedLinearOperator
-from .matrix import MatrixLinearOperator
 
 
 def _integrate(
@@ -39,7 +33,7 @@ def _integrate(
     return x
 
 
-class LTIExponentialLinearOperator(LinearOperator):
+class MatrixExponentialLinearOperator(LinearOperator):
     r"""
     Class for a linear operator of the form
 
@@ -63,7 +57,7 @@ class LTIExponentialLinearOperator(LinearOperator):
     """
 
     def __init__(
-        self: "LTIExponentialLinearOperator",
+        self: "MatrixExponentialLinearOperator",
         A: LinearOperator,
         tf: float,
         dt: float,
@@ -83,7 +77,7 @@ class LTIExponentialLinearOperator(LinearOperator):
         )  # Adjust dt so that tf = dt * m where m is an integer
         self.A = A
         super().__init__(
-            comm, "LTIExponentialLinearOperator", dimensions, nblocks
+            comm, "MatrixExponentialLinearOperator", dimensions, nblocks
         )
 
     def apply(self, x, y=None):
