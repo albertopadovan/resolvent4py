@@ -190,7 +190,7 @@ def test_resolvent_analysis_time_stepping(comm, square_matrix_size):
         )
 
         L = res4py.linear_operators.MatrixLinearOperator(Apetsc)
-        
+
         n_rand = N
         n_loops = 2
         n_svals = 1
