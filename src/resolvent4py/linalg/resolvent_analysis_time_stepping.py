@@ -93,7 +93,7 @@ def _create_time_and_frequency_arrays(
     dt: float, omega: float, n_omegas: int, real: bool
 ):
     T = 2 * np.pi / omega
-    tstore = np.linspace(0, T, num=2 * n_omegas + 4, endpoint=False)
+    tstore = np.linspace(0, T, num=2 * (n_omegas + 2), endpoint=False)
     dt_store = tstore[1] - tstore[0]
     dt = dt_store / round(dt_store / dt)
     nsteps = round(T / dt)
@@ -220,7 +220,7 @@ def resolvent_analysis_rsvd_dt(
 
     size = L.get_dimensions()[0]
 
-    Id = create_AIJ_identity(L.get_comm(), size)
+    Id = create_AIJ_identity(L.get_comm(), (size, size))
     Idop = MatrixLinearOperator(Id)
     B = Idop if B == None else B
     C = Idop if C == None else C
