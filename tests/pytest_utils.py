@@ -44,7 +44,12 @@ def generate_random_bv(comm, size, complex=True):
     X = SLEPc.BV().create(comm=comm)
     X.setSizes((Nrl, Nr), Nc)
     X.setType("mat")
+    rand = PETSc.Random().create(comm=comm)
+    rand.setType(PETSc.Random.Type.RAND)
+    rand.setSeed(round(np.random.randint(1000, 100000) + comm.getRank()))
+    X.setRandomContext(rand)
     X.setRandomNormal()
+    rand.destroy()
     X = res4py.bv_real(X, True) if not complex else X
     Xm = X.getMat()
     Xmseq = res4py.distributed_to_sequential_matrix(Xm)

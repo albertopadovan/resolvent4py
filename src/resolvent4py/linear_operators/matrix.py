@@ -49,11 +49,10 @@ class MatrixLinearOperator(LinearOperator):
             Ym = self.A.matMult(Xm, Ym)
             Y.restoreMat(Ym)
         else:
-            Ym = Xm.duplicate()
+            Y = self.create_left_bv(X.getSizes()[-1])
+            Ym = Y.getMat()
             Ym = self.A.matMult(Xm, Ym)
-            Y = SLEPc.BV().createFromMat(Ym)
-            Y.setType("mat")
-            Ym.destroy()
+            Y.restoreMat(Ym)
         X.restoreMat(Xm)
         return Y
 
@@ -70,11 +69,10 @@ class MatrixLinearOperator(LinearOperator):
             Ym = self.A.matMult(Xm, Ym)
             Y.restoreMat(Ym)
         else:
-            Ym = Xm.duplicate()
+            Y = self.create_right_bv(X.getSizes()[-1])
+            Ym = Y.getMat()
             Ym = self.A.matMult(Xm, Ym)
-            Y = SLEPc.BV().createFromMat(Ym)
-            Y.setType("mat")
-            Ym.destroy()
+            Y.restoreMat(Ym)
         X.restoreMat(Xm)
         self.A.hermitianTranspose()
         return Y

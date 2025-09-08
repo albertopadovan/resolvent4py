@@ -12,10 +12,10 @@ def test_matrix_exponential_on_vectors(comm, square_stable_random_matrix):
     Apetsc, Apython = square_stable_random_matrix
     Alop = res4py.linear_operators.MatrixLinearOperator(Apetsc)
     linop = res4py.linear_operators.MatrixExponentialLinearOperator(
-        Alop, tf, dt
+        Alop, tf, dt, method='RK3'
     )
     x, xpython = pytest_utils.generate_random_vector(comm, Apython.shape[-1])
-
+    
     ExpPython = sp.linalg.expm(Apython * tf)
     actions_python = [ExpPython.dot, ExpPython.conj().T.dot]
     actions_petsc = [linop.apply, linop.apply_hermitian_transpose]
@@ -31,7 +31,7 @@ def test_matrix_exponential_on_vectors(comm, square_stable_random_matrix):
     x.destroy()
     y.destroy()
     linop.destroy()
-    assert error < 1e-6
+    assert error < 1e-11
 
 
 def test_matrix_exponential_on_bvs(comm, square_stable_random_matrix):
@@ -41,7 +41,7 @@ def test_matrix_exponential_on_bvs(comm, square_stable_random_matrix):
     Apetsc, Apython = square_stable_random_matrix
     Alop = res4py.linear_operators.MatrixLinearOperator(Apetsc)
     linop = res4py.linear_operators.MatrixExponentialLinearOperator(
-        Alop, tf, dt
+        Alop, tf, dt, method='RK3'
     )
     X, Xpython = pytest_utils.generate_random_bv(comm, (Apython.shape[0], 3))
 
@@ -60,4 +60,4 @@ def test_matrix_exponential_on_bvs(comm, square_stable_random_matrix):
     X.destroy()
     Y.destroy()
     linop.destroy()
-    assert error < 1e-6
+    assert error < 1e-11

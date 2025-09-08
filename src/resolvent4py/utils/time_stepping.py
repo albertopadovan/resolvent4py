@@ -5,15 +5,40 @@ from slepc4py import SLEPc
 from ..utils.vector import vec_real
 
 
+def fft(
+    X: SLEPc.BV,
+    Xhat: SLEPc.BV,
+    real: typing.Optional[bool] = True,
+):
+    n_omegas = Xhat.getSizes()[-1]
+    n_tstore = X.getActiveColumns()[-1]
+
+    Xhat_mat = Xhat.getMat()
+    Xhat_mat_a = Xhat_mat.getDenseArray()
+    Xmat = X.getMat()
+    Xmat_a = Xmat.getDenseArray().copy()
+    if real:
+        Xhat_mat_a[:, :] = (
+            np.fft.rfft(Xmat_a.real, axis=-1)[:, :n_omegas] / n_tstore
+        )
+    else:
+        n_omegas = int((n_omegas - 1) // 2 + 1)
+        idces_pos = np.arange(n_omegas)
+        idces_neg = np.arange(-n_omegas + 1, 0)
+        idces = np.concatenate((idces_pos, idces_neg))
+        Xhat_mat_a[:, :] = np.fft.fft(Xmat_a, axis=-1)[:, idces] / n_tstore
+    
+    X.restoreMat(Xmat)
+    Xhat.restoreMat(Xhat_mat)
+    return Xhat
+
 def ifft(
     Xhat: SLEPc.BV,
     x: PETSc.Vec,
     omegas: np.array,
-    t: float,
-    adjoint: typing.Optional[bool] = False,
+    t: float
 ) -> PETSc.Vec:
-    sign = -1 if adjoint else 1
-    q = np.exp(1j * omegas * t * sign)
+    q = np.exp(1j * omegas * t)
     if np.min(omegas) == 0.0:
         c = 2 * np.ones(len(q))
         c[0] = 1.0
@@ -26,7 +51,7 @@ def ifft(
 
 
 def solve_ivp(
-    x0: PETSc.Vec,
+    v: PETSc.Vec,
     action: typing.Callable[[PETSc.Vec, PETSc.Vec], PETSc.Vec],
     t0: float,
     tf: float,
@@ -36,18 +61,30 @@ def solve_ivp(
     adjoint: typing.Optional[bool] = False,
     X: typing.Optional[SLEPc.BV] = None,
     periodic_forcing: typing.Optional[typing.Tuple[SLEPc.BV, np.array]] = None,
-):
+) -> typing.Union[PETSc.Vec, SLEPc.BV]:
     r"""
     Integrate a linear (time-invariant) system of equations of the form
 
     .. math::
 
-        \frac{d}{dt}x(t) = A x(t) (+ f(t)),\quad x(0) = x_0.
+        \frac{d}{dt}x(t) = A x(t) + f(t),\quad x(0) = v,
 
-    The external forcing :math:`f(t)` is optional.
+    from :math:`t = t_0` to :math:`t = t_f`. 
+    If the flag `adjoint` is :code:`True`, we solve
 
-    :param x0: initial condition
-    :type x0: PETSc.Vec
+    .. math::
+
+        -\frac{d}{dt}x(t) = A x(t) + f(t),\quad x(t_f) = v,\, t\in [t_0, t_f],
+
+    backward in time from :math:`t = t_f` to :math:`t = t_0`.
+    In both cases, the forcing function :math:`f(t)` is periodic and given by
+    
+    .. math::
+
+        f(t) = f(t + T) = \sum_{k=-r}^r f_k e^{ik\omega t},\quad \omega = 2\pi/T.
+    
+    :param v: initial condition
+    :type v: PETSc.Vec
     :param action: callable that defines the action of the linear operator
         A on a vector. One of `A.apply` or `A.apply_hermitian_transpose`.
     :type action: Callable[[PETSc.Vec, PETSc.Vec], PETSc.Vec]
@@ -63,24 +100,36 @@ def solve_ivp(
         number > 0 or -1 (with -1 indicating that we save only the solution
         at the final time :math:`t_f`).
     :type m: Optional[int], default is -1
-    :param adjoint: flag to indicate whether we are integrating an adjoint system.
-        This has no effect if the dynamics are unforced. 
+    :param adjoint: flag to indicate whether we are integrating forward or
+        backward in time.
     :type adjoint: Optional[bool], default is False
     :param X: structure to store the solution. Useful only if :math:`m > 0`.
     :type X: Optional[Union[SLEPc.BV, None]], default is None
     :param periodic_forcing: Fourier modes Fhat of the forcing function 
         :math:`f(t)`, and array of frequencies corresponding to those modes.
+        If :math:`f(t)` is real-valued, define
+
+        .. math::
+
+            \hat{F} = \begin{bmatrix}
+            f_0 & f_1 & \ldots, f_r
+            \end{bmatrix},\quad \Omega = \omega\{0,1,\ldots,r\}.
+
+        Otherwise, include the negative frequencies as well.
     :type periodic_forcing: Optional[Union[Tuple[SLEPc.BV, np.array], None]],
         default is None
     """
     dt = (tf - t0) / (nsteps - 1)
     time = dt * np.arange(0, nsteps, 1) + t0
+    time_f_eval = np.flipud(time) if adjoint else time
+    dtf = time_f_eval[1] - time_f_eval[0]
 
     # Create array to store the solution (unless it is passed by the user)
-    # and if m != -1. When m = -1, we return only the solution at time tf
+    # When m = -1, we return only the solution at time tf (or t0, if 
+    # integrating backward in time).
     if X == None and m != -1:
-        X = SLEPc.BV().create(comm=x0.getComm())
-        X.setSizes(x0.getSizes(), len(time[::m]))
+        X = SLEPc.BV().create(comm=v.getComm())
+        X.setSizes(v.getSizes(), len(time[::m]))
         X.setType("mat")
 
     if m != -1:
@@ -93,22 +142,19 @@ def solve_ivp(
     # Check if the user has provided an external forcing function
     if periodic_forcing == None:
         f = None
-
         def evaluate_dynamics(x, y, t, f=None):
             return action(x, y)
     else:
         FHat, omegas = periodic_forcing
-        f = x0.duplicate()
-
+        f = v.duplicate()
         def evaluate_dynamics(x, y, t, f):
-            f = ifft(FHat, f, omegas, t, adjoint)
+            f = ifft(FHat, f, omegas, t)
             y = action(x, y)
             y.axpy(1.0, f)
             return y
 
-    x = x0.copy()
+    x = v.copy()
     if m != -1:
-        # Store the first snapshot
         x_ = X.getColumn(0)
         x.copy(x_)
         X.restoreColumn(0, x_)
@@ -120,16 +166,17 @@ def solve_ivp(
 
         save_idx = 0
         for j in range(1, nsteps):
-            k1 = evaluate_dynamics(x, k1, time[j - 1], f)
+            t = time_f_eval[j - 1]
+
+            k1 = evaluate_dynamics(x, k1, t, f)
             x.copy(x_temp)
             x_temp.axpy(dt, k1)
-            k2 = evaluate_dynamics(x_temp, k2, time[j - 1] + dt, f)
+            k2 = evaluate_dynamics(x_temp, k2, t + dtf, f)
             x.axpy(dt / 2, k1)
             x.axpy(dt / 2, k2)
-        
+
             if m != -1 and np.mod(j, m) == 0:
                 save_idx += 1
-                # Store the first snapshot
                 x_ = X.getColumn(save_idx)
                 x.copy(x_)
                 X.restoreColumn(save_idx, x_)
@@ -137,5 +184,50 @@ def solve_ivp(
         vecs = [k1, k2, x_temp]
         for vec in vecs:
             vec.destroy()
+
+    elif method == "RK3":
+        k1 = x.duplicate()
+        k2 = x.duplicate()
+        k3 = x.duplicate()
+        x_temp = x.duplicate()
+
+        save_idx = 0
+        for j in range(1, nsteps):
+            t = time_f_eval[j - 1]
+
+            k1 = evaluate_dynamics(x, k1, t, f)
+            x.copy(x_temp)
+            x_temp.axpy(dt / 2, k1)
+            k2 = evaluate_dynamics(x_temp, k2, t + dtf / 2, f)
+            x.copy(x_temp)
+            x_temp.axpy(-dt, k1)
+            x_temp.axpy(2 * dt, k2)
+            k3 = evaluate_dynamics(x_temp, k3, t + dtf, f)
+            x.axpy(dt / 6, k1)
+            x.axpy(2 * dt / 3, k2)
+            x.axpy(dt / 6, k3)
+
+            # Save snapshots if requested
+            if m != -1 and np.mod(j, m) == 0:
+                save_idx += 1
+                x_ = X.getColumn(save_idx)
+                x.copy(x_)
+                X.restoreColumn(save_idx, x_)
+
+        vecs = [k1, k2, k3, x_temp]
+        for vec in vecs:
+            vec.destroy()
+
+    else:
+        
+        raise ValueError (
+            f"Integration method should be one of RK2 or RK3."
+        )
+
+    if adjoint and m != -1:
+        Xmat = X.getMat()
+        Xmat_a = Xmat.getDenseArray()
+        Xmat_a[:, :] = np.fliplr(Xmat_a)
+        X.restoreMat(Xmat)
 
     return x if m == -1 else X
