@@ -2,10 +2,8 @@ __all__ = ["resolvent_analysis_rsvd_dt"]
 
 import typing
 
-import math
 import numpy as np
 import scipy as sp
-import time as tlib
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
@@ -15,7 +13,8 @@ from ..utils.matrix import create_dense_matrix
 from ..utils.matrix import create_AIJ_identity
 from ..utils.miscellaneous import petscprint
 from ..utils.vector import vec_real
-from ..utils.time_stepping import solve_ivp, fft, ifft
+from ..utils.time_stepping import compute_post_transient_solution
+from ..utils.time_stepping import create_time_and_frequency_arrays
 
 
 def _reorder_list(Qlist: list[SLEPc.BV], Qlist_reordered: list[SLEPc.BV]):
@@ -26,88 +25,6 @@ def _reorder_list(Qlist: list[SLEPc.BV], Qlist_reordered: list[SLEPc.BV]):
             Qlist[i].restoreColumn(j, Qij)
     return Qlist_reordered
 
-
-def _action(
-    L: LinearOperator,
-    B: LinearOperator,
-    C: LinearOperator,
-    Laction: typing.Callable,
-    tsim: np.array,
-    nsave: int,
-    nperiods: int,
-    omegas: np.array,
-    x: PETSc.Vec,
-    Fhat: SLEPc.BV,
-    Yhat: SLEPc.BV,
-    X: SLEPc.BV,
-    tol: typing.Optional[float] = 1e-3,
-    time_stpper: typing.Optional[str] = 'RK2',
-    verbose: typing.Optional[int] = 0,
-):
-    
-    BFhat = B.apply_mat(Fhat)
-    y0 = C.create_right_vector()
-    yk = y0.duplicate()
-    adjoint = False if Laction == L.apply else True
-    idx = 0 if adjoint else X.getSizes()[-1] - 1
-    for k in range (nperiods):
-        X = solve_ivp(
-            x,
-            Laction,
-            0.0,
-            tsim[-1],
-            len(tsim),
-            time_stpper,
-            nsave,
-            adjoint,
-            X,
-            (BFhat, omegas),
-        )
-        y0 = C.apply_hermitian_transpose(x, y0)
-        xk = X.getColumn(idx)
-        yk = C.apply_hermitian_transpose(xk, yk)
-        xk.copy(x)
-        X.restoreColumn(idx, xk)
-        y0.axpy(-1.0, yk)
-        error = y0.norm() / yk.norm()
-        if verbose > 1:
-            str = (
-                f"Deviation from periodicity at period {k+1}/{nperiods} "
-                f"= {error}"
-            )
-            petscprint(PETSc.COMM_WORLD, str)
-        if error < tol:
-            break
-    
-    Y = C.apply_hermitian_transpose_mat(X)
-    Y.setActiveColumns(0, X.getSizes()[-1] - 1)
-    Yhat = fft(Y, Yhat, L.get_real_flag())
-
-    objects = [Y, BFhat, y0, yk, xk]
-    for obj in objects:
-        obj.destroy()
-    return Yhat
-
-
-def _create_time_and_frequency_arrays(
-    dt: float, omega: float, n_omegas: int, real: bool
-):
-    T = 2 * np.pi / omega
-    tstore = np.linspace(0, T, num=2 * (n_omegas + 2), endpoint=False)
-    dt_store = tstore[1] - tstore[0]
-    dt = dt_store / round(dt_store / dt)
-    nsteps = round(T / dt)
-    tsim = dt * np.arange(0, nsteps + 1)
-    nsave = round(dt_store / dt)
-    if len(tsim[::nsave]) - 1 != len(tstore):
-        raise ValueError (
-            f"The time vectors were not constructed properly."
-        )
-    omegas = np.arange(n_omegas + 1) * omega
-    omegas = (
-        omegas if real else np.concatenate((omegas, -np.flipud(omegas[1:])))
-    )
-    return tsim, nsave, omegas
 
 
 def resolvent_analysis_rsvd_dt(
@@ -229,7 +146,7 @@ def resolvent_analysis_rsvd_dt(
     size_output = C.get_dimensions()[-1]
 
     real = L.get_real_flag()
-    tsim, nsave, omegas = _create_time_and_frequency_arrays(
+    tsim, nsave, omegas = create_time_and_frequency_arrays(
         dt, omega, n_omegas, real
     )
     n_omegas = len(omegas)
@@ -305,7 +222,7 @@ def resolvent_analysis_rsvd_dt(
                 )
                 petscprint(L.get_comm(), str)
             x.zeroEntries()
-            Qfwd_hat_lst[k] = _action(
+            Qfwd_hat_lst[k] = compute_post_transient_solution(
                 L,
                 B,
                 C,
@@ -337,7 +254,7 @@ def resolvent_analysis_rsvd_dt(
                 )
                 petscprint(L.get_comm(), str)
             x.zeroEntries()
-            Qadj_hat_lst[k] = _action(
+            Qadj_hat_lst[k] = compute_post_transient_solution(
                 L,
                 C,
                 B,

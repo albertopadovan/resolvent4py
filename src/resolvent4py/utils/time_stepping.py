@@ -3,13 +3,16 @@ import numpy as np
 from petsc4py import PETSc
 from slepc4py import SLEPc
 from ..utils.vector import vec_real
+from ..utils.miscellaneous import petscprint
+if typing.TYPE_CHECKING:
+    from ..linear_operators import LinearOperator
 
 
 def fft(
     X: SLEPc.BV,
     Xhat: SLEPc.BV,
     real: typing.Optional[bool] = True,
-):
+) -> SLEPc.BV:
     n_omegas = Xhat.getSizes()[-1]
     n_tstore = X.getActiveColumns()[-1]
 
@@ -48,6 +51,28 @@ def ifft(
     else:
         Xhat.multVec(1.0, 0.0, x, q)
     return x
+
+
+def create_time_and_frequency_arrays(
+    dt: float, omega: float, n_omegas: int, real: bool
+) -> typing.Tuple[np.array, int, np.array]:
+    T = 2 * np.pi / omega
+    tstore = np.linspace(0, T, num=2 * (n_omegas + 2), endpoint=False)
+    dt_store = tstore[1] - tstore[0]
+    dt = dt_store / round(dt_store / dt)
+    nsteps = round(T / dt)
+    tsim = dt * np.arange(0, nsteps + 1)
+    nsave = round(dt_store / dt)
+    if len(tsim[::nsave]) - 1 != len(tstore):
+        raise ValueError (
+            f"The time vectors were not constructed properly."
+        )
+    omegas = np.arange(n_omegas + 1) * omega
+    omegas = (
+        omegas if real else np.concatenate((omegas, -np.flipud(omegas[1:])))
+    )
+    return tsim, nsave, omegas
+
 
 
 def solve_ivp(
@@ -231,3 +256,65 @@ def solve_ivp(
         X.restoreMat(Xmat)
 
     return x if m == -1 else X
+
+
+def compute_post_transient_solution(
+    L: "LinearOperator",
+    B: "LinearOperator",
+    C: "LinearOperator",
+    Laction: typing.Callable,
+    tsim: np.array,
+    nsave: int,
+    nperiods: int,
+    omegas: np.array,
+    x: PETSc.Vec,
+    Fhat: SLEPc.BV,
+    Yhat: SLEPc.BV,
+    X: SLEPc.BV,
+    tol: typing.Optional[float] = 1e-3,
+    time_stpper: typing.Optional[str] = 'RK2',
+    verbose: typing.Optional[int] = 0,
+):
+    
+    BFhat = B.apply_mat(Fhat)
+    y0 = C.create_right_vector()
+    yk = y0.duplicate()
+    adjoint = False if Laction == L.apply else True
+    idx = 0 if adjoint else X.getSizes()[-1] - 1
+    for k in range (nperiods):
+        X = solve_ivp(
+            x,
+            Laction,
+            0.0,
+            tsim[-1],
+            len(tsim),
+            time_stpper,
+            nsave,
+            adjoint,
+            X,
+            (BFhat, omegas),
+        )
+        y0 = C.apply_hermitian_transpose(x, y0)
+        xk = X.getColumn(idx)
+        yk = C.apply_hermitian_transpose(xk, yk)
+        xk.copy(x)
+        X.restoreColumn(idx, xk)
+        y0.axpy(-1.0, yk)
+        error = y0.norm() / yk.norm()
+        if verbose > 1:
+            str = (
+                f"Deviation from periodicity at period {k+1}/{nperiods} "
+                f"= {error}"
+            )
+            petscprint(PETSc.COMM_WORLD, str)
+        if error < tol:
+            break
+    
+    Y = C.apply_hermitian_transpose_mat(X)
+    Y.setActiveColumns(0, X.getSizes()[-1] - 1)
+    Yhat = fft(Y, Yhat, L.get_real_flag())
+
+    objects = [Y, BFhat, y0, yk, xk]
+    for obj in objects:
+        obj.destroy()
+    return Yhat

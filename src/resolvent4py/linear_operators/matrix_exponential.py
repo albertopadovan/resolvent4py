@@ -1,38 +1,6 @@
 import typing
-
-
-from petsc4py import PETSc
 from .linear_operator import LinearOperator
 from ..utils.time_stepping import solve_ivp
-
-
-def _integrate(
-    Aaction: typing.Callable[[PETSc.Vec, PETSc.Vec], PETSc.Vec],
-    tf: float,
-    dt: float,
-    x0: PETSc.Vec,
-    x: typing.Optional[PETSc.Vec] = None,
-):
-    x = x0.duplicate() if x == None else x
-    x0.copy(x)
-    k1 = x.duplicate()
-    k2 = x.duplicate()
-    x_temp = x.duplicate()
-    # Integrate using Heun's method (2nd order in time)
-    for _ in range(int(tf // dt)):
-        k1 = Aaction(x, k1)
-        x.copy(x_temp)
-        x_temp.axpy(dt, k1)
-        k2 = Aaction(x_temp, k2)
-        x.axpy(dt / 2, k1)
-        x.axpy(dt / 2, k2)
-
-    vecs = [k1, k2, x_temp]
-    for v in vecs:
-        v.destroy()
-
-    return x
-
 
 class MatrixExponentialLinearOperator(LinearOperator):
     r"""

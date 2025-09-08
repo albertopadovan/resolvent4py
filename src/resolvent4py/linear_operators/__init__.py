@@ -6,6 +6,7 @@ __all__ = [
     "ProductLinearOperator",
     "ProjectionLinearOperator",
     "PetscPythonLinearOperator",
+    "ShiftAndScaleLinearOperator",
     "LinearOperator",
 ]
 
@@ -17,6 +18,7 @@ from .product import ProductLinearOperator
 from .projection import ProjectionLinearOperator
 from .matrix_exponential import MatrixExponentialLinearOperator
 from .petsc_python import PetscPythonLinearOperator
+from .shift_and_scale import ShiftAndScaleLinearOperator
 
 del (
     linear_operator,
@@ -26,4 +28,5 @@ del (
     product,
     matrix_exponential,
     petsc_python,
+    shift_and_scale,
 )
