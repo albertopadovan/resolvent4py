@@ -27,71 +27,6 @@ def _compute_exact_svd(Apython, Bpython, Cpython, omegas, n_svals):
 
     return Ulst, Slst, Vlst
 
-
-# def _create_random_fourier_coefficients(comm, sizes, omegas, tstore, real):
-#     Fhat = SLEPc.BV().create(comm=comm)
-#     Fhat.setSizes(sizes, len(omegas))
-#     Fhat.setType("mat")
-#     Fhat.setRandomNormal()
-#     if real:
-#         f = Fhat.getColumn(0)
-#         f = res4py.vec_real(f, True)
-#         Fhat.restoreColumn(0, f)
-
-#     F = SLEPc.BV().create(comm=comm)
-#     F.setSizes(sizes, len(tstore))
-#     F.setType("mat")
-
-#     f = F.createVec()
-#     for i in range(len(tstore)):
-#         f = res_ts._ifft(Fhat, f, omegas, tstore[i])
-#         F.insertVec(i, f)
-
-#     return Fhat, F
-
-
-# def test_fft(comm, square_matrix_size):
-#     """Test fft and ifft for the RSVD-dt algorithm."""
-
-#     N, _ = square_matrix_size
-#     Nl = res4py.compute_local_size(N)
-#     sizes = (Nl, N)
-
-#     omega = random.uniform(0.5, 1.5)
-#     n_omegas = np.random.randint(1, 10)
-#     dt = random.uniform(1e-4, 2 * np.pi / omega / 100)
-#     comm_mpi = comm.tompi4py()
-#     omega = comm_mpi.bcast(omega, root=0)
-#     n_omegas = comm_mpi.bcast(n_omegas, root=0)
-#     dt = comm_mpi.bcast(dt, root=0)
-
-#     for real in [True, False]:
-#         _, tstore, omegas, n_omegas = res_ts._create_time_and_frequency_arrays(
-#             dt, omega, n_omegas, 10, real
-#         )
-#         Fhat, F = _create_random_fourier_coefficients(
-#             comm, sizes, omegas, tstore, real
-#         )
-#         Fhat2 = Fhat.duplicate()
-#         Fhat2 = res_ts._fft(F, Fhat2, real)
-#         error = 0
-#         for i in range(n_omegas):
-#             f1 = Fhat.getColumn(i)
-#             f2 = Fhat2.getColumn(i)
-#             x = f1.copy()
-#             x.axpy(-1.0, f2)
-#             error += x.norm() / n_omegas
-#             Fhat.restoreColumn(i, f1)
-#             Fhat2.restoreColumn(i, f2)
-#             x.destroy()
-
-#         Fhat.destroy()
-#         F.destroy()
-#         Fhat2.destroy()
-
-#     assert error < 1e-13
-
-
 def test_post_transient_response(comm, square_matrix_size):
     r"""Test post-transient response."""
 
@@ -119,7 +54,7 @@ def test_post_transient_response(comm, square_matrix_size):
             Laction = L.apply_hermitian_transpose if adjoint else L.apply
 
             # Generate frequency vector
-            tsim, nsave, omegas = res_ts._create_time_and_frequency_arrays(
+            tsim, nsave, omegas = res4py.create_time_and_frequency_arrays(
                 dt, omega, n_omegas, real
             )
             n_omegas = len(omegas)
@@ -139,7 +74,7 @@ def test_post_transient_response(comm, square_matrix_size):
             X.setSizes(sizes, len(tsim[::nsave]))
             X.setType("mat")
 
-            Xhat = res_ts._action(
+            Xhat = res4py.compute_post_transient_solution(
                 L,
                 B,
                 C,
@@ -235,7 +170,7 @@ def test_resolvent_analysis_time_stepping(comm, square_matrix_size):
             0,
         )
 
-        _, _, omegas = res_ts._create_time_and_frequency_arrays(
+        _, _, omegas = res4py.create_time_and_frequency_arrays(
             dt, omega, n_omegas, real
         )
         _, Slst_, _ = _compute_exact_svd(Apython, Bpython, Cpython, omegas, n_svals)
