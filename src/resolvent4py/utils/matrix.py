@@ -7,6 +7,11 @@ __all__ = [
     "assemble_harmonic_resolvent_generator",
 ]
 
+def show_type(np_type):
+    mpi_t = get_mpi_type(np.dtype(np_type))
+    print(f"[Rank {MPI.COMM_WORLD.Get_rank()}] {np_type} "
+        f"→ MPI {mpi_t.Get_name()} (size {mpi_t.Get_size()} bytes)")
+
 import numpy as np
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -138,12 +143,16 @@ def convert_coo_to_csr(
         matrix assembly
     :rtype: tuple[np.array, np.array, np.array]
     """
+
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     pool = np.arange(comm.Get_size())
     rows, cols, vals = arrays
     idces = np.argsort(rows).reshape(-1)
-    rows, cols, vals = rows[idces], cols[idces], vals[idces]
+    # Make sure the arrays have the correct data types (save for MPI comms)
+    rows = np.asarray(rows[idces], dtype=PETSc.IntType)
+    cols = np.asarray(cols[idces], dtype=PETSc.IntType)
+    data = np.asarray(vals[idces], dtype=PETSc.ScalarType)
 
     mat_row_sizes_local = np.asarray(
         comm.allgather(sizes[0][0]), dtype=PETSc.IntType
@@ -205,9 +214,7 @@ def convert_coo_to_csr(
 
     ni = 0
     my_rows_ptr = np.zeros(sizes[0][0] + 1, dtype=PETSc.IntType)
-    for i in range(sizes[0][0]):
-        ni += np.count_nonzero(my_rows == i)
-        my_rows_ptr[i + 1] = ni
+    my_rows_ptr[1:] = np.cumsum(np.bincount(my_rows, minlength=sizes[0][0]))
 
     return my_rows_ptr, my_cols, my_vals
 
