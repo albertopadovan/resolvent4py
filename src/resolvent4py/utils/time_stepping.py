@@ -4,6 +4,7 @@ from petsc4py import PETSc
 from slepc4py import SLEPc
 from ..utils.vector import vec_real
 from ..utils.miscellaneous import petscprint
+
 if typing.TYPE_CHECKING:
     from ..linear_operators import LinearOperator
 
@@ -30,16 +31,14 @@ def fft(
         idces_neg = np.arange(-n_omegas + 1, 0)
         idces = np.concatenate((idces_pos, idces_neg))
         Xhat_mat_a[:, :] = np.fft.fft(Xmat_a, axis=-1)[:, idces] / n_tstore
-    
+
     X.restoreMat(Xmat)
     Xhat.restoreMat(Xhat_mat)
     return Xhat
 
+
 def ifft(
-    Xhat: SLEPc.BV,
-    x: PETSc.Vec,
-    omegas: np.array,
-    t: float
+    Xhat: SLEPc.BV, x: PETSc.Vec, omegas: np.array, t: float
 ) -> PETSc.Vec:
     q = np.exp(1j * omegas * t)
     if np.min(omegas) == 0.0:
@@ -64,15 +63,12 @@ def create_time_and_frequency_arrays(
     tsim = dt * np.arange(0, nsteps + 1)
     nsave = round(dt_store / dt)
     if len(tsim[::nsave]) - 1 != len(tstore):
-        raise ValueError (
-            f"The time vectors were not constructed properly."
-        )
+        raise ValueError(f"The time vectors were not constructed properly.")
     omegas = np.arange(n_omegas + 1) * omega
     omegas = (
         omegas if real else np.concatenate((omegas, -np.flipud(omegas[1:])))
     )
     return tsim, nsave, omegas
-
 
 
 def solve_ivp(
@@ -94,7 +90,7 @@ def solve_ivp(
 
         \frac{d}{dt}x(t) = A x(t) + f(t),\quad x(0) = v,
 
-    from :math:`t = t_0` to :math:`t = t_f`. 
+    from :math:`t = t_0` to :math:`t = t_f`.
     If the flag `adjoint` is :code:`True`, we solve
 
     .. math::
@@ -103,11 +99,11 @@ def solve_ivp(
 
     backward in time from :math:`t = t_f` to :math:`t = t_0`.
     In both cases, the forcing function :math:`f(t)` is periodic and given by
-    
+
     .. math::
 
         f(t) = f(t + T) = \sum_{k=-r}^r f_k e^{ik\omega t},\quad \omega = 2\pi/T.
-    
+
     :param v: initial condition
     :type v: PETSc.Vec
     :param action: callable that defines the action of the linear operator
@@ -121,7 +117,7 @@ def solve_ivp(
     :type nsteps: int
     :param method: integrator (e.g., Runge-Kutta 2)
     :type method: Optional[str], default is 'RK2'
-    :param m: save the solution every :math:`m` steps. Should be either a 
+    :param m: save the solution every :math:`m` steps. Should be either a
         number > 0 or -1 (with -1 indicating that we save only the solution
         at the final time :math:`t_f`).
     :type m: Optional[int], default is -1
@@ -130,7 +126,7 @@ def solve_ivp(
     :type adjoint: Optional[bool], default is False
     :param X: structure to store the solution. Useful only if :math:`m > 0`.
     :type X: Optional[Union[SLEPc.BV, None]], default is None
-    :param periodic_forcing: Fourier modes Fhat of the forcing function 
+    :param periodic_forcing: Fourier modes Fhat of the forcing function
         :math:`f(t)`, and array of frequencies corresponding to those modes.
         If :math:`f(t)` is real-valued, define
 
@@ -150,7 +146,7 @@ def solve_ivp(
     dtf = time_f_eval[1] - time_f_eval[0]
 
     # Create array to store the solution (unless it is passed by the user)
-    # When m = -1, we return only the solution at time tf (or t0, if 
+    # When m = -1, we return only the solution at time tf (or t0, if
     # integrating backward in time).
     if X == None and m != -1:
         X = SLEPc.BV().create(comm=v.getComm())
@@ -167,11 +163,13 @@ def solve_ivp(
     # Check if the user has provided an external forcing function
     if periodic_forcing == None:
         f = None
+
         def evaluate_dynamics(x, y, t, f=None):
             return action(x, y)
     else:
         FHat, omegas = periodic_forcing
         f = v.duplicate()
+
         def evaluate_dynamics(x, y, t, f):
             f = ifft(FHat, f, omegas, t)
             y = action(x, y)
@@ -244,10 +242,7 @@ def solve_ivp(
             vec.destroy()
 
     else:
-        
-        raise ValueError (
-            f"Integration method should be one of RK2 or RK3."
-        )
+        raise ValueError(f"Integration method should be one of RK2 or RK3.")
 
     if adjoint and m != -1:
         Xmat = X.getMat()
@@ -272,16 +267,15 @@ def compute_post_transient_solution(
     Yhat: SLEPc.BV,
     X: SLEPc.BV,
     tol: typing.Optional[float] = 1e-3,
-    time_stpper: typing.Optional[str] = 'RK2',
+    time_stpper: typing.Optional[str] = "RK2",
     verbose: typing.Optional[int] = 0,
 ):
-    
     BFhat = B.apply_mat(Fhat)
     y0 = C.create_right_vector()
     yk = y0.duplicate()
     adjoint = False if Laction == L.apply else True
     idx = 0 if adjoint else X.getSizes()[-1] - 1
-    for k in range (nperiods):
+    for k in range(nperiods):
         X = solve_ivp(
             x,
             Laction,
@@ -303,13 +297,13 @@ def compute_post_transient_solution(
         error = y0.norm() / yk.norm()
         if verbose > 1:
             str = (
-                f"Deviation from periodicity at period {k+1}/{nperiods} "
+                f"Deviation from periodicity at period {k + 1}/{nperiods} "
                 f"= {error}"
             )
             petscprint(PETSc.COMM_WORLD, str)
         if error < tol:
             break
-    
+
     Y = C.apply_hermitian_transpose_mat(X)
     Y.setActiveColumns(0, X.getSizes()[-1] - 1)
     Yhat = fft(Y, Yhat, L.get_real_flag())

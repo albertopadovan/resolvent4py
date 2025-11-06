@@ -135,8 +135,6 @@ arrays = [rows, rows, data]
 fnames = ["rows_id.dat", "cols_id.dat", "vals_id.dat"]
 for i, array in enumerate(arrays):
     fname = save_path + fnames[i]
-    vec = PETSc.Vec().createWithArray(
-        array, len(array), None, PETSc.COMM_SELF
-    )
+    vec = PETSc.Vec().createWithArray(array, len(array), None, PETSc.COMM_SELF)
     res4py.write_to_file(fname, vec)
     vec.destroy()

@@ -27,6 +27,7 @@ def _compute_exact_svd(Apython, Bpython, Cpython, omegas, n_svals):
 
     return Ulst, Slst, Vlst
 
+
 def test_post_transient_response(comm, square_matrix_size):
     r"""Test post-transient response."""
 
@@ -166,14 +167,16 @@ def test_resolvent_analysis_time_stepping(comm, square_matrix_size):
             B,
             C,
             tol,
-            'RK3',
+            "RK3",
             0,
         )
 
         _, _, omegas = res4py.create_time_and_frequency_arrays(
             dt, omega, n_omegas, real
         )
-        _, Slst_, _ = _compute_exact_svd(Apython, Bpython, Cpython, omegas, n_svals)
+        _, Slst_, _ = _compute_exact_svd(
+            Apython, Bpython, Cpython, omegas, n_svals
+        )
         error = 0
         for i in range(len(Slst)):
             error += np.abs(Slst_[i][0] - Slst[i][0, 0]) / Slst_[i][0]

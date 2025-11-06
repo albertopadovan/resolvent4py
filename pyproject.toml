@@ -22,7 +22,7 @@ authors = [
     { name = "Vishal Anantharaman", email = "vanantha@caltech.edu" },
     { name = "Clancy Rowley", email = "cwrowley@princeton.edu" },
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 readme = { file = "README.md", content-type = "text/markdown" }
 dependencies = ["numpy", "scipy", "matplotlib"]
 

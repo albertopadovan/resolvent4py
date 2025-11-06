@@ -88,7 +88,7 @@ U, S, V = (
         None,
         None,
         tol,
-        'RK2',
+        "RK2",
         verbose,
     )
 )

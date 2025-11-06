@@ -32,7 +32,7 @@ names = [
     load_path + "vals.dat",
 ]
 A = res4py.read_coo_matrix(names, sizes)
-B = res4py.read_bv(load_path + 'B.dat', (sizes[0], 2))
+B = res4py.read_bv(load_path + "B.dat", (sizes[0], 2))
 b = B.getColumn(0)
 f = b.copy()
 B.restoreColumn(0, b)
@@ -42,7 +42,9 @@ Aop = res4py.linear_operators.MatrixLinearOperator(A)
 omega = 0.648
 n_omegas = 3
 dt = 1.5e-4
-tsim, nsave, omegas = res4py.create_time_and_frequency_arrays(dt, omega, n_omegas, False)
+tsim, nsave, omegas = res4py.create_time_and_frequency_arrays(
+    dt, omega, n_omegas, False
+)
 n_omegas = len(omegas)
 
 FHat = SLEPc.BV().create(comm=comm)
@@ -51,7 +53,7 @@ FHat.setType("mat")
 FHat.scale(0.0)
 
 alphas = np.random.randn(n_omegas)
-for j in range (FHat.getSizes()[-1]):
+for j in range(FHat.getSizes()[-1]):
     if j != int((n_omegas - 1) // 2):
         fj = FHat.getColumn(j)
         f.copy(fj)
@@ -61,8 +63,9 @@ for j in range (FHat.getSizes()[-1]):
 tf = 2 * np.pi / omega
 v = f.copy()
 v.scale(0)
-sol = res4py.solve_ivp(v, Aop.apply, 0.0, tf, int(tf // dt), periodic_forcing=(FHat, omegas))
-
+sol = res4py.solve_ivp(
+    v, Aop.apply, 0.0, tf, int(tf // dt), periodic_forcing=(FHat, omegas)
+)
 
 
 # sol_a = sol.getArray()
@@ -85,15 +88,17 @@ ksp.setOperators(L)
 ksp.setType("gmres")
 ksp.getPC().setType("none")
 ksp.setTolerances(
-    rtol=1e-8,   # relative tolerance
+    rtol=1e-8,  # relative tolerance
     atol=1e-12,  # absolute tolerance
     divtol=1e4,  # divergence tolerance
-    max_it=1000  # maximum number of iterations
+    max_it=1000,  # maximum number of iterations
 )
 ksp.setFromOptions()
 
+
 def monitor(ksp, its, rnorm):
     res4py.petscprint(comm, f"GMRES iter {its}: residual = {rnorm:.3e}")
+
 
 ksp.setMonitor(monitor)
 
@@ -103,17 +108,19 @@ ksp.solve(sol, x)
 res4py.petscprint(comm, "Solved.")
 
 
-y = res4py.solve_ivp(x, Aop.apply, 0.0, tf, int(tf // dt), periodic_forcing=(FHat, omegas))
+y = res4py.solve_ivp(
+    x, Aop.apply, 0.0, tf, int(tf // dt), periodic_forcing=(FHat, omegas)
+)
 x.axpy(-1.0, y)
 error = x.norm()
-res4py.petscprint(comm, "Error = %1.10e"%error)
+res4py.petscprint(comm, "Error = %1.10e" % error)
 
 
 x.scale(0)
 YHat = FHat.duplicate()
 X = SLEPc.BV().create(comm)
 X.setSizes(sizes[0], len(tsim[::nsave]))
-X.setType('mat')
+X.setType("mat")
 
 Id = res4py.create_AIJ_identity(comm, sizes)
 Idop = res4py.linear_operators.MatrixLinearOperator(Id)

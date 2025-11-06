@@ -2,6 +2,7 @@ import typing
 from .linear_operator import LinearOperator
 from ..utils.time_stepping import solve_ivp
 
+
 class MatrixExponentialLinearOperator(LinearOperator):
     r"""
     Class for a linear operator of the form

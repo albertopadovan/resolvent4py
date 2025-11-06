@@ -26,7 +26,6 @@ def _reorder_list(Qlist: list[SLEPc.BV], Qlist_reordered: list[SLEPc.BV]):
     return Qlist_reordered
 
 
-
 def resolvent_analysis_rsvd_dt(
     L: LinearOperator,
     dt: float,
@@ -185,7 +184,6 @@ def resolvent_analysis_rsvd_dt(
         X.destroy()
 
         rand.destroy()
-        
 
     # Initialize Qadj_hat and Qfwd_hat with BVs of size N x n_omegas
     X = SLEPc.BV().create(comm=L.get_comm())

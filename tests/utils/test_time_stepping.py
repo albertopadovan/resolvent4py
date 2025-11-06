@@ -20,9 +20,9 @@ def _evaluate_forcing(Fhat, omegas, t, tf):
         f = Fhat.dot(q)
     return f
 
+
 def _evaluate_dynamics(t, x, A, Fhat, omegas, tf):
     return A.dot(x) + _evaluate_forcing(Fhat, omegas, t, tf)
-
 
 
 def test_time_stepping_forced(comm, square_matrix_size):
@@ -39,7 +39,9 @@ def test_time_stepping_forced(comm, square_matrix_size):
                 comm, (N, N), complex
             )
             linop = res4py.linear_operators.MatrixLinearOperator(Apetsc)
-            action = linop.apply if not adjoint else linop.apply_hermitian_transpose
+            action = (
+                linop.apply if not adjoint else linop.apply_hermitian_transpose
+            )
             Apython = Apython.conj().T if adjoint else Apython
 
             # Generate frequency vector
@@ -59,7 +61,9 @@ def test_time_stepping_forced(comm, square_matrix_size):
                 Fpetsc.restoreColumn(0, f)
 
             # Generate initial condition
-            vpetsc, vpython = pytest_utils.generate_random_vector(comm, N, complex)
+            vpetsc, vpython = pytest_utils.generate_random_vector(
+                comm, N, complex
+            )
 
             nsteps = 10000
             t_eval = (T / (nsteps - 1)) * np.arange(0, nsteps, 1)
@@ -80,17 +84,19 @@ def test_time_stepping_forced(comm, square_matrix_size):
                 0,
                 T,
                 nsteps,
-                method='RK3',
+                method="RK3",
                 m=1,
                 adjoint=adjoint,
-                periodic_forcing=(Fpetsc, omegas)
+                periodic_forcing=(Fpetsc, omegas),
             )
 
             sol_petsc_mat = sol_petsc.getMat()
             sol_petsc_mat_seq = res4py.distributed_to_sequential_matrix(
                 sol_petsc_mat
             )
-            error = np.linalg.norm(sol_python - sol_petsc_mat_seq.getDenseArray())
+            error = np.linalg.norm(
+                sol_python - sol_petsc_mat_seq.getDenseArray()
+            )
             error /= np.linalg.norm(sol_python)
             sol_petsc.restoreMat(sol_petsc_mat)
             sol_petsc_mat_seq.destroy()

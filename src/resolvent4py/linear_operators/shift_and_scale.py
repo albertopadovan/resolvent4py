@@ -3,6 +3,7 @@ import numpy as np
 from .linear_operator import LinearOperator
 from ..utils.bv import bv_add
 
+
 class ShiftAndScaleLinearOperator(LinearOperator):
     r"""
     Class for a linear operator of the form
