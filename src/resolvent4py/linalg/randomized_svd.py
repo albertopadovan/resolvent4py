@@ -109,12 +109,12 @@ def randomized_svd(
     R = create_dense_matrix(PETSc.COMM_SELF, (n_rand, n_rand))
     for j in range(n_loops):
         if verbose == 1:
-            str = "Loop %d/%d, forward action"%(j+1, n_loops)
+            str = "Loop %d/%d, forward action" % (j + 1, n_loops)
             petscprint(comm, str)
         Qfwd = action(Qadj, Qfwd)
         Qfwd.orthogonalize(None)
         if verbose == 1:
-            str = "Loop %d/%d, adjoint action"%(j+1, n_loops)
+            str = "Loop %d/%d, adjoint action" % (j + 1, n_loops)
             petscprint(comm, str)
         Qadj = action_adj(Qfwd, Qadj)
         Qadj.orthogonalize(R)

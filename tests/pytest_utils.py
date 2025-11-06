@@ -44,7 +44,12 @@ def generate_random_bv(comm, size, complex=True):
     X = SLEPc.BV().create(comm=comm)
     X.setSizes((Nrl, Nr), Nc)
     X.setType("mat")
+    rand = PETSc.Random().create(comm=comm)
+    rand.setType(PETSc.Random.Type.RAND)
+    rand.setSeed(round(np.random.randint(1000, 100000) + comm.getRank()))
+    X.setRandomContext(rand)
     X.setRandomNormal()
+    rand.destroy()
     X = res4py.bv_real(X, True) if not complex else X
     Xm = X.getMat()
     Xmseq = res4py.distributed_to_sequential_matrix(Xm)
@@ -68,6 +73,19 @@ def compute_error_vector(comm, linop_action, x, y, python_action, xpython):
     r"""Compute error between the action of a resolvent4py LinearOperator
     and the analogue in scipy on vectors"""
     y = linop_action(x, y)
+    ys = res4py.distributed_to_sequential_vector(y)
+    ysa = ys.getArray().copy()
+    ys.destroy()
+    ypython = python_action(xpython)
+    return np.linalg.norm(ypython - ysa) / np.linalg.norm(ypython)
+
+
+def compute_error_vector_shell_operator(
+    comm, linop_action, x, y, python_action, xpython
+):
+    r"""Compute error between the action of a PetscPython (shell) operator
+    and the analogue in scipy on vectors"""
+    linop_action(x, y)
     ys = res4py.distributed_to_sequential_vector(y)
     ysa = ys.getArray().copy()
     ys.destroy()

@@ -26,6 +26,12 @@ Low-Rank-Updated Linear Operator
    :members:
    :show-inheritance:
 
+Matrix Exponential Linear Operator
+----------------------------------
+.. automodule:: resolvent4py.linear_operators.matrix_exponential
+   :members:
+   :show-inheritance:
+
 Product Linear Operator
 -----------------------
 .. automodule:: resolvent4py.linear_operators.product
@@ -35,5 +41,11 @@ Product Linear Operator
 Projection Linear Operator
 --------------------------
 .. automodule:: resolvent4py.linear_operators.projection
+   :members:
+   :show-inheritance:
+
+Petsc/Python Linear Operator
+----------------------------
+.. automodule:: resolvent4py.linear_operators.petsc_python
    :members:
    :show-inheritance:

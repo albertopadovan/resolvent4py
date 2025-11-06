@@ -77,7 +77,7 @@ def arnoldi_iteration(
     )
     for k in range(1, krylov_dim + 1):
         if verbose == 1:
-            petscprint(comm, "Arnoldi iteration %d/%d"%(k, krylov_dim))
+            petscprint(comm, "Arnoldi iteration %d/%d" % (k, krylov_dim))
         v = action(q, v)
         for j in range(k):
             qj = Q.getColumn(j)

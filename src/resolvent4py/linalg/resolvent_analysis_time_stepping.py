@@ -2,17 +2,19 @@ __all__ = ["resolvent_analysis_rsvd_dt"]
 
 import typing
 
-import math
 import numpy as np
 import scipy as sp
-import time as tlib
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
 from ..linear_operators import LinearOperator
+from ..linear_operators.matrix import MatrixLinearOperator
 from ..utils.matrix import create_dense_matrix
+from ..utils.matrix import create_AIJ_identity
 from ..utils.miscellaneous import petscprint
 from ..utils.vector import vec_real
+from ..utils.time_stepping import compute_post_transient_solution
+from ..utils.time_stepping import create_time_and_frequency_arrays
 
 
 def _reorder_list(Qlist: list[SLEPc.BV], Qlist_reordered: list[SLEPc.BV]):
@@ -24,154 +26,6 @@ def _reorder_list(Qlist: list[SLEPc.BV], Qlist_reordered: list[SLEPc.BV]):
     return Qlist_reordered
 
 
-def _ifft(
-    Xhat: SLEPc.BV,
-    x: PETSc.Vec,
-    omegas: np.array,
-    t: float,
-    adjoint: typing.Optional[bool] = False,
-):
-    sign = -1 if adjoint else 1
-    q = np.exp(1j * omegas * t * sign)
-    if np.min(omegas) == 0.0:
-        c = 2 * np.ones(len(q))
-        c[0] = 1.0
-        q *= c
-        Xhat.multVec(1.0, 0.0, x, q)
-        x = vec_real(x, True)
-    else:
-        Xhat.multVec(1.0, 0.0, x, q)
-    return x
-
-
-def _fft(
-    X: SLEPc.BV,
-    Xhat: SLEPc.BV,
-    real: typing.Optional[bool] = True,
-    adjoint: typing.Optional[bool] = False,
-):
-    n_omegas = Xhat.getSizes()[-1]
-    n_tstore = X.getSizes()[-1]
-
-    Xhat_mat = Xhat.getMat()
-    Xhat_mat_a = Xhat_mat.getDenseArray()
-    Xmat = X.getMat()
-    Xmat_a = Xmat.getDenseArray().copy()
-    Xmat_a = Xmat_a.conj() if adjoint else Xmat_a
-    if real:
-        Xhat_mat_a[:, :] = (
-            np.fft.rfft(Xmat_a.real, axis=-1)[:, :n_omegas] / n_tstore
-        )
-    else:
-        n_omegas = int((n_omegas - 1) // 2 + 1)
-        idces_pos = np.arange(n_omegas)
-        idces_neg = np.arange(-n_omegas + 1, 0)
-        idces = np.concatenate((idces_pos, idces_neg))
-        Xhat_mat_a[:, :] = np.fft.fft(Xmat_a, axis=-1)[:, idces] / n_tstore
-
-    Xhat_mat_a[:, :] = Xhat_mat_a.conj() if adjoint else Xhat_mat_a
-    X.restoreMat(Xmat)
-    Xhat.restoreMat(Xhat_mat)
-    return Xhat
-
-
-def _action(
-    L: LinearOperator,
-    Laction: typing.Callable,
-    tsim: np.array,
-    tstore: np.array,
-    omegas: np.array,
-    x: PETSc.Vec,
-    Fhat: SLEPc.BV,
-    Xhat: SLEPc.BV,
-    X: SLEPc.BV,
-    tol: typing.Optional[float] = 1e-3,
-    verbose: typing.Optional[int] = 0,
-):
-    dt = tsim[1] - tsim[0]
-    dt_store = tstore[1] - tstore[0]
-    T = tstore[-1] + dt_store
-    n_save = round(dt_store / dt)
-    n_save_per_period = round(T / dt_store)
-    n_periods = round((tsim[-1] + dt) / T)
-
-    rhs = L.create_left_vector()
-    rhs_im1 = rhs.copy()
-    rhs_temp = rhs.copy()
-    Lx = x.copy()
-    x0 = x.copy()
-
-    adjoint = True if Laction == L.apply_hermitian_transpose else False
-    save_idx = 0
-    period = 0
-    X.insertVec(0, x)
-    for i in range(1, len(tsim)):
-        rhs = _ifft(Fhat, rhs, omegas, tsim[i - 1], adjoint)
-        rhs.axpy(1.0, Laction(x, Lx))
-        if i == 1:
-            rhs.copy(rhs_im1)
-        else:
-            rhs.copy(rhs_temp)
-            rhs.scale(3 / 2)
-            rhs.axpy(-1 / 2, rhs_im1)
-            rhs_temp.copy(rhs_im1)
-        x.axpy(dt, rhs)
-
-        if np.mod(i, n_save) == 0:
-            if math.isnan(x.norm()):
-                raise ValueError(f"Code blew up at time step {i}")
-            save_idx = np.mod(save_idx + 1, n_save_per_period)
-            if save_idx == 0:
-                period += 1
-                x0.axpy(-1.0, x)
-                error = 100 * x0.norm() / x.norm()
-                x.copy(x0)
-                if verbose > 1:
-                    str = (
-                        "Deviation from periodicity at period %d/%d = %1.5e"
-                        % (
-                            period,
-                            n_periods,
-                            error,
-                        )
-                    )
-                    petscprint(PETSc.COMM_WORLD, str)
-                if (
-                    error < tol
-                ):  # Reached limit cycle, no need to integrate further
-                    break
-            X.insertVec(save_idx, x)
-
-    Xhat = _fft(X, Xhat, L.get_real_flag(), adjoint)
-    objs = [rhs, rhs_im1, rhs_temp, Lx, x0]
-    for obj in objs:
-        obj.destroy()
-
-    return Xhat
-
-
-def _create_time_and_frequency_arrays(
-    dt: float, omega: float, n_omegas: int, n_periods: int, real: bool
-):
-    T = 2 * np.pi / omega
-    tstore = np.linspace(0, T, num=2 * n_omegas + 4, endpoint=False)
-    dt_store = tstore[1] - tstore[0]
-    dt = dt_store / round(dt_store / dt)
-    n_tsteps_per_period = round(T / dt)
-    tsim = dt * np.arange(0, n_periods * n_tsteps_per_period)
-    nsave = round(dt_store / dt)
-    tsim_check = tsim[(n_periods - 1) * n_tsteps_per_period :: nsave].copy()
-    tsim_check -= tsim[(n_periods - 1) * n_tsteps_per_period]
-    if np.linalg.norm(tsim_check - tstore) >= 1e-10:
-        raise ValueError("Simulation and storage times are not matching.")
-
-    omegas = np.arange(n_omegas + 1) * omega
-    omegas = (
-        omegas if real else np.concatenate((omegas, -np.flipud(omegas[1:])))
-    )
-
-    return tsim, tstore, omegas, len(omegas)
-
 
 def resolvent_analysis_rsvd_dt(
     L: LinearOperator,
@@ -182,7 +36,10 @@ def resolvent_analysis_rsvd_dt(
     n_rand: int,
     n_loops: int,
     n_svals: int,
+    B: typing.Optional[typing.Union[LinearOperator, None]] = None,
+    C: typing.Optional[typing.Union[LinearOperator, None]] = None,
     tol: typing.Optional[float] = 1e-3,
+    time_stepper: typing.Optional[str] = "RK2",
     verbose: typing.Optional[int] = 0,
 ) -> typing.Tuple[SLEPc.BV, np.ndarray, SLEPc.BV]:
     r"""
@@ -254,6 +111,9 @@ def resolvent_analysis_rsvd_dt(
         :math:`\lVert x(kT) - x((k-1)T) \rVert < \mathrm{tol}`.
     :type tol: Optional[float], default is :math:`10^{-3}`
 
+    :param time_stepper: integrator (one of 'RK2' or 'RK3')
+    :type time_stepper: Optional[str], default is 'RK2'
+
     :param verbose: defines verbosity of output to terminal (useful to
         monitor progress during time stepping). = 0 no printout to terminal,
         = 1 monitor randomized SVD iterations, = 2 monitor randomized SVD
@@ -277,9 +137,19 @@ def resolvent_analysis_rsvd_dt(
 
     size = L.get_dimensions()[0]
 
-    tsim, tstore, omegas, n_omegas = _create_time_and_frequency_arrays(
-        dt, omega, n_omegas, n_periods, L.get_real_flag()
+    Id = create_AIJ_identity(L.get_comm(), (size, size))
+    Idop = MatrixLinearOperator(Id)
+    B = Idop if B == None else B
+    C = Idop if C == None else C
+
+    size_input = B.get_dimensions()[-1]
+    size_output = C.get_dimensions()[-1]
+
+    real = L.get_real_flag()
+    tsim, nsave, omegas = create_time_and_frequency_arrays(
+        dt, omega, n_omegas, real
     )
+    n_omegas = len(omegas)
 
     Qadj_hat_lst, Qfwd_hat_lst = [], []
     for _ in range(n_rand):
@@ -288,38 +158,57 @@ def resolvent_analysis_rsvd_dt(
         rand = PETSc.Random().create(comm=L.get_comm())
         rand.setType(PETSc.Random.Type.RAND)
         rand.setSeed(round(np.random.randint(1000, 100000) + rank))
-        # Initialize Qadj_hat and Qfwd_hat with random BVs of size N x n_rand
+
+        # Initialize Qadj_hat and Qfwd_hat with random BVs of appropriate dim
         X = SLEPc.BV().create(comm=L.get_comm())
-        X.setSizes(size, n_omegas)
+        X.setSizes(size_input, n_omegas)
         X.setType("mat")
         X.setRandomContext(rand)
         X.setRandomNormal()
-        rand.destroy()
         if L.get_real_flag():
             v = X.getColumn(0)
             v = vec_real(v, True)
             X.restoreColumn(0, v)
         Qadj_hat_lst.append(X.copy())
+        X.destroy()
+
+        X = SLEPc.BV().create(comm=L.get_comm())
+        X.setSizes(size_output, n_omegas)
+        X.setType("mat")
+        X.setRandomContext(rand)
+        X.setRandomNormal()
+        if L.get_real_flag():
+            v = X.getColumn(0)
+            v = vec_real(v, True)
+            X.restoreColumn(0, v)
         Qfwd_hat_lst.append(X.copy())
         X.destroy()
 
+        rand.destroy()
+        
+
     # Initialize Qadj_hat and Qfwd_hat with BVs of size N x n_omegas
     X = SLEPc.BV().create(comm=L.get_comm())
-    X.setSizes(size, n_rand)
+    X.setSizes(size_input, n_rand)
     X.setType("mat")
     Qadj_hat_lst2 = [X.copy() for _ in range(n_omegas)]
-    Qfwd_hat_lst2 = [X.copy() for _ in range(n_omegas)]
     X.destroy()
 
-    Qadj = SLEPc.BV().create(comm=L.get_comm())
-    Qadj.setSizes(size, len(tstore))
-    Qadj.setType("mat")
-    Qfwd = Qadj.duplicate()
+    X = SLEPc.BV().create(comm=L.get_comm())
+    X.setSizes(size_output, n_rand)
+    X.setType("mat")
+    Qfwd_hat_lst2 = [X.copy() for _ in range(n_omegas)]
+    X.destroy()
 
     Qadj_hat_lst2 = _reorder_list(Qadj_hat_lst, Qadj_hat_lst2)
     for i in range(len(Qadj_hat_lst2)):
         Qadj_hat_lst2[i].orthogonalize(None)
     Qadj_hat_lst = _reorder_list(Qadj_hat_lst2, Qadj_hat_lst)
+
+    Qadj = SLEPc.BV().create(comm=L.get_comm())
+    Qadj.setSizes(size, len(tsim[::nsave]))
+    Qadj.setType("mat")
+    Qfwd = Qadj.duplicate()
 
     x = L.create_left_vector()
     for j in range(n_loops):
@@ -333,17 +222,21 @@ def resolvent_analysis_rsvd_dt(
                 )
                 petscprint(L.get_comm(), str)
             x.zeroEntries()
-            Qfwd_hat_lst[k] = _action(
+            Qfwd_hat_lst[k] = compute_post_transient_solution(
                 L,
+                B,
+                C,
                 L.apply,
                 tsim,
-                tstore,
+                nsave,
+                n_periods,
                 omegas,
                 x,
                 Qadj_hat_lst[k],
                 Qfwd_hat_lst[k],
                 Qfwd,
                 tol,
+                time_stepper,
                 verbose,
             )
         Qfwd_hat_lst2 = _reorder_list(Qfwd_hat_lst, Qfwd_hat_lst2)
@@ -361,17 +254,21 @@ def resolvent_analysis_rsvd_dt(
                 )
                 petscprint(L.get_comm(), str)
             x.zeroEntries()
-            Qadj_hat_lst[k] = _action(
+            Qadj_hat_lst[k] = compute_post_transient_solution(
                 L,
+                C,
+                B,
                 L.apply_hermitian_transpose,
                 tsim,
-                tstore,
+                nsave,
+                n_periods,
                 omegas,
                 x,
                 Qfwd_hat_lst[k],
                 Qadj_hat_lst[k],
                 Qadj,
                 tol,
+                time_stepper,
                 verbose,
             )
         Qadj_hat_lst2 = _reorder_list(Qadj_hat_lst, Qadj_hat_lst2)
@@ -415,5 +312,7 @@ def resolvent_analysis_rsvd_dt(
     for lst in lists:
         for obj in lst:
             obj.destroy()
+
+    Idop.destroy()
 
     return Qfwd_hat_lst2, Slst, Qadj_hat_lst2

@@ -55,7 +55,7 @@ class MatrixLinearOperator(LinearOperator):
             Y.restoreMat(Ym)
         X.restoreMat(Xm)
         return Y
-    
+
     def apply_hermitian_transpose(self, x, y=None):
         y = self.create_right_vector() if y == None else y
         self.A.multHermitian(x, y)
