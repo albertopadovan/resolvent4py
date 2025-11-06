@@ -143,6 +143,7 @@ def check_complex_conjugacy(
         for i in range(nblocks):
             i0, i1 = i * block_size, (i + 1) * block_size
             array_block += array[i0:i1]
+        array_block /= np.linalg.norm(array_block)
         cc = True if np.linalg.norm(array_block.imag) <= 1e-13 else False
     scatter.destroy()
     vec_seq.destroy()

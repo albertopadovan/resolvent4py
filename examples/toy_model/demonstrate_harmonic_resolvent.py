@@ -71,6 +71,7 @@ comm = PETSc.COMM_WORLD
 
 save_path = "data/"
 bflow_freqs = np.load(save_path + "bflow_freqs.npy")
+print(bflow_freqs)
 nfb = len(bflow_freqs) - 1
 fnames_lst = [
     (
@@ -135,6 +136,7 @@ lops_actions = [Pr.apply, Top.solve, Pd.apply]
 Linop = res4py.linear_operators.ProductLinearOperator(
     lops, lops_actions, nblocks
 )
+print(Linop.get_block_cc_flag())
 
 
 _, S, _ = res4py.linalg.randomized_svd(Linop, Linop.apply_mat, 30, 3, 10)
