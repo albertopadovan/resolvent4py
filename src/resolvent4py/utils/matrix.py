@@ -152,7 +152,7 @@ def convert_coo_to_csr(
     # Make sure the arrays have the correct data types (save for MPI comms)
     rows = np.asarray(rows[idces], dtype=PETSc.IntType)
     cols = np.asarray(cols[idces], dtype=PETSc.IntType)
-    data = np.asarray(vals[idces], dtype=PETSc.ScalarType)
+    vals = np.asarray(vals[idces], dtype=PETSc.ScalarType)
 
     mat_row_sizes_local = np.asarray(
         comm.allgather(sizes[0][0]), dtype=PETSc.IntType
