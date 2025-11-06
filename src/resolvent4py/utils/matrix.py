@@ -150,7 +150,8 @@ def convert_coo_to_csr(
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    pool = np.arange(comm.Get_size())
+    pool_size = comm.Get_size()
+    pool = np.arange(pool_size)
     rows, cols, vals = arrays
     idces = np.argsort(rows).reshape(-1)
     # Make sure the arrays have the correct data types (save for MPI comms)
@@ -192,41 +193,31 @@ def convert_coo_to_csr(
     MPI.Request.waitall(send_reqs + recv_reqs)
     recv_lengths = [buf[0] for buf in recv_bufs]
 
+    comm.Barrier()  # Sync processors after non-blocking send/recv for safety
+
     dtypes = [PETSc.IntType, PETSc.IntType, PETSc.ScalarType]
     my_arrays = []
     for j, array in enumerate([send_rows, send_cols, send_vals]):
         dtype = dtypes[j]
         mpi_type = get_mpi_type(np.dtype(dtype))
-        send_reqs, recv_reqs, recv_bufs = [], [], []
-        for i in pool:
-            if i == rank:   # Do not self-send/self-receive
-                assert send_lengths[i] == recv_lengths[i]
-                send_reqs.append(MPI.REQUEST_NULL)
-                recv_reqs.append(MPI.REQUEST_NULL)
-                arr = (
-                    array[i]
-                    if send_lengths[i] > 0
-                    else np.empty(0, dtype=dtype)
-                )
-                recv_bufs.append([arr, mpi_type])
-            else:
-                # Open up a send/receive request only if the length
-                # of the buffer is > 0
-                send_reqs.append(
-                    comm.Isend(array[i], dest=i)
-                    if send_lengths[i] > 0
-                    else MPI.REQUEST_NULL
-                )
-                recv_bufs.append(
-                    [np.empty(recv_lengths[i], dtype=dtype), mpi_type]
-                )
-                recv_reqs.append(
-                    comm.Irecv(recv_bufs[-1], source=i)
-                    if recv_lengths[i] > 0
-                    else MPI.REQUEST_NULL
-                )
+        recv_bufs = [
+            [np.empty(recv_lengths[i], dtype=dtype), mpi_type] for i in pool
+        ]
+        recv_reqs = [
+            comm.Irecv(
+                bf, source=i, tag=rank * pool_size + i + j * pool_size**2
+            )
+            for (bf, i) in zip(recv_bufs, pool)
+        ]
+        send_reqs = [
+            comm.Isend(
+                array[i], dest=i, tag=rank + i * pool_size + j * pool_size**2
+            )
+            for i in pool
+        ]
         MPI.Request.waitall(send_reqs + recv_reqs)
         my_arrays.append([recv_bufs[i][0] for i in pool])
+        comm.Barrier()  # Sync processors after non-blocking send/recv for safety
 
     my_rows, my_cols, my_vals = [], [], []
     for i in pool:
