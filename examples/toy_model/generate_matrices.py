@@ -4,15 +4,6 @@ import os
 
 import matplotlib.pyplot as plt
 
-plt.rcParams.update(
-    {
-        "font.family": "serif",
-        "font.sans-serif": ["Computer Modern"],
-        "font.size": 18,
-        "text.usetex": True,
-    }
-)
-
 from petsc4py import PETSc
 import resolvent4py as res4py
 
@@ -136,3 +127,16 @@ for j in range(Ashat.shape[-1]):
     res4py.write_to_file(save_path + "Aj_%02d.dat" % j, Aj_mat)
 
 np.save(save_path + "bflow_freqs.npy", freqs)
+
+
+rows = np.arange(3, dtype=np.int64)
+data = np.ones(len(rows))
+arrays = [rows, rows, data]
+fnames = ["rows_id.dat", "cols_id.dat", "vals_id.dat"]
+for i, array in enumerate(arrays):
+    fname = save_path + fnames[i]
+    vec = PETSc.Vec().createWithArray(
+        array, len(array), None, PETSc.COMM_SELF
+    )
+    res4py.write_to_file(fname, vec)
+    vec.destroy()

@@ -220,19 +220,23 @@ def convert_coo_to_csr(
 
 
 def assemble_harmonic_resolvent_generator(
-    A: PETSc.Mat, freqs: np.array
+    A: PETSc.Mat, freqs: np.array, M: Optional[PETSc.Mat]=None
 ) -> PETSc.Mat:
     r"""
-    Assemble :math:`T = -M + A`, where :math:`A` is the output of
+    Assemble :math:`T = -\tilde{M} + A`, where :math:`A` is the output of
     :func:`resolvent4py.utils.io.read_harmonic_balanced_matrix`
     and :math:`M` is a block
-    diagonal matrix with block :math:`k` given by :math:`M_k = i k \omega I`
-    and :math:`k\omega` is the :math:`k` th entry of :code:`freqs`.
+    diagonal matrix with block :math:`k` given by :math:`\tilde{M}_k = i k \omega M_k`
+    where :math:`k\omega` is the :math:`k`th entry of :code:`freqs` and 
+    :math:`M_k` is the math:`k`th block of the matrix :math:`M` (if provided).
+    Otherwise, :math:`M_k = Id`.
 
     :param A: assembled PETSc matrix
     :type A: PETSc.Mat
     :param freqs: array :math:`\omega\left(\ldots, -1, 0, 1, \ldots\right)`
     :type freqs: np.array
+    :param M: assembled PETSc (mass) matrix
+    :type M: Optional[PETSc.Mat], default is None
 
     :rtype: PETSc.Mat
     """
@@ -251,9 +255,16 @@ def assemble_harmonic_resolvent_generator(
     vals = np.asarray(vals_lst, dtype=np.complex128)
 
     rows_ptr, cols, vals = convert_coo_to_csr([rows, rows, vals], A.getSizes())
-    M = PETSc.Mat().createAIJ(A.getSizes(), comm=A.getComm())
-    M.setPreallocationCSR((rows_ptr, cols))
-    M.setValuesCSR(rows_ptr, cols, vals, True)
-    M.assemble(False)
-    M.axpy(1.0, A)
-    return M
+    omId = PETSc.Mat().createAIJ(A.getSizes(), comm=A.getComm())
+    omId.setPreallocationCSR((rows_ptr, cols))
+    omId.setValuesCSR(rows_ptr, cols, vals, True)
+    omId.assemble(False)
+    if M == None:
+        omId.axpy(1.0, A)
+        return omId
+    else:
+        Mat = omId.matMult(M)
+        Mat.axpy(1.0, A)
+        omId.destroy()
+        return Mat
+

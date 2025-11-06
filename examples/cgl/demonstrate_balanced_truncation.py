@@ -33,7 +33,6 @@ plt.rcParams.update(
         "font.family": "serif",
         "font.sans-serif": ["Computer Modern"],
         "font.size": 18,
-        "text.usetex": True,
     }
 )
 
