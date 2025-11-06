@@ -251,8 +251,7 @@ def assemble_harmonic_resolvent_generator(
     vals = np.asarray(vals_lst, dtype=np.complex128)
 
     rows_ptr, cols, vals = convert_coo_to_csr([rows, rows, vals], A.getSizes())
-    M = PETSc.Mat().create(A.getComm())
-    M.setSizes(A.getSizes())
+    M = PETSc.Mat().createAIJ(A.getSizes(), comm=A.getComm())
     M.setPreallocationCSR((rows_ptr, cols))
     M.setValuesCSR(rows_ptr, cols, vals, True)
     M.assemble(False)
