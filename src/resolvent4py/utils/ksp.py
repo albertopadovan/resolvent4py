@@ -26,12 +26,12 @@ def create_mumps_solver(A: PETSc.Mat) -> PETSc.KSP:
     ksp = PETSc.KSP().create(comm=A.getComm())
     ksp.setOperators(A)
     ksp.setType("preonly")
-    ksp.setUp()
     pc = ksp.getPC()
     pc.setType("lu")
     pc.setFactorSolverType("mumps")
     pc.setReusePreconditioner(True)
     pc.setUp()
+    ksp.setUp()
     return ksp
 
 
