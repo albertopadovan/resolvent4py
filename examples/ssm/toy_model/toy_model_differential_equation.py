@@ -111,8 +111,6 @@ class Hopf3D(DifferentialEquation):
         Da, W = res4py.linalg.eig(
             self.A, self.A.apply_hermitian_transpose, N, N, lambda x: x
         )
-        Da = np.conj(Da)
-        W = res4py.bv_conj(W, inplace=True)
         V, W, Df, Da = res4py.linalg.match_right_and_left_eigenvectors(
             V, W, Df, Da
         )

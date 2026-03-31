@@ -67,11 +67,7 @@ def test_match_right_and_left_eigenvectors(comm, square_random_matrix):
     )
     assert np.linalg.norm(error, ord=1) < 1e-7
 
-    # Conjugate to get left eigenvectors/values of A (not A^H)
-    Dw = np.conj(Dw)
-    W = res4py.bv_conj(W, inplace=True)
-
-    # Biorthogonalize
+    # Biorthogonalize (conjugation of Dw handled internally)
     V, W, Dv, Dw = res4py.linalg.match_right_and_left_eigenvectors(
         V, W, Dv, Dw,
     )
@@ -86,7 +82,7 @@ def test_match_right_and_left_eigenvectors(comm, square_random_matrix):
     assert identity_error < 1e-12
 
     # Dv = Dw (eigenvalues matched)
-    eval_error = np.max(np.abs(np.diag(Dv) - np.diag(Dw)))
+    eval_error = np.max(np.abs(np.diag(Dv) - np.conj(np.diag(Dw))))
     assert eval_error < 1e-5
 
     # W^* A V = diag(evals)

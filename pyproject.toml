@@ -56,4 +56,4 @@ markers = [
     "local: marks tests as local development tests",
 ]
 python_files = ["test_*.py"]
-addopts = "-ra -q"
+addopts = "-ra -v"

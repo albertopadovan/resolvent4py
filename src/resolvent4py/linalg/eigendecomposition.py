@@ -157,31 +157,31 @@ def match_right_and_left_eigenvectors(
     The right eigenvalues are sorted by descending real part, and
     the left eigenvectors/eigenvalues are reordered to match.
 
-    :param V: right eigenvectors
+    :param V: right eigenvectors of :math:`L`
     :type V: SLEPc.BV
-    :param W: left eigenvectors (already complex conjugated)
+    :param W: right eigenvectors of :math:`L^*`
+        (conjugated internally to obtain left eigenvectors of :math:`L`)
     :type W: SLEPc.BV
-    :param Dv: right eigenvalues as a diagonal matrix
+    :param Dv: right eigenvalues of :math:`L` as a diagonal matrix
     :type Dv: numpy.ndarray of size :code:`m x m`
-    :param Dw: left eigenvalues as a diagonal matrix
-        (already complex conjugated)
+    :param Dw: right eigenvalues of :math:`L^*` as a diagonal matrix
+        (conjugated internally to obtain left eigenvalues of :math:`L`)
     :type Dw: numpy.ndarray of size :code:`m x m`
 
     :return: biorthogonalized :math:`(V, W, D_v, D_w)`
     :rtype: (SLEPc.BV, SLEPc.BV, numpy.ndarray, numpy.ndarray)
     """
-    comm = PETSc.COMM_WORLD
     # Sort right eigenvalues/vectors by descending real part
     Dv = np.diag(Dv)
     sort_idces = np.flipud(np.argsort(Dv.real))
     Dv = Dv[sort_idces]
-    V = bv_slice(comm, V, sort_idces)
+    V = bv_slice(V, sort_idces)
     # Match the left eigenvalues/vectors to the right ones
-    Dw = np.diag(Dw)
+    Dw = np.conj(np.diag(Dw))
     idces = [np.argmin(np.abs(Dw - val)) for val in Dv]
-    Dw = np.diag(Dw[idces])
+    Dw = np.diag(np.conj(Dw[idces]))
     Dv = np.diag(Dv)
-    W = bv_slice(comm, W, np.array(idces))
+    W = bv_slice(W, np.array(idces))
     # Biorthogonalize the eigenvectors
     M = V.dot(W)
     evals, evecs = sp.linalg.eig(M.getDenseArray())

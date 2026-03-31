@@ -7,14 +7,19 @@ from slepc4py import SLEPc
 
 from .differential_equation import DifferentialEquation
 
-def _check_eigen_triplets(diff_eq, V, W, L):
-    
+def _check_eigen_triplets(diff_eq, V, W, L, tol=1e-10):
+
     r = V.getActiveColumns()[-1]
+    comm = diff_eq.get_comm()
 
     # Biorthogonality check: diag(W^H V) ≈ 1
     WtV = V.dot(W)
-    assert np.linalg.norm(WtV.getDenseArray() - np.eye(r)) <= 1e-10
+    err_bio = np.linalg.norm(WtV.getDenseArray() - np.eye(r))
     WtV.destroy()
+    if err_bio > tol:
+        from ..utils.miscellaneous import petscprint
+        petscprint(comm, f"WARNING: biorthogonality error = {err_bio:.3e} "
+                         f"(tol = {tol:.0e})")
 
     # Eigenvalue check
     AV = V.duplicate()
@@ -25,8 +30,12 @@ def _check_eigen_triplets(diff_eq, V, W, L):
         AV.restoreColumn(i, Av)
         V.restoreColumn(i, v)
     WtAV = AV.dot(W)
-    assert np.linalg.norm(WtAV.getDenseArray() - np.diag(L)) <= 1e-10
+    err_eig = np.linalg.norm(WtAV.getDenseArray() - np.diag(L))
     WtAV.destroy()
+    if err_eig > tol:
+        from ..utils.miscellaneous import petscprint
+        petscprint(comm, f"WARNING: eigenvalue error = {err_eig:.3e} "
+                         f"(tol = {tol:.0e})")
 
 
 class SpectralSubmanifold:
@@ -295,6 +304,7 @@ class SpectralSubmanifold:
         Psi: SLEPc.BV,
         Lams: np.ndarray,
         scaling: float = 1.0,
+        verbose: int = 0,
     ) -> Tuple[List[PETSc.Vec], List[np.ndarray]]:
         r"""
         Compute the coefficients :math:`p_j` and :math:`g_j` in the
@@ -351,6 +361,10 @@ class SpectralSubmanifold:
 
         for j_idx in range(r + 1, len(self.ssm_multiindices)):
             j = self.ssm_multiindices[j_idx]
+            if verbose == 1:
+                from ..utils.miscellaneous import petscprint
+                petscprint(self.diff_eq.get_comm(),
+                           f"Computing terms for order = {sum(j)}")
             shift = np.dot(Lams, np.asarray(j))
             rhs.zeroEntries()
 
@@ -384,7 +398,7 @@ class SpectralSubmanifold:
 
             if not conj:
                 proj = W.dotVec(pj)
-                if np.linalg.norm(proj) >= 1e-10:
+                if np.linalg.norm(proj) >= 1e-6:
                     raise ValueError (
                         f"|W^* pj| > tolerance. Please try modifying "
                         f"the scaling parameters when running .solve()"

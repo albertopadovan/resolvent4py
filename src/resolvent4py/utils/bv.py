@@ -88,7 +88,6 @@ def bv_imag(X: SLEPc.BV, inplace: typing.Optional[bool] = False) -> SLEPc.BV:
 
 
 def bv_slice(
-    comm: PETSc.Comm,
     X: SLEPc.BV,
     columns: np.array,
     Y: typing.Optional[SLEPc.BV] = None,
@@ -104,7 +103,7 @@ def bv_slice(
     :rtype: SLEPc.BV
     """
     if Y == None:
-        Y = SLEPc.BV().create(comm)
+        Y = SLEPc.BV().create(X.getComm())
         Y.setSizes(X.getSizes()[0], len(columns))
         Y.setType("mat")
     Q = np.zeros((X.getSizes()[-1], len(columns)))
@@ -117,7 +116,6 @@ def bv_slice(
 
 
 def bv_roll(
-    comm: PETSc.Comm,
     X: SLEPc.BV,
     roll: int,
     axis: int,
@@ -152,7 +150,7 @@ def bv_roll(
         vals = np.ones(len(rows))
         sizes = (Y.getSizes()[0], Y.getSizes()[0])
         row_ptr, col, val = convert_coo_to_csr([rows, cols, vals], sizes)
-        M = PETSc.Mat().createAIJ(sizes, comm=comm)
+        M = PETSc.Mat().createAIJ(sizes, comm=X.getComm())
         M.setPreallocationCSR((row_ptr, col))
         M.setValuesCSR(row_ptr, col, val, True)
         M.assemble(False)
