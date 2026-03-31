@@ -18,38 +18,34 @@ from ..utils.miscellaneous import petscprint
 from ..utils.random import generate_random_petsc_vector
 from ..utils.vector import enforce_complex_conjugacy
 from ..utils.matrix import create_dense_matrix
+from ..utils.bv import bv_slice
 
 
 def arnoldi_iteration(
     L: LinearOperator,
-    action: typing.Callable[
-        [PETSc.Vec, typing.Optional[PETSc.Vec]], PETSc.Vec
-    ],
+    action: typing.Callable[[PETSc.Vec, PETSc.Vec], PETSc.Vec],
     krylov_dim: int,
-    verbose: typing.Optional[int] = 0,
+    verbose: int = 0,
 ) -> typing.Tuple[SLEPc.BV, np.ndarray]:
     r"""
-    Perform the Arnoldi iteration algorithm to compute an 
-    orthonormal basis and the corresponding Hessenberg matrix 
-    for the range of the linear operator specified by
-    :code:`L` and :code:`action`.
-    
-    :param L: instance of the :class:`.LinearOperator` class
+    Perform the Arnoldi iteration to compute an orthonormal basis
+    and the corresponding Hessenberg matrix for the range of the
+    linear operator specified by :code:`L` and :code:`action`.
+
+    :param L: linear operator
     :type L: :class:`.LinearOperator`
-    :param action: one of :meth:`.LinearOperator.apply`, 
-        :meth:`.LinearOperator.apply_hermitian_transpose`, 
-        :meth:`.LinearOperator.solve` or 
+    :param action: one of :meth:`.LinearOperator.apply`,
+        :meth:`.LinearOperator.apply_hermitian_transpose`,
+        :meth:`.LinearOperator.solve` or
         :meth:`.LinearOperator.solve_hermitian_transpose`
     :type action: Callable[[PETSc.Vec, PETSc.Vec], PETSc.Vec]
-    :param krylov_dim: dimension of the Arnoldi Krylov subspace
+    :param krylov_dim: dimension of the Krylov subspace
     :type krylov_dim: int
-    :param verbose: 0 = no printout to terminal, 1 = print progress
-    :type verbose: Optional[int], default is 0
-    
-    :return: tuple with an orthonormal basis for the Krylov subspace
-        and the Hessenberg matrix
-    :rtype: (`BV`_ with :code:`krylov_dim` columns, \
-        numpy.ndarray of size :code:`krylov_dim x krylov_dim`)
+    :param verbose: 0 = no output, 1 = print progress
+    :type verbose: int, default is 0
+
+    :return: orthonormal basis and Hessenberg matrix
+    :rtype: (SLEPc.BV, numpy.ndarray)
     """
     comm = L.get_comm()
     sizes = (
@@ -102,34 +98,32 @@ def eig(
     process_evals: typing.Optional[
         typing.Callable[[np.ndarray], np.ndarray]
     ] = None,
-    verbose: typing.Optional[int] = 0,
+    verbose: int = 0,
 ) -> typing.Tuple[np.ndarray, SLEPc.BV]:
     r"""
     Compute the eigendecomposition of the linear operator specified by
-    :code:`L` and :code:`action`. For example,
-    to compute the eigenvalues of :math:`L` closest to the origin,
-    set :code:`action = L.solve` and
+    :code:`L` and :code:`action`. For example, to compute the eigenvalues
+    of :math:`L` closest to the origin, set :code:`action = L.solve` and
     :code:`process_evals = lambda x: 1./x`.
 
-    :param L: instance of the :class:`.LinearOperator` class
+    :param L: linear operator
     :type L: :class:`.LinearOperator`
     :param action: one of :meth:`.LinearOperator.apply`,
         :meth:`.LinearOperator.apply_hermitian_transpose`,
         :meth:`.LinearOperator.solve` or
         :meth:`.LinearOperator.solve_hermitian_transpose`
     :type action: Callable[[PETSc.Vec, PETSc.Vec], PETSc.Vec]
-    :param krylov_dim: dimension of the Arnoldi Krylov subspace
+    :param krylov_dim: dimension of the Krylov subspace
     :type krylov_dim: int
     :param n_evals: number of eigenvalues to return
     :type n_evals: int
-    :param process_evals: function to extract the desired eigenvalues
-        (see description above for an example).
-    :type process_evals: Optional[Callable[[np.ndarray], np.ndarray]], default
-        is :code:`lambda x: x`
-    :param verbose: 0 = no printout to terminal, 1 = print progress
-    :type verbose: Optional[int], default is 0
+    :param process_evals: function to transform the eigenvalues
+        of :code:`action` into eigenvalues of the desired operator
+    :type process_evals: Optional[Callable[[np.ndarray], np.ndarray]]
+    :param verbose: 0 = no output, 1 = print progress
+    :type verbose: int, default is 0
 
-    :return: tuple with the desired eigenvalues and corresponding eigenvectors
+    :return: eigenvalues as a diagonal matrix and corresponding eigenvectors
     :rtype: (numpy.ndarray of size :code:`n_evals x n_evals`,
         SLEPc.BV with :code:`n_evals` columns)
     """
@@ -153,55 +147,50 @@ def match_right_and_left_eigenvectors(
     V: SLEPc.BV, W: SLEPc.BV, Dv: np.ndarray, Dw: np.ndarray
 ) -> typing.Tuple[SLEPc.BV, SLEPc.BV, np.ndarray, np.ndarray]:
     r"""
-    Scale and sort the right and left eigenvectors and corresponding eigenvalues
-    of an underlying operator :math:`L`, so that
+    Sort, match, and biorthogonalize the right and left eigenvectors
+    of an operator :math:`L`, so that
 
     .. math::
 
         W^* L V = D_v = D_w,\quad W^* V = I \in\mathbb{R}^{m\times m}.
 
+    The right eigenvalues are sorted by descending real part, and
+    the left eigenvectors/eigenvalues are reordered to match.
 
-    :param V: :code:`m` right eigenvectors
+    :param V: right eigenvectors
     :type V: SLEPc.BV
-    :param W: :code:`m` left eigenvectors
+    :param W: left eigenvectors (already complex conjugated)
     :type W: SLEPc.BV
-    :param Dv: right eigenvalues
+    :param Dv: right eigenvalues as a diagonal matrix
     :type Dv: numpy.ndarray of size :code:`m x m`
-    :param Dv: eigenvalues computed from the right eigendecomposition
-        of :math:`L`
-    :type Dv: numpy.ndarray of size :code:`m x m`
-    :param Dw: eigenvalues computed from the left eigendecomposition
-        of :math:`L`. (Attention: these have already been complex conjugated.)
+    :param Dw: left eigenvalues as a diagonal matrix
+        (already complex conjugated)
     :type Dw: numpy.ndarray of size :code:`m x m`
 
-    :return: tuple :math:`(V, W, D_v, D_w)` with the biorthogonalized
-        eigenvectors and corresponding eigenvalues
-    :rtype: (SLEPc.BV with :code:`m` columns, SLEPc.BV with :code:`m` columns,
-        numpy.ndarray of size :code:`m x m`,
-        numpy.ndarray of size :code:`m x m`)
+    :return: biorthogonalized :math:`(V, W, D_v, D_w)`
+    :rtype: (SLEPc.BV, SLEPc.BV, numpy.ndarray, numpy.ndarray)
     """
-    # Match the right and left eigenvalues/vectors
+    comm = PETSc.COMM_WORLD
+    # Sort right eigenvalues/vectors by descending real part
     Dv = np.diag(Dv)
+    sort_idces = np.flipud(np.argsort(Dv.real))
+    Dv = Dv[sort_idces]
+    V = bv_slice(comm, V, sort_idces)
+    # Match the left eigenvalues/vectors to the right ones
     Dw = np.diag(Dw)
-    idces = [np.argmin(np.abs(Dv - val)) for val in Dw]
+    idces = [np.argmin(np.abs(Dw - val)) for val in Dv]
     Dw = np.diag(Dw[idces])
     Dv = np.diag(Dv)
-    Qadj = W.copy()
-    for j in range(len(idces)):
-        q = Qadj.getColumn(idces[j])
-        W.insertVec(j, q)
-        Qadj.restoreColumn(idces[j], q)
-    Qadj.destroy()
+    W = bv_slice(comm, W, np.array(idces))
     # Biorthogonalize the eigenvectors
     M = V.dot(W)
     evals, evecs = sp.linalg.eig(M.getDenseArray())
     idces = np.argwhere(np.abs(evals) < 1e-10).reshape(-1)
-    evals[idces] += 1e-10
+    # evals[idces] += 1e-10
     Minv = evecs @ np.diag(1.0 / evals) @ sp.linalg.inv(evecs)
-    Minv = PETSc.Mat().createDense(Minv.shape, None, Minv, PETSc.COMM_SELF)
-    V.multInPlace(Minv, 0, V.getSizes()[-1])
+    MinvH = PETSc.Mat().createDense(Minv.shape, None, np.conj(Minv).T, PETSc.COMM_SELF)
+    W.multInPlace(MinvH, 0, W.getSizes()[-1])
     M.destroy()
-    Minv.destroy()
     return (V, W, Dv, Dw)
 
 
@@ -209,23 +198,25 @@ def check_eig_convergence(
     action: typing.Callable[[PETSc.Vec, PETSc.Vec], PETSc.Vec],
     D: np.ndarray,
     V: SLEPc.BV,
-    monitor: typing.Optional[bool] = False,
-) -> np.array:
+    monitor: bool = False,
+) -> np.ndarray:
     r"""
-    Check convergence of the eigenpairs by measuring
-    :math:`\lVert L v - \lambda v\rVert` for each pair :math:`(\lambda, v)`.
+    Check convergence of eigenpairs by computing
+    :math:`\lVert L v - \lambda v\rVert` for each pair
+    :math:`(\lambda, v)`.
 
     :param action: one of :meth:`.LinearOperator.apply` or
         :meth:`.LinearOperator.apply_hermitian_transpose`
     :type action: Callable[[PETSc.Vec, PETSc.Vec], PETSc.Vec]
-    :param D: diagonal 2D numpy array with the eigenvalues
+    :param D: eigenvalues as a diagonal matrix
     :type D: numpy.ndarray
     :param V: corresponding eigenvectors
     :type V: SLEPc.BV
+    :param monitor: print per-eigenpair errors if True
+    :type monitor: bool, default is False
 
-    :return: Error vector (each entry is the error of the corresponding
-        eigen pair)
-    :rtype: np.array
+    :return: error for each eigenpair
+    :rtype: numpy.ndarray
     """
     if monitor:
         petscprint(PETSc.COMM_WORLD, " ")

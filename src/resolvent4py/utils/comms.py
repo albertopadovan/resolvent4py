@@ -62,8 +62,8 @@ def sequential_to_distributed_matrix(
     """
     array = Mat_seq.getDenseArray()
     r0, r1 = Mat_dist.getOwnershipRange()
-    rows = np.arange(r0, r1)
-    cols = np.arange(0, Mat_seq.getSizes()[-1][-1])
+    rows = np.arange(r0, r1, dtype=PETSc.IntType)
+    cols = np.arange(0, Mat_seq.getSizes()[-1][-1], dtype=PETSc.IntType)
     Mat_dist.setValues(rows, cols, array[r0:r1,].reshape(-1))
     Mat_dist.assemble(None)
     return Mat_dist
@@ -86,9 +86,9 @@ def sequential_to_distributed_vector(
     """
     array = vec_seq.getArray()
     r0, r1 = vec_dist.getOwnershipRange()
-    rows = np.arange(r0, r1)
+    rows = np.arange(r0, r1, dtype=PETSc.IntType)
     vec_dist.setValues(rows, array[r0:r1,])
-    vec_dist.assemble(None)
+    vec_dist.assemble()
     return vec_dist
 
 

@@ -3,6 +3,7 @@ __all__ = [
     "bv_conj",
     "bv_real",
     "bv_imag",
+    "bv_slice",
 ]
 
 import typing

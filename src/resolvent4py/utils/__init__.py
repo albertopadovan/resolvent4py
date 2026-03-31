@@ -8,6 +8,7 @@ from .miscellaneous import *
 from .random import *
 from .vector import *
 from .time_stepping import *
+from .ssm import *
 
 del (
     bv,
@@ -20,4 +21,5 @@ del (
     random,
     vector,
     time_stepping,
+    ssm,
 )
