@@ -75,11 +75,15 @@ def arnoldi_iteration(
         if verbose == 1:
             petscprint(comm, "Arnoldi iteration %d/%d" % (k, krylov_dim))
         v = action(q, v)
-        for j in range(k):
-            qj = Q.getColumn(j)
-            H[j, k - 1] = v.dot(qj)
-            v.axpy(-H[j, k - 1], qj)
-            Q.restoreColumn(j, qj)
+        Q.setActiveColumns(0, k)
+        # Two-pass Classical Gram-Schmidt (CGS2): same stability as
+        # Modified Gram-Schmidt but with only 2 Allreduces per step
+        # instead of k (see Daniel, Gragg, Kaufman & Stewart, 1976)
+        h = Q.dotVec(v)
+        Q.multVec(-1.0, 1.0, v, h)
+        h2 = Q.dotVec(v)
+        Q.multVec(-1.0, 1.0, v, h2)
+        H[:k, k - 1] = h + h2
         H[k, k - 1] = v.norm()
         v.scale(1.0 / H[k, k - 1])
         Q.insertVec(k, v)
