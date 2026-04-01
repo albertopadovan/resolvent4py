@@ -8,6 +8,7 @@ __all__ = [
 import numpy as np
 import typing
 from petsc4py import PETSc
+from slepc4py import SLEPc
 
 
 def vec_real(
@@ -157,6 +158,47 @@ def assemble_harmonic_balanced_vector(
     pertb_freqs: np.array,
     sizes: typing.Tuple[int, int],
 ) -> PETSc.Vec:
+    r"""
+    Assemble a harmonic-balanced vector from its Fourier coefficient
+    vectors.
+
+    Given :math:`\{v_{-n_{fb}}, \ldots, v_{n_{fb}}\}`, assemble
+
+    .. math::
+
+        \hat{v} = \begin{bmatrix}
+            \vdots \\ v_{-1} \\ v_0 \\ v_{1} \\ \vdots
+        \end{bmatrix}
+
+    of total size :math:`(2 n_{fp} + 1) N`, where :math:`n_{fp}` is the
+    number of perturbation frequencies and :math:`N` is the size of each
+    :math:`v_j`.  Blocks outside the baseflow bandwidth
+    (:math:`|j| > n_{fb}`) are left as zero.
+
+    If ``bflow_freqs`` starts at zero (i.e.\ only non-negative
+    frequencies are provided), the negative-frequency vectors are
+    generated automatically as complex conjugates:
+    :math:`v_{-j} = \overline{v_j}`.
+
+    :param vec_lst: list of PETSc vectors :math:`v_j`.
+        If ``bflow_freqs`` starts at 0, the list should contain
+        :math:`\{v_0, v_1, \ldots, v_{n_{fb}}\}` (length
+        :math:`n_{fb} + 1`).
+        Otherwise it should contain
+        :math:`\{v_{-n_{fb}}, \ldots, v_{n_{fb}}\}` (length
+        :math:`2 n_{fb} + 1`).
+    :type vec_lst: List[PETSc.Vec]
+    :param bflow_freqs: baseflow frequency array
+    :type bflow_freqs: np.array
+    :param pertb_freqs: perturbation frequency array
+        :math:`\omega (-n_{fp}, \ldots, -1, 0, 1, \ldots, n_{fp})`
+    :type pertb_freqs: np.array
+    :param sizes: ``(local_size, global_size)`` of the assembled vector
+    :type sizes: Tuple[int, int]
+
+    :return: the assembled harmonic-balanced vector :math:`\hat{v}`
+    :rtype: PETSc.Vec
+    """
     if len(bflow_freqs) != len(vec_lst):
         raise ValueError(
             f"Error in assemble_harmonic_balanced_vector(). vec_lst "
@@ -197,3 +239,81 @@ def assemble_harmonic_balanced_vector(
         vec_lst[nfb:]
 
     return Vec
+
+
+def reshape_harmonic_balanced_vector_into_bv(
+    vec: PETSc.Vec,
+    nblocks: int,
+    bv: SLEPc.BV = None,
+) -> SLEPc.BV:
+    r"""
+    Reshape a harmonic-balanced vector into a SLEPc BV (basis vectors)
+    matrix.
+
+    Given :math:`\hat{v} = (v_{-m}, \ldots, v_m)^T` of total size
+    :math:`N = n \cdot (2m+1)`, reshape it into an :math:`n \times (2m+1)`
+    dense matrix (stored as a SLEPc BV) where column :math:`j` holds
+    :math:`v_{j-m}`.
+
+    The vector :math:`\hat{v}` and the BV matrix may have different
+    parallel row distributions, so values are exchanged across ranks
+    via PETSc's COO assembly (``setPreallocationCOO`` /
+    ``setValuesCOO``).
+
+    :param vec: distributed PETSc vector of size :math:`n \cdot (2m+1)`
+    :type vec: PETSc.Vec
+    :param nblocks: number of harmonic blocks :math:`2m+1`
+    :type nblocks: int
+    :param bv: optional pre-allocated SLEPc BV of size
+        :math:`n \times (2m+1)`.  If ``None``, a new BV is created.
+    :type bv: Optional[SLEPc.BV]
+
+    :return: the reshaped BV
+    :rtype: SLEPc.BV
+    """
+    comm = vec.getComm()
+    N = vec.getSizes()[-1]
+    n = N // nblocks
+
+    if bv is None:
+        from .comms import compute_local_size
+        bv = SLEPc.BV().create(comm=comm)
+        bv.setSizes((compute_local_size(n), n), nblocks)
+        bv.setType("mat")
+
+    rowsize, ncols = bv.getSizes()
+    if ncols != nblocks:
+        raise ValueError(
+            f"The number of columns in the provided BV should be "
+            f"equal to nblocks. Currently, ncols = {ncols} and "
+            f"nblocks = {nblocks}."
+        )
+    if rowsize[-1] != n:
+        raise ValueError(
+            f"The row size of the provided BV should be equal to "
+            f"N / nblocks = {n}. Currently, rowsize = {rowsize[-1]}."
+        )
+
+    # For each local entry vec[g] (global index g in the stacked vector),
+    # compute the target (row, col) in the n x nblocks matrix:
+    #   block index j = g // n   (which column, 0-based)
+    #   local index i = g % n    (which row in the block)
+    # So bvMat[i, j] = vec[g].
+    local_globals = np.arange(*vec.getOwnershipRange(), dtype=PETSc.IntType)
+    bv_rows = (local_globals % n).astype(PETSc.IntType)
+    bv_cols = (local_globals // n).astype(PETSc.IntType)
+    bv_vals = np.asarray(vec.getArray(readonly=True), dtype=PETSc.ScalarType)
+
+    # Use CSR assembly via convert_coo_to_csr: PETSc handles
+    # cross-rank redistribution during the COO-to-CSR conversion.
+    from .matrix import convert_coo_to_csr_v2 as convert_coo_to_csr
+    bvMat = bv.getMat()
+    rows_ptr, cols_csr, vals_csr = convert_coo_to_csr(
+        [bv_rows, bv_cols, bv_vals], bvMat.getSizes()
+    )
+    bvMat.setPreallocationCSR((rows_ptr, cols_csr))
+    bvMat.setValuesCSR(rows_ptr, cols_csr, vals_csr, True)
+    bvMat.assemble()
+
+    bv.restoreMat(bvMat)
+    return bv
