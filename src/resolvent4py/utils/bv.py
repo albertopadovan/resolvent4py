@@ -12,7 +12,7 @@ import numpy as np
 from slepc4py import SLEPc
 from petsc4py import PETSc
 
-from .matrix import convert_coo_to_csr
+from .matrix import convert_coo_to_csr_v2 as convert_coo_to_csr
 
 
 def bv_add(alpha: float, X: SLEPc.BV, Y: SLEPc.BV) -> None:

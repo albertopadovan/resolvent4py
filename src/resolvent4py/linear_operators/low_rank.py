@@ -59,7 +59,7 @@ class LowRankLinearOperator(LinearOperator):
         M = X.dot(self.V)
         L = self.Sigma @ M.getDenseArray()
         Lm = PETSc.Mat().createDense(L.shape, None, L, PETSc.COMM_SELF)
-        Y = X.duplicate() if Y == None else Y
+        Y = self.create_left_bv(X.getSizes()[-1]) if Y == None else Y
         Y.mult(1.0, 0.0, self.U, Lm)
         Lm.destroy()
         M.destroy()
@@ -69,7 +69,7 @@ class LowRankLinearOperator(LinearOperator):
         M = X.dot(self.U)
         L = self.Sigma.conj().T @ M.getDenseArray()
         Lm = PETSc.Mat().createDense(L.shape, None, L, PETSc.COMM_SELF)
-        Y = X.duplicate() if Y == None else Y
+        Y = self.create_right_bv(X.getSizes()[-1]) if Y == None else Y
         Y.mult(1.0, 0.0, self.V, Lm)
         Lm.destroy()
         M.destroy()

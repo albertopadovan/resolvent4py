@@ -11,6 +11,14 @@ if MPI.COMM_WORLD.Get_rank() != 0:
     sys.stderr = open(os.devnull, "w")
 
 
+@pytest.hookimpl(trylast=True)
+def pytest_configure(config):
+    if MPI.COMM_WORLD.Get_rank() != 0:
+        reporter = config.pluginmanager.getplugin("terminalreporter")
+        if reporter:
+            config.pluginmanager.unregister(reporter)
+
+
 @pytest.fixture(scope="session")
 def comm():
     """PETSc communicator fixture."""

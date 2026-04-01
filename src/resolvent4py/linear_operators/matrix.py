@@ -32,6 +32,8 @@ class MatrixLinearOperator(LinearOperator):
         nblocks: typing.Optional[typing.Union[int, None]] = None,
     ) -> None:
         self.A = A
+        self.Ah = A.copy()
+        self.Ah.hermitianTranspose()
         self.ksp = ksp
         super().__init__(
             A.getComm(), "MatrixLinearOperator", A.getSizes(), nblocks
@@ -62,19 +64,17 @@ class MatrixLinearOperator(LinearOperator):
         return y
 
     def apply_hermitian_transpose_mat(self, X, Y=None):
-        self.A.hermitianTranspose()
         Xm = X.getMat()
         if Y != None:
             Ym = Y.getMat()
-            Ym = self.A.matMult(Xm, Ym)
+            Ym = self.Ah.matMult(Xm, Ym)
             Y.restoreMat(Ym)
         else:
             Y = self.create_right_bv(X.getSizes()[-1])
             Ym = Y.getMat()
-            Ym = self.A.matMult(Xm, Ym)
+            Ym = self.Ah.matMult(Xm, Ym)
             Y.restoreMat(Ym)
         X.restoreMat(Xm)
-        self.A.hermitianTranspose()
         return Y
 
     def solve(self, x, y=None):
@@ -150,6 +150,7 @@ class MatrixLinearOperator(LinearOperator):
 
     def destroy_matrix(self: "MatrixLinearOperator"):
         self.A.destroy()
+        self.Ah.destroy()
 
     def destroy_ksp(self: "MatrixLinearOperator"):
         self.ksp.destroy() if self.ksp is not None else None

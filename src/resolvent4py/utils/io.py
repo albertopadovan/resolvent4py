@@ -17,7 +17,7 @@ from slepc4py import SLEPc
 
 from .bv import bv_conj
 from .comms import compute_local_size
-from .matrix import convert_coo_to_csr
+from .matrix import convert_coo_to_csr_v2 as convert_coo_to_csr
 
 
 def read_vector(

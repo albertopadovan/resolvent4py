@@ -4,6 +4,7 @@ __all__ = [
     "mat_solve_hermitian_transpose",
     "hermitian_transpose",
     "convert_coo_to_csr",
+    "convert_coo_to_csr_v2",
     "assemble_harmonic_resolvent_generator",
 ]
 
@@ -242,6 +243,109 @@ def convert_coo_to_csr(
     return my_rows_ptr, my_cols, my_vals
 
 
+def convert_coo_to_csr_v2(
+    arrays: tuple[np.array, np.array, np.array],
+    sizes: tuple[tuple[int, int], tuple[int, int]],
+) -> tuple[np.array, np.array, np.array]:
+    r"""
+    Convert arrays = [row indices, col indices, values] for COO matrix
+    assembly to [row pointers, col indices, values] for CSR matrix assembly.
+    (Petsc4py currently does not support COO matrix assembly, hence the need
+    to convert.)
+
+    This version replaces the O(P^2) non-blocking Isend/Irecv pattern in
+    :func:`convert_coo_to_csr` with Alltoall for counts and pairwise
+    Sendrecv for data. This avoids MPI request exhaustion and tag overflow
+    on large machines while keeping memory usage bounded.
+
+    :param arrays: a list of numpy arrays (e.g., arrays = [rows,cols,vals])
+    :type array: tuple[np.array, np.array, np.array]
+    :param sizes: see `MatSizeSpec <MatSizeSpec_>`_
+    :type sizes: tuple[np.array, np.array, np.array]
+
+    :return: csr row pointers, column indices and matrix values for CSR
+        matrix assembly
+    :rtype: tuple[np.array, np.array, np.array]
+    """
+
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    pool_size = comm.Get_size()
+    rows, cols, vals = arrays
+    idces = np.argsort(rows).reshape(-1)
+    # Make sure the arrays have the correct data types (save for MPI comms)
+    # and sort for CSR consistency
+    rows = np.asarray(rows[idces], dtype=PETSc.IntType)
+    cols = np.asarray(cols[idces], dtype=PETSc.IntType)
+    vals = np.asarray(vals[idces], dtype=PETSc.ScalarType)
+
+    # Each processor (ID rank) is aware of how many local rows are
+    # owned by the other processors in the pool
+    mat_row_sizes_local = np.asarray(
+        comm.allgather(sizes[0][0]), dtype=PETSc.IntType
+    )
+    mat_row_displ = np.concatenate(([0], np.cumsum(mat_row_sizes_local[:-1])))
+    ownership_ranges = np.zeros((pool_size, 2), dtype=PETSc.IntType)
+    ownership_ranges[:, 0] = mat_row_displ
+    ownership_ranges[:-1, 1] = ownership_ranges[1:, 0]
+    ownership_ranges[-1, 1] = sizes[0][-1]
+
+    # Determine which rank owns each row and partition entries by destination
+    dest = np.searchsorted(mat_row_displ, rows, side="right") - 1
+    send_counts = np.bincount(dest, minlength=pool_size).astype(PETSc.IntType)
+
+    # Sort entries by destination rank for contiguous per-rank slicing
+    sort_idx = np.argsort(dest, kind="stable")
+    rows = np.ascontiguousarray(rows[sort_idx])
+    cols = np.ascontiguousarray(cols[sort_idx])
+    vals = np.ascontiguousarray(vals[sort_idx])
+    send_displs = np.concatenate(([0], np.cumsum(send_counts[:-1])))
+
+    # Exchange counts via Alltoall (O(P) integers, negligible memory)
+    recv_counts = np.empty(pool_size, dtype=PETSc.IntType)
+    comm.Alltoall(send_counts, recv_counts)
+
+    # Exchange data via pairwise Sendrecv (1 send + 1 recv at a time,
+    # no tag management, deadlock-free)
+    total_recv = int(recv_counts.sum())
+    my_rows = np.empty(total_recv, dtype=PETSc.IntType)
+    my_cols = np.empty(total_recv, dtype=PETSc.IntType)
+    my_vals = np.empty(total_recv, dtype=PETSc.ScalarType)
+    recv_displs = np.concatenate(([0], np.cumsum(recv_counts[:-1])))
+
+    for k in range(pool_size):
+        send_to = (rank + k) % pool_size
+        recv_from = (rank - k) % pool_size
+        s0 = int(send_displs[send_to])
+        sn = int(send_counts[send_to])
+        r0 = int(recv_displs[recv_from])
+        rn = int(recv_counts[recv_from])
+        comm.Sendrecv(
+            rows[s0 : s0 + sn], dest=send_to,
+            recvbuf=my_rows[r0 : r0 + rn], source=recv_from,
+        )
+        comm.Sendrecv(
+            cols[s0 : s0 + sn], dest=send_to,
+            recvbuf=my_cols[r0 : r0 + rn], source=recv_from,
+        )
+        comm.Sendrecv(
+            vals[s0 : s0 + sn], dest=send_to,
+            recvbuf=my_vals[r0 : r0 + rn], source=recv_from,
+        )
+
+    # Convert to local row indices and sort by row for CSR
+    my_rows = my_rows - ownership_ranges[rank, 0]
+    idces = np.argsort(my_rows).reshape(-1)
+    my_rows = my_rows[idces]
+    my_cols = my_cols[idces]
+    my_vals = my_vals[idces]
+
+    my_rows_ptr = np.zeros(sizes[0][0] + 1, dtype=PETSc.IntType)
+    my_rows_ptr[1:] = np.cumsum(np.bincount(my_rows, minlength=sizes[0][0]))
+
+    return my_rows_ptr, my_cols, my_vals
+
+
 def assemble_harmonic_resolvent_generator(
     A: PETSc.Mat, freqs: np.array, M: Optional[PETSc.Mat] = None
 ) -> PETSc.Mat:
@@ -277,7 +381,7 @@ def assemble_harmonic_resolvent_generator(
     rows = np.asarray(rows_lst, dtype=PETSc.IntType)
     vals = np.asarray(vals_lst, dtype=np.complex128)
 
-    rows_ptr, cols, vals = convert_coo_to_csr([rows, rows, vals], A.getSizes())
+    rows_ptr, cols, vals = convert_coo_to_csr_v2([rows, rows, vals], A.getSizes())
     omId = PETSc.Mat().createAIJ(A.getSizes(), comm=A.getComm())
     omId.setPreallocationCSR((rows_ptr, cols))
     omId.setValuesCSR(rows_ptr, cols, vals, True)

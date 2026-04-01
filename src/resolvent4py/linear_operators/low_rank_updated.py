@@ -117,6 +117,28 @@ class LowRankUpdatedLinearOperator(LinearOperator):
     ) -> None:
         self.Ax = self.A.create_left_vector()
         self.ATx = self.A.create_right_vector()
+        self._cached_Z = None
+        self._cached_Z_ht = None
+
+    def _get_intermediate_bv(
+        self: "LowRankUpdatedLinearOperator", m: int
+    ) -> SLEPc.BV:
+        if self._cached_Z is None or self._cached_Z.getSizes()[-1] != m:
+            if self._cached_Z is not None:
+                self._cached_Z.destroy()
+            self._cached_Z = self.create_intermediate_bv(m)
+        return self._cached_Z
+
+    def _get_intermediate_bv_hermitian_transpose(
+        self: "LowRankUpdatedLinearOperator", m: int
+    ) -> SLEPc.BV:
+        if self._cached_Z_ht is None or self._cached_Z_ht.getSizes()[-1] != m:
+            if self._cached_Z_ht is not None:
+                self._cached_Z_ht.destroy()
+            self._cached_Z_ht = (
+                self.create_intermediate_bv_hermitian_transpose(m)
+            )
+        return self._cached_Z_ht
 
     def create_intermediate_bv(
         self: "LowRankUpdatedLinearOperator", m: int
@@ -175,27 +197,21 @@ class LowRankUpdatedLinearOperator(LinearOperator):
         return y
 
     def apply_mat(self, X, Y=None, Z=None):
-        destroy = False
-        if Z == None:
-            destroy = True
-            Z = self.create_intermediate_bv(X.getSizes()[-1])
+        if Z is None:
+            Z = self._get_intermediate_bv(X.getSizes()[-1])
         Z = self.A.apply_mat(X, Z)
         Y = self.L.apply_mat(X, Y)
         bv_add(1.0, Y, Z)
-        Z.destroy() if destroy else None
         return Y
 
     def apply_hermitian_transpose_mat(self, X, Y=None, Z=None):
-        destroy = False
-        if Z == None:
-            destroy = True
-            Z = self.create_intermediate_bv_hermitian_transpose(
+        if Z is None:
+            Z = self._get_intermediate_bv_hermitian_transpose(
                 X.getSizes()[-1]
             )
         Z = self.A.apply_hermitian_transpose_mat(X, Z)
         Y = self.L.apply_hermitian_transpose_mat(X, Y)
         bv_add(1.0, Y, Z)
-        Z.destroy() if destroy else None
         return Y
 
     def solve(self, x, y=None):
@@ -213,29 +229,23 @@ class LowRankUpdatedLinearOperator(LinearOperator):
         return y
 
     def solve_mat(self, X, Y=None, Z=None):
-        destroy = False
-        if Z == None:
-            destroy = True
-            Z = self.create_intermediate_bv(X.getSizes()[-1])
+        if Z is None:
+            Z = self._get_intermediate_bv(X.getSizes()[-1])
         Z = self.A.solve_mat(X, Z)
         Y = self.W.apply_mat(X, Y)
         Y.scale(-1.0)
         bv_add(1.0, Y, Z)
-        Z.destroy() if destroy else None
         return Y
 
     def solve_hermitian_transpose_mat(self, X, Y=None, Z=None):
-        destroy = False
-        if Z == None:
-            destroy = True
-            Z = self.create_intermediate_bv_hermitian_transpose(
+        if Z is None:
+            Z = self._get_intermediate_bv_hermitian_transpose(
                 X.getSizes()[-1]
             )
         Z = self.A.solve_hermitian_transpose_mat(X, Z)
         Y = self.W.apply_hermitian_transpose_mat(X, Y)
         Y.scale(-1.0)
         bv_add(1.0, Y, Z)
-        Z.destroy() if destroy else None
         return Y
 
     def destroy_woodbury_operator(
@@ -251,6 +261,10 @@ class LowRankUpdatedLinearOperator(LinearOperator):
     ) -> None:
         self.Ax.destroy()
         self.ATx.destroy()
+        if self._cached_Z is not None:
+            self._cached_Z.destroy()
+        if self._cached_Z_ht is not None:
+            self._cached_Z_ht.destroy()
 
     def destroy(self):
         self.destroy_intermediate_vectors()
