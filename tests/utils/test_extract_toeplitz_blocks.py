@@ -1,7 +1,7 @@
 import numpy as np
 import resolvent4py as res4py
 from petsc4py import PETSc
-from resolvent4py.utils.ksp import _extract_toeplitz_blocks
+from resolvent4py.linear_operators.superoptimal_block_circulant import _extract_toeplitz_blocks
 from resolvent4py.utils.comms import scatter_array_from_root_to_all
 from resolvent4py.utils.matrix import convert_coo_to_csr_v2
 

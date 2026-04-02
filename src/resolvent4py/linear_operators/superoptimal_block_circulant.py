@@ -1,11 +1,9 @@
-import typing
-
 import numpy as np
 import scipy as sp
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
-from ..utils.bv import bv_add, reshape_bv_into_harmonic_balanced_vector
+from ..utils.bv import reshape_bv_into_harmonic_balanced_vector
 from ..utils.matrix import extract_matrix_block
 from ..utils.ksp import create_mumps_solver, check_lu_factorization
 from ..utils.vector import reshape_harmonic_balanced_vector_into_bv
@@ -27,9 +25,9 @@ class SuperoptimalBlockCirculantLinearOperator(LinearOperator):
     :math:`n` independent :math:`N \times N` solves and sparse mat-vecs,
     and a block-IFFT.
 
-    Call :meth:`setup` after construction to compute the DFT-domain
-    blocks :math:`G_{kk}`, the row block-norm matrices :math:`R_k`,
-    and their factorisations.
+    The DFT-domain blocks :math:`G_{kk}`, the row block-norm matrices
+    :math:`R_k`, and their factorisations are computed automatically
+    during construction.
 
     :param T: linear operator wrapping the :math:`nN \times nN`
         harmonic-balance system
@@ -62,6 +60,7 @@ class SuperoptimalBlockCirculantLinearOperator(LinearOperator):
         self.M = M
         self.s = s
         self.omega = omega
+        self.setup()
         super().__init__(
             comm, "SuperoptimalBlockCirculantLinearOperator", size, nblk
         )
@@ -77,22 +76,46 @@ class SuperoptimalBlockCirculantLinearOperator(LinearOperator):
 
             T_{k,j} = (s + ik\omega) M \delta_{k,j} - A_{k-j}
 
-        The DFT-domain diagonal blocks and row block-norm matrices are:
+        The block-FFT used in this implementation is
+        :func:`scipy.fft.fft` with ``norm="ortho"`` applied to
+        columns stored in centered order :math:`[-m, \ldots, m]`,
+        preceded by :func:`scipy.fft.ifftshift` and followed by
+        :func:`scipy.fft.fftshift`.  This corresponds to the
+        block-DFT :math:`\tilde{F}` defined by
 
         .. math::
 
-            G_{kk} = (s + ik\omega) M - \sum_{l=-m}^{m} A_l e^{2\pi ikl/(2m + 1)},\quad
+            \tilde{F}_{kp} = \frac{1}{\sqrt{n}}
+            e^{-2\pi i (k+m)(p+m)/n},\quad k,p \in \{-m,\ldots,m\},
+
+        which differs from the centered DFT
+        :math:`F_{kp} = \frac{1}{\sqrt{n}} e^{-2\pi i kp/n}` by
+        index-dependent phase factors.  The formulas below are
+        written in terms of :math:`\tilde{F}`.
+
+        The DFT-domain diagonal blocks are:
 
         .. math::
 
-            R_k = \sum_{j=-2m}^{2m} B_j e^{2\pi i jk / (2m + 1)},\quad
-            B_j = \frac{1}{2m + 1} \sum_{p=-m}^m (TT^*)_{p,p+j}
-        
+            G_{kk} = (s + ik\omega) M
+            - \sum_{l=-m}^{m} A_l\, e^{-2\pi i kl/(2m+1)}
+
+        The row block-norm matrices are:
+
+        .. math::
+
+            R_k = \sum_{j=-2m}^{2m} B_j\, e^{+2\pi i jk/(2m+1)},\quad
+            B_j = \frac{1}{2m+1} \sum_{p=-m}^{m} (TT^*)_{p,\,p+j}
+
+        Note the opposite signs in the exponents of :math:`G_{kk}`
+        (negative) and :math:`R_k` (positive), which arise from the
+        phase factors introduced by ``ifftshift``/``fftshift``.
+
         Uses the attributes ``self.T``, ``self.A``, ``self.M``,
         ``self.omega``, and ``self.s`` set in :meth:`__init__`.
         """
-        nblocks = self.get_nblocks()
-        nN = self.get_dimensions()[0][-1]
+        nblocks = self.T.get_nblocks()
+        nN = self.T.get_dimensions()[0][-1]
         N = nN // nblocks
 
         # ------------------------------------------------------------------
@@ -115,10 +138,15 @@ class SuperoptimalBlockCirculantLinearOperator(LinearOperator):
             Gkk = M0.copy()
             Gkk.scale(self.s + 1j * k * self.omega)
             for l in range(-m, m + 1):
-                Gkk.axpy(-np.exp(2j * np.pi * l * k / nblocks), Ak_list[l + m])
+                Gkk.axpy(-np.exp(-2j * np.pi * l * k / nblocks), Ak_list[l + m])
             Gkk_list.append(Gkk.copy())
             Gkk.destroy()
         self.Gkk_list = Gkk_list
+
+        # Destroy temporary Ak_list and M0
+        for obj in Ak_list:
+            obj.destroy()
+        M0.destroy()
 
         Gkk_ksp_list = []
         for k in range(nblocks):
@@ -128,7 +156,7 @@ class SuperoptimalBlockCirculantLinearOperator(LinearOperator):
         self.Gkk_ksp_list = Gkk_ksp_list
 
         # ------------------------------------------------------------------
-        # Assemble R_{k} as described in the docstrings. To do that, we 
+        # Assemble R_{k} as described in the docstrings. To do that, we
         # first need to assemble B_{k}
         # ------------------------------------------------------------------
         TH = self.T.A.copy()
@@ -187,7 +215,9 @@ class SuperoptimalBlockCirculantLinearOperator(LinearOperator):
         xBV = reshape_harmonic_balanced_vector_into_bv(x, nblocks)
         xBV = _fft(xBV, "bwd")
         yBV = xBV.copy()
-        wi = y.duplicate()
+        tmp = xBV.getColumn(0)
+        wi = tmp.duplicate()
+        xBV.restoreColumn(0, tmp)
         for i in range(nblocks):
             xi = xBV.getColumn(i)
             self.Gkk_ksp_list[i].solve(xi, wi)
@@ -210,7 +240,9 @@ class SuperoptimalBlockCirculantLinearOperator(LinearOperator):
         xBV = reshape_harmonic_balanced_vector_into_bv(x, nblocks)
         xBV = _fft(xBV, "bwd")
         yBV = xBV.copy()
-        wi = y.duplicate()
+        tmp = xBV.getColumn(0)
+        wi = tmp.duplicate()
+        xBV.restoreColumn(0, tmp)
         for i in range(nblocks):
             # R_k^* xi -> wi (R_k = R_k^*)
             xi = xBV.getColumn(i)
@@ -222,6 +254,56 @@ class SuperoptimalBlockCirculantLinearOperator(LinearOperator):
             self.Gkk_ksp_list[i].solveTranspose(wi, yi)
             yi.conjugate()
             wi.conjugate()
+            yBV.restoreColumn(i, yi)
+        yBV = _fft(yBV, "fwd")
+        y = reshape_bv_into_harmonic_balanced_vector(yBV, y)
+        objs = [wi, xBV, yBV]
+        for obj in objs:
+            obj.destroy()
+        return y
+
+    def solve(self, x: PETSc.Vec, y: PETSc.Vec = None) -> PETSc.Vec:
+        y = self.create_left_vector() if y is None else y
+        nblocks = self.get_nblocks()
+        xBV = reshape_harmonic_balanced_vector_into_bv(x, nblocks)
+        xBV = _fft(xBV, "bwd")
+        yBV = xBV.copy()
+        tmp = xBV.getColumn(0)
+        wi = tmp.duplicate()
+        xBV.restoreColumn(0, tmp)
+        for i in range(nblocks):
+            xi = xBV.getColumn(i)
+            self.Rk_ksp_list[i].solve(xi, wi)
+            xBV.restoreColumn(i, xi)
+            yi = yBV.getColumn(i)
+            self.Gkk_list[i].mult(wi, yi)
+            yBV.restoreColumn(i, yi)
+        yBV = _fft(yBV, "fwd")
+        y = reshape_bv_into_harmonic_balanced_vector(yBV, y)
+        objs = [wi, xBV, yBV]
+        for obj in objs:
+            obj.destroy()
+        return y
+
+    def solve_hermitian_transpose(
+        self, x: PETSc.Vec, y: PETSc.Vec = None
+    ) -> PETSc.Vec:
+        y = self.create_right_vector() if y is None else y
+        nblocks = self.get_nblocks()
+        xBV = reshape_harmonic_balanced_vector_into_bv(x, nblocks)
+        xBV = _fft(xBV, "bwd")
+        yBV = xBV.copy()
+        tmp = xBV.getColumn(0)
+        wi = tmp.duplicate()
+        xBV.restoreColumn(0, tmp)
+        for i in range(nblocks):
+            # G_{kk}^H xi -> wi
+            xi = xBV.getColumn(i)
+            self.Gkk_list[i].multHermitian(xi, wi)
+            xBV.restoreColumn(i, xi)
+            # R_k^{-1} wi -> yi  (R_k = R_k^H)
+            yi = yBV.getColumn(i)
+            self.Rk_ksp_list[i].solve(wi, yi)
             yBV.restoreColumn(i, yi)
         yBV = _fft(yBV, "fwd")
         y = reshape_bv_into_harmonic_balanced_vector(yBV, y)
@@ -260,23 +342,62 @@ class SuperoptimalBlockCirculantLinearOperator(LinearOperator):
         y.destroy()
         return Y
 
+    def solve_mat(
+        self, X: SLEPc.BV, Y: SLEPc.BV = None
+    ) -> SLEPc.BV:
+        ncols = X.getSizes()[-1]
+        if Y is None:
+            Y = self.create_left_bv(ncols)
+        y = self.create_left_vector()
+        for j in range(ncols):
+            x = X.getColumn(j)
+            y = self.solve(x, y)
+            X.restoreColumn(j, x)
+            Y.insertVec(j, y)
+        y.destroy()
+        return Y
+
+    def solve_hermitian_transpose_mat(
+        self, X: SLEPc.BV, Y: SLEPc.BV = None
+    ) -> SLEPc.BV:
+        ncols = X.getSizes()[-1]
+        if Y is None:
+            Y = self.create_right_bv(ncols)
+        y = self.create_right_vector()
+        for j in range(ncols):
+            x = X.getColumn(j)
+            y = self.solve_hermitian_transpose(x, y)
+            X.restoreColumn(j, x)
+            Y.insertVec(j, y)
+        y.destroy()
+        return Y
+
+    def destroy(self):
+        lsts = [self.Rk_list, self.Rk_ksp_list, self.Gkk_list, self.Gkk_ksp_list]
+        for lst in lsts:
+            for obj in lst:
+                obj.destroy()
+        
 
 def _fft(xBV: SLEPc.BV, direction: str = "fwd") -> SLEPc.BV:
     r"""
     Apply the block-FFT or block-IFFT in-place along the harmonic index
     of a SLEPc BV.
 
-    The BV has shape :math:`n \times (2m+1)` with columns ordered as
+    The BV has shape :math:`N \times (2m+1)` with columns ordered as
     :math:`[v_{-m}, \ldots, v_0, \ldots, v_m]`.  Since
     :func:`scipy.fft.fft` expects standard DFT ordering
     :math:`[0, \ldots, 2m]`, :func:`scipy.fft.ifftshift` is applied
     before the transform and :func:`scipy.fft.fftshift` afterwards.
 
-    :param xBV: SLEPc BV of shape :math:`n \times (2m+1)`, modified
+    :param xBV: SLEPc BV of shape :math:`N \times (2m+1)`, modified
         in-place
     :type xBV: SLEPc.BV
     :param direction: ``"fwd"`` for forward FFT, ``"bwd"`` for inverse FFT
     :type direction: str
+
+    :return: the modified ``xBV``
+    :rtype: SLEPc.BV
     """
     fft_func = sp.fft.fft if direction == "fwd" else sp.fft.ifft
 
@@ -290,7 +411,7 @@ def _fft(xBV: SLEPc.BV, direction: str = "fwd") -> SLEPc.BV:
     return xBV
     
 
-def _extract_toeplitz_blocks(Ahat: PETSc.Mat, nblocks: int):
+def _extract_toeplitz_blocks(Ahat: PETSc.Mat, nblocks: int) -> list[PETSc.Mat]:
     r"""
     Extract the Fourier coefficient blocks :math:`A_{-m}, \ldots, A_{m}`
     from the harmonic-balanced operator :math:`\hat{A}` defined as
