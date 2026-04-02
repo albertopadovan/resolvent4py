@@ -1,5 +1,8 @@
 import numpy as np
 import resolvent4py as res4py
+from petsc4py import PETSc
+from resolvent4py.utils.vector import reshape_harmonic_balanced_vector_into_bv
+from resolvent4py.utils.comms import compute_local_size
 from .. import pytest_utils
 
 
@@ -119,3 +122,79 @@ def test_enforce_complex_conjugacy_even_blocks_raises(comm):
         raised = True
     x.destroy()
     assert raised
+
+
+def test_reshape_harmonic_balanced_vector_into_bv(comm):
+    r"""Test that reshaping a stacked vector into BV gives the correct
+    n x nblocks matrix."""
+    n = 4
+    nblocks = 5
+    N = n * nblocks
+
+    vec, arr = pytest_utils.generate_random_vector(comm, N)
+    bv = reshape_harmonic_balanced_vector_into_bv(vec, nblocks)
+
+    # Expected: column j of the n x nblocks matrix is arr[j*n : (j+1)*n]
+    expected = arr.reshape(nblocks, n).T
+
+    bvMat = bv.getMat()
+    bvMat_seq = res4py.distributed_to_sequential_matrix(bvMat)
+    bv.restoreMat(bvMat)
+    result = bvMat_seq.getDenseArray().copy()
+    bvMat_seq.destroy()
+
+    error = np.linalg.norm(result - expected) / np.linalg.norm(expected)
+    vec.destroy()
+    bv.destroy()
+    assert error < 1e-12, f"Relative error: {error:.2e}"
+
+
+def test_reshape_harmonic_balanced_vector_into_bv_preallocated(comm):
+    r"""Test reshaping into a pre-allocated BV."""
+    n = 6
+    nblocks = 3
+    N = n * nblocks
+
+    vec, arr = pytest_utils.generate_random_vector(comm, N)
+
+    from slepc4py import SLEPc
+    bv = SLEPc.BV().create(comm=comm)
+    bv.setSizes((compute_local_size(n), n), nblocks)
+    bv.setType("mat")
+
+    bv = reshape_harmonic_balanced_vector_into_bv(vec, nblocks, bv=bv)
+
+    expected = arr.reshape(nblocks, n).T
+
+    bvMat = bv.getMat()
+    bvMat_seq = res4py.distributed_to_sequential_matrix(bvMat)
+    bv.restoreMat(bvMat)
+    result = bvMat_seq.getDenseArray().copy()
+    bvMat_seq.destroy()
+
+    error = np.linalg.norm(result - expected) / np.linalg.norm(expected)
+    vec.destroy()
+    bv.destroy()
+    assert error < 1e-12, f"Relative error: {error:.2e}"
+
+
+def test_reshape_harmonic_balanced_vector_into_bv_single_block(comm):
+    r"""Edge case: nblocks = 1, the BV is just a single column."""
+    n = 8
+    nblocks = 1
+
+    vec, arr = pytest_utils.generate_random_vector(comm, n)
+    bv = reshape_harmonic_balanced_vector_into_bv(vec, nblocks)
+
+    expected = arr.reshape(1, n).T
+
+    bvMat = bv.getMat()
+    bvMat_seq = res4py.distributed_to_sequential_matrix(bvMat)
+    bv.restoreMat(bvMat)
+    result = bvMat_seq.getDenseArray().copy()
+    bvMat_seq.destroy()
+
+    error = np.linalg.norm(result - expected) / np.linalg.norm(expected)
+    vec.destroy()
+    bv.destroy()
+    assert error < 1e-12, f"Relative error: {error:.2e}"

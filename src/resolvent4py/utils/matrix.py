@@ -6,6 +6,7 @@ __all__ = [
     "convert_coo_to_csr",
     "convert_coo_to_csr_v2",
     "assemble_harmonic_resolvent_generator",
+    "extract_matrix_block",
 ]
 
 
@@ -394,3 +395,110 @@ def assemble_harmonic_resolvent_generator(
         Mat.axpy(1.0, A)
         omId.destroy()
         return Mat
+
+
+def assemble_matrix_from_coo(comm, coo_arrays, mat_sizes):
+    r"""
+    Assemble a PETSc AIJ sparse matrix from COO arrays via CSR conversion.
+
+    :param comm: MPI communicator
+    :type comm: PETSc.Comm
+    :param coo_arrays: ``[rows, cols, vals]`` in COO format (only populated
+        on rank 0; ``None`` on other ranks)
+    :type coo_arrays: list
+    :param mat_sizes: PETSc size spec
+        ``((local_rows, global_rows), (local_cols, global_cols))``
+    :type mat_sizes: tuple
+
+    :return: assembled PETSc sparse matrix
+    :rtype: PETSc.Mat
+    """
+    from .comms import scatter_array_from_root_to_all
+
+    rows_coo, cols_coo, data_coo = coo_arrays
+    rows = scatter_array_from_root_to_all(rows_coo)
+    cols = scatter_array_from_root_to_all(cols_coo)
+    data = scatter_array_from_root_to_all(data_coo)
+    rows_ptr, cols, vals = convert_coo_to_csr_v2(
+        [rows, cols, data], mat_sizes
+    )
+
+    M = PETSc.Mat().createAIJ(mat_sizes, comm=comm)
+    M.setPreallocationCSR((rows_ptr, cols))
+    M.setValuesCSR(rows_ptr, cols, vals, True)
+    M.assemble()
+
+    return M
+
+
+def extract_matrix_block(
+    Mat: PETSc.Mat, nblocks: int, rowblock: int, colblock: int
+) -> PETSc.Mat:
+    r"""
+    Extract a single :math:`N \times N` block from a block-structured
+    :math:`nN \times nN` PETSc matrix, where the block at position
+    ``(rowblock, colblock)`` occupies rows
+    ``rowblock*N .. (rowblock+1)*N - 1`` and columns
+    ``colblock*N .. (colblock+1)*N - 1``.
+
+    The extraction is done via two selector multiplications:
+
+    .. math::
+
+        \text{block} = \hat{I}_r^T \; \text{Mat} \; \hat{I}_c
+
+    where :math:`\hat{I}_r` and :math:`\hat{I}_c` are :math:`nN \times N`
+    matrices with :math:`I_N` at the appropriate block-row.
+
+    :param Mat: assembled :math:`nN \times nN` PETSc sparse matrix
+    :type Mat: PETSc.Mat
+    :param nblocks: number of blocks along each dimension
+    :type nblocks: int
+    :param rowblock: 0-based row-block index
+    :type rowblock: int
+    :param colblock: 0-based column-block index
+    :type colblock: int
+
+    :return: the extracted :math:`N \times N` PETSc sparse matrix
+    :rtype: PETSc.Mat
+    """
+    from .comms import compute_local_size
+
+    comm = Mat.getComm()
+    size = Mat.getSizes()[0]
+    N = size[-1] // nblocks
+
+    # Build selector for the column block: Ic is nN x N with I_N at colblock
+    rows_coo, cols_coo, data_coo = None, None, None
+    if comm.getRank() == 0:
+        data_coo = np.ones(N, dtype=PETSc.ScalarType)
+        cols_coo = np.arange(N, dtype=PETSc.IntType)
+        rows_coo = cols_coo + colblock * N
+
+    mat_sizes_sel = (size, (compute_local_size(N), N))
+    Ic = assemble_matrix_from_coo(
+        comm, [rows_coo, cols_coo, data_coo], mat_sizes_sel
+    )
+
+    # Mat @ Ic gives nN x N (the colblock-th block-column)
+    MatIc = Mat.matMult(Ic)
+    Ic.destroy()
+
+    # Build selector for the row block: Ir is nN x N with I_N at rowblock
+    rows_coo, cols_coo, data_coo = None, None, None
+    if comm.getRank() == 0:
+        data_coo = np.ones(N, dtype=PETSc.ScalarType)
+        cols_coo = np.arange(N, dtype=PETSc.IntType)
+        rows_coo = cols_coo + rowblock * N
+
+    Ir = assemble_matrix_from_coo(
+        comm, [rows_coo, cols_coo, data_coo], mat_sizes_sel
+    )
+
+    # Ir^H @ MatIc = (N x nN) @ (nN x N) = N x N block
+    Ir.hermitianTranspose()
+    block = Ir.matMult(MatIc)
+    Ir.destroy()
+    MatIc.destroy()
+
+    return block

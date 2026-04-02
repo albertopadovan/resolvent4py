@@ -1,5 +1,7 @@
 import numpy as np
 import resolvent4py as res4py
+from resolvent4py.utils.bv import reshape_bv_into_harmonic_balanced_vector
+from resolvent4py.utils.vector import reshape_harmonic_balanced_vector_into_bv
 from .. import pytest_utils
 
 
@@ -202,3 +204,95 @@ def test_bv_add_zero_alpha(comm, square_matrix_size):
     X.destroy()
     Y.destroy()
     assert error < 1e-14
+
+
+def test_reshape_bv_into_harmonic_balanced_vector(comm):
+    r"""Test that reshaping a BV into a stacked vector gives the correct
+    result."""
+    n = 6
+    nblocks = 5
+
+    bv, bv_np = pytest_utils.generate_random_bv(comm, (n, nblocks))
+
+    # Expected: column j -> block j in the vector
+    expected = bv_np.T.reshape(-1)
+
+    vec = reshape_bv_into_harmonic_balanced_vector(bv)
+    vec_seq = res4py.distributed_to_sequential_vector(vec)
+    result = vec_seq.getArray().copy()
+    vec_seq.destroy()
+
+    error = np.linalg.norm(result - expected) / np.linalg.norm(expected)
+    vec.destroy()
+    bv.destroy()
+    assert error < 1e-12, f"Relative error: {error:.2e}"
+
+
+def test_reshape_bv_into_vector_preallocated(comm):
+    r"""Test reshaping BV into a pre-allocated vector."""
+    n = 4
+    nblocks = 3
+    N = n * nblocks
+
+    bv, bv_np = pytest_utils.generate_random_bv(comm, (n, nblocks))
+    expected = bv_np.T.reshape(-1)
+
+    from petsc4py import PETSc
+    vec = PETSc.Vec().create(comm=comm)
+    vec.setSizes((res4py.compute_local_size(N), N))
+    vec.setUp()
+
+    vec = reshape_bv_into_harmonic_balanced_vector(bv, vec=vec)
+    vec_seq = res4py.distributed_to_sequential_vector(vec)
+    result = vec_seq.getArray().copy()
+    vec_seq.destroy()
+
+    error = np.linalg.norm(result - expected) / np.linalg.norm(expected)
+    vec.destroy()
+    bv.destroy()
+    assert error < 1e-12, f"Relative error: {error:.2e}"
+
+
+def test_reshape_vec_to_bv_and_back_roundtrip(comm):
+    r"""Round-trip: vec -> BV -> vec should recover the original vector."""
+    n = 5
+    nblocks = 7
+    N = n * nblocks
+
+    vec_orig, arr_orig = pytest_utils.generate_random_vector(comm, N)
+
+    bv = reshape_harmonic_balanced_vector_into_bv(vec_orig, nblocks)
+    vec_back = reshape_bv_into_harmonic_balanced_vector(bv)
+
+    vec_seq = res4py.distributed_to_sequential_vector(vec_back)
+    result = vec_seq.getArray().copy()
+    vec_seq.destroy()
+
+    error = np.linalg.norm(result - arr_orig) / np.linalg.norm(arr_orig)
+    vec_orig.destroy()
+    vec_back.destroy()
+    bv.destroy()
+    assert error < 1e-12, f"Round-trip relative error: {error:.2e}"
+
+
+def test_reshape_bv_to_vec_and_back_roundtrip(comm):
+    r"""Round-trip: BV -> vec -> BV should recover the original BV."""
+    n = 4
+    nblocks = 5
+
+    bv_orig, bv_np = pytest_utils.generate_random_bv(comm, (n, nblocks))
+
+    vec = reshape_bv_into_harmonic_balanced_vector(bv_orig)
+    bv_back = reshape_harmonic_balanced_vector_into_bv(vec, nblocks)
+
+    bvMat = bv_back.getMat()
+    bvMat_seq = res4py.distributed_to_sequential_matrix(bvMat)
+    bv_back.restoreMat(bvMat)
+    result = bvMat_seq.getDenseArray().copy()
+    bvMat_seq.destroy()
+
+    error = np.linalg.norm(result - bv_np) / np.linalg.norm(bv_np)
+    vec.destroy()
+    bv_orig.destroy()
+    bv_back.destroy()
+    assert error < 1e-12, f"Round-trip relative error: {error:.2e}"
