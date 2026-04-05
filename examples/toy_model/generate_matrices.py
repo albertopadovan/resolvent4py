@@ -43,7 +43,7 @@ def evaluate_jacobian(t, Q, params):
 n = 3
 mu = 1 / 5
 alpha = 1 / 5
-beta = 1 / 5
+beta = 0.99
 params = [mu, alpha, beta]
 
 omega = np.sqrt(1 - beta**2 * mu / alpha)

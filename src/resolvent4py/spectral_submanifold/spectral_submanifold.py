@@ -363,8 +363,10 @@ class SpectralSubmanifold:
             j = self.ssm_multiindices[j_idx]
             if verbose == 1:
                 from ..utils.miscellaneous import petscprint
-                petscprint(self.diff_eq.get_comm(),
-                           f"Computing terms for order = {sum(j)}")
+                petscprint(
+                    self.diff_eq.get_comm(),
+                    f"Computing component {j} (order = {sum(j)})"
+                )
             shift = np.dot(Lams, np.asarray(j))
             rhs.zeroEntries()
 

@@ -7,6 +7,8 @@ __all__ = [
     "convert_coo_to_csr_v2",
     "assemble_harmonic_resolvent_generator",
     "extract_matrix_block",
+    "extract_block_diagonal",
+    "assemble_matrix_from_coo",
 ]
 
 
@@ -502,3 +504,59 @@ def extract_matrix_block(
     MatIc.destroy()
 
     return block
+
+
+def extract_block_diagonal(Mat: PETSc.Mat, nblocks: int) -> PETSc.Mat:
+    r"""
+    Extract the block-diagonal of a block-structured :math:`nN \times nN`
+    PETSc matrix and assemble it as a new :math:`nN \times nN` sparse
+    block-diagonal matrix.
+
+    Uses the identity
+
+    .. math::
+
+        B = \sum_{k=0}^{n_{\mathrm{blocks}}-1} E_k \, A \, E_k
+
+    where :math:`E_k` is the :math:`nN \times nN` block projector with
+    :math:`I_N` in the :math:`(k, k)` block position and zeros elsewhere.
+
+    :param Mat: assembled :math:`nN \times nN` PETSc sparse matrix
+    :type Mat: PETSc.Mat
+    :param nblocks: number of blocks along each dimension
+    :type nblocks: int
+
+    :return: the block-diagonal :math:`nN \times nN` PETSc sparse matrix
+    :rtype: PETSc.Mat
+    """
+    from .comms import compute_local_size
+
+    comm = Mat.getComm()
+    size = Mat.getSizes()[0]
+    nN = size[-1]
+    N = nN // nblocks
+    Nl = compute_local_size(nN)
+
+    mat_sizes = ((Nl, nN), (Nl, nN))
+    B = None
+    for k in range(nblocks):
+        rows_coo, cols_coo, vals_coo = None, None, None
+        if comm.getRank() == 0:
+            rows_coo = np.arange(k * N, (k + 1) * N, dtype=PETSc.IntType)
+            cols_coo = rows_coo.copy()
+            vals_coo = np.ones(N, dtype=PETSc.ScalarType)
+        Ek = assemble_matrix_from_coo(
+            comm, [rows_coo, cols_coo, vals_coo], mat_sizes
+        )
+        tmp = Mat.matMult(Ek)
+        EkAEk = Ek.matMult(tmp)
+        tmp.destroy()
+        Ek.destroy()
+
+        if B is None:
+            B = EkAEk
+        else:
+            B.axpy(1.0, EkAEk)
+            EkAEk.destroy()
+
+    return B

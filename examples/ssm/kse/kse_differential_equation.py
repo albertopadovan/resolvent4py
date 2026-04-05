@@ -71,26 +71,14 @@ class KuramotoSivashinsky(DifferentialEquation):
                 e_j[j] = 1.0
                 A_np[:, j] += 2.0 * self._evaluate_quadratic_term_numpy(e_j, c_star)
 
-        # Convert to distributed PETSc matrix via COO I/O
-        tmp = "tmp/"
-        os.makedirs(tmp, exist_ok=True)
         A_coo = sp.sparse.coo_matrix(A_np.astype(np.complex128))
-        fnames = [tmp + "rows.dat", tmp + "cols.dat", tmp + "vals.dat"]
-        dtypes = [np.int32, np.int32, np.complex128]
-        for i, (fname, array) in enumerate(
-            zip(fnames, [A_coo.row, A_coo.col, A_coo.data])
-        ):
-            vec = PETSc.Vec().createWithArray(
-                np.asarray(array, dtype=dtypes[i]),
-                len(array), None, comm=PETSc.COMM_SELF,
-            )
-            res4py.write_to_file(fname, vec)
-            vec.destroy()
-        sizes = (state_dim, state_dim)
-        A_petsc = res4py.read_coo_matrix(fnames, sizes)
+        A_coo.eliminate_zeros()
+        A_petsc = res4py.assemble_matrix_from_coo(
+            comm,
+            [A_coo.row, A_coo.col, A_coo.data],
+            (state_dim, state_dim)
+        )
         self.A = res4py.linear_operators.MatrixLinearOperator(A_petsc)
-        shutil.rmtree(tmp) if comm.getRank() == 0 else None
-
         self.L, self.Phi, self.Psi = self.compute_eigendecomposition()
         self.L = np.diag(self.L)
 
@@ -101,24 +89,22 @@ class KuramotoSivashinsky(DifferentialEquation):
         Evaluate :math:`B(q_1, q_2)` in pure numpy (used during
         ``__init__`` to build the Jacobian at :math:`c^*`).
         """
-        n = self.n
-        n_pts = self.n_pts
-        j = np.arange(1, n + 1, dtype=float)
-        half_N = n_pts / 2.0
+        j = np.arange(1, self.n + 1, dtype=float)
+        half_N = self.n_pts / 2.0
 
         def _to_physical(c):
-            spec_u = np.zeros(n_pts, dtype=complex)
-            spec_ux = np.zeros(n_pts, dtype=complex)
-            spec_u[1:n+1] = -1j * half_N * c
-            spec_ux[1:n+1] = half_N * j * c
-            spec_u[n_pts-n:n_pts] = 1j * half_N * c[::-1]
-            spec_ux[n_pts-n:n_pts] = half_N * j[::-1] * c[::-1]
+            spec_u = np.zeros(self.n_pts, dtype=complex)
+            spec_ux = np.zeros(self.n_pts, dtype=complex)
+            spec_u[1:self.n+1] = -1j * half_N * c
+            spec_ux[1:self.n+1] = half_N * j * c
+            spec_u[self.n_pts-self.n:self.n_pts] = 1j * half_N * c[::-1]
+            spec_ux[self.n_pts-self.n:self.n_pts] = half_N * j[::-1] * c[::-1]
             return ifft(spec_u), ifft(spec_ux)
 
         u1, u1x = _to_physical(q1)
         u2, u2x = _to_physical(q2)
         B_spec = fft(-0.5 * (u1 * u2x + u2 * u1x))
-        result = 2j * B_spec[1:n+1] / n_pts
+        result = 2j * B_spec[1:self.n+1] / self.n_pts
         if np.isrealobj(q1) and np.isrealobj(q2):
             return result.real
         return result
@@ -137,15 +123,15 @@ class KuramotoSivashinsky(DifferentialEquation):
         result = self._evaluate_quadratic_term_numpy(
             q1_seq.getArray(), q2_seq.getArray(),
         )
-        q1_seq.destroy()
-        q2_seq.destroy()
         y_seq = PETSc.Vec().createWithArray(
             np.asarray(result, dtype=np.complex128),
             len(result), comm=PETSc.COMM_SELF,
         )
         y = q1.duplicate() if y is None else y
         y = res4py.sequential_to_distributed_vector(y_seq, y)
-        y_seq.destroy()
+        objs = [y_seq, q1_seq, q2_seq]
+        for obj in objs:
+            obj.destroy()
         return y
 
     def solve_linear_system(
@@ -184,7 +170,9 @@ class KuramotoSivashinsky(DifferentialEquation):
         self, t: float, q: np.ndarray,
     ) -> np.ndarray:
         q_seq = PETSc.Vec().createWithArray(
-            np.asarray(q, dtype=np.complex128), len(q), comm=PETSc.COMM_SELF,
+            np.asarray(q, dtype=np.complex128), 
+            len(q), 
+            comm=PETSc.COMM_SELF,
         )
         q_dist = PETSc.Vec().create(comm=self.get_comm())
         q_dist.setSizes(self.get_state_dimension())
@@ -192,9 +180,8 @@ class KuramotoSivashinsky(DifferentialEquation):
         q_dist = res4py.sequential_to_distributed_vector(q_seq, q_dist)
         y_dist = self.evaluate_dynamics(t, q_dist)
         y_seq = res4py.distributed_to_sequential_vector(y_dist)
-        result = y_seq.getArray().copy()
-        q_seq.destroy()
-        q_dist.destroy()
-        y_dist.destroy()
-        y_seq.destroy()
-        return result.real
+        result = y_seq.getArray().copy().real
+        objs = [q_seq, q_dist, y_dist, y_seq]
+        for obj in objs:
+            obj.destroy()
+        return result

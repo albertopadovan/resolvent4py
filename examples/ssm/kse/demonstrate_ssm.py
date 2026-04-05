@@ -1,3 +1,4 @@
+import os
 import sys
 import numpy as np
 import scipy as sp
@@ -12,6 +13,62 @@ from petsc4py import PETSc
 import resolvent4py as res4py
 from resolvent4py.spectral_submanifold import SpectralSubmanifold
 import plotting_utils as plotting
+
+res_path = "results/"
+
+
+def style_3d_axes(ax):
+    """Remove gray pane backgrounds from 3D axes, keep grid."""
+    ax.xaxis.pane.fill = False
+    ax.yaxis.pane.fill = False
+    ax.zaxis.pane.fill = False
+    ax.xaxis.pane.set_edgecolor("lightgray")
+    ax.yaxis.pane.set_edgecolor("lightgray")
+    ax.zaxis.pane.set_edgecolor("lightgray")
+
+
+def savefig(fig, name, is_3d=False):
+    """Save figure as both PNG and PDF."""
+    kw = dict(dpi=300)
+    if not is_3d:
+        kw["bbox_inches"] = "tight"
+    else:
+        # For 3D plots, add padding so axis labels aren't clipped
+        fig.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.95)
+    fig.savefig(res_path + name + ".png", **kw)
+    fig.savefig(res_path + name + ".pdf", **kw)
+    print(f"Saved to {res_path}{name}.png/.pdf")
+
+# ---------------------------------------------------------------------------
+# Global style
+# ---------------------------------------------------------------------------
+plt.rcParams.update(
+    {
+        "font.family": "serif",
+        "font.sans-serif": ["Computer Modern"],
+        "font.size": 12,
+        "text.usetex": True,
+        "axes.linewidth": 0.6,
+        "xtick.major.width": 0.6,
+        "ytick.major.width": 0.6,
+        "xtick.minor.width": 0.4,
+        "ytick.minor.width": 0.4,
+        "xtick.major.size": 3.5,
+        "ytick.major.size": 3.5,
+        "xtick.minor.size": 2.0,
+        "ytick.minor.size": 2.0,
+        "xtick.direction": "in",
+        "ytick.direction": "in",
+        "xtick.top": True,
+        "ytick.right": True,
+        "lines.linewidth": 1.2,
+        "legend.frameon": False,
+        "legend.fontsize": 10,
+        "figure.dpi": 150,
+        "savefig.dpi": 300,
+    }
+)
+plt.rc("text.latex", preamble=r"\usepackage{amsmath}")
 
 
 # %% Parameters
@@ -46,11 +103,13 @@ off_seed = 123      # RNG seed for off-manifold initial condition
 scaling_off = 1.65   # scaling for off-manifold perturbation (relative to SSM domain )
 
 # ── Visualization ────────────────────────────────────────────────────────────
-dominant_modes = [1, 2, 3, 4]  # Fourier mode indices for time-series plots
-figsize = (10, 8)               # figure size for time-series plots
+dominant_modes = [1, 2, 3]      # Fourier mode indices for time-series plots
+figsize = (6, 5)                # figure size for time-series plots
 n_rho = 40                      # radial grid points for 3D manifold surface
 n_theta = 40                    # angular grid points for 3D manifold surface
 alpha_3d = 0.3                  # transparency of 3D manifold surface
+clr_truth = "#2D3142"           # dark charcoal for truth
+clr_rom = "#E85D04"             # burnt orange for ROM
 
 comm = PETSc.COMM_WORLD
 
@@ -109,7 +168,10 @@ rho_domain = percent_domain * R
 res4py.petscprint(comm, f"Using radius: {rho_domain:.3f} for estimated error {est_error:.3f}")
 
 if comm.getRank() == 0:
+    os.makedirs(res_path, exist_ok=True)
     res4py.plot_convergence_radius(orders, coeff_sums, slope, intercept, R)
+    plt.tight_layout()
+    savefig(plt.gcf(), "convergence_radius")
     plt.show()
 
 
@@ -159,12 +221,13 @@ if comm.getRank() == 0:
     dominant_idcs = [jm - 1 for jm in dominant_modes]
     fig, ax = plt.subplots(len(dominant_modes), 1, sharex=True, figsize=figsize)
     for i, idx in enumerate(dominant_idcs):
-        ax[i].plot(t, Q[idx], "k", lw=1.5, label="Truth")
-        ax[i].plot(t, Qapp[idx], "r--", lw=1.5, label="ROM")
+        ax[i].plot(t, Q[idx], color=clr_truth, lw=1.5, label="Truth")
+        ax[i].plot(t, Qapp[idx], color=clr_rom, ls="--", lw=1.5, label="ROM")
         ax[i].set_ylabel(rf"$c_{{{dominant_modes[i]}}}$")
     ax[0].legend()
     ax[-1].set_xlabel(r"Time $t$")
     plt.tight_layout()
+    savefig(fig, "rom_vs_truth")
     plt.show()
 
 # 3D manifold + trajectories projected onto eigenspace basis
@@ -181,9 +244,17 @@ for i in range(len(t)):
     Vtruth_proj[:, i] = plotting.project_to_3d(B, Vtruth[:, i])
 
 if comm.getRank() == 0:
-    ax.plot3D(*Vtruth_proj, color="k", lw=2, label="Truth")
-    ax.plot3D(*Vapp_proj, color="r", ls="--", lw=2, label="ROM")
+    style_3d_axes(ax)
+    ax.plot3D(*Vtruth_proj, color=clr_truth, lw=2, label="Truth")
+    ax.plot3D(*Vapp_proj, color=clr_rom, ls="--", lw=2, label="ROM")
     ax.legend()
+    fig_3d = ax.get_figure()
+    fig_3d.canvas.mpl_connect(
+        "key_press_event",
+        lambda event: savefig(fig_3d, "manifold_on", is_3d=True)
+        if event.key == "s"
+        else None,
+    )
     plt.show()
 
 
@@ -241,9 +312,17 @@ ax_off, _, _ = plotting.plot_manifold_3d(
     n_rho=n_rho, n_theta=n_theta, surface_alpha=alpha_3d,
 )
 if comm.getRank() == 0:
-    ax_off.plot3D(*Vtruth_off_proj, color="k", lw=2, label="Truth")
-    ax_off.plot3D(*Vapp_off_proj, color="r", ls="--", lw=2, label="ROM")
+    style_3d_axes(ax_off)
+    ax_off.plot3D(*Vtruth_off_proj, color=clr_truth, lw=2, label="Truth")
+    ax_off.plot3D(*Vapp_off_proj, color=clr_rom, ls="--", lw=2, label="ROM")
     ax_off.legend()
+    fig_3d_off = ax_off.get_figure()
+    fig_3d_off.canvas.mpl_connect(
+        "key_press_event",
+        lambda event: savefig(fig_3d_off, "manifold_off", is_3d=True)
+        if event.key == "s"
+        else None,
+    )
     plt.show()
 
 Qapp_off = c_star[:, None] + Vapp_off
@@ -252,10 +331,11 @@ if comm.getRank() == 0:
     dominant_idcs = [jm - 1 for jm in dominant_modes]
     fig, ax = plt.subplots(len(dominant_modes), 1, sharex=True, figsize=figsize)
     for i, idx in enumerate(dominant_idcs):
-        ax[i].plot(t, Q_off[idx], "k", lw=1.5, label="Truth")
-        ax[i].plot(t, Qapp_off[idx], "r--", lw=1.5, label="ROM")
+        ax[i].plot(t, Q_off[idx], color=clr_truth, lw=1.5, label="Truth")
+        ax[i].plot(t, Qapp_off[idx], color=clr_rom, ls="--", lw=1.5, label="ROM")
         ax[i].set_ylabel(rf"$c_{{{dominant_modes[i]}}}$")
     ax[0].legend()
     ax[-1].set_xlabel(r"Time $t$")
     plt.tight_layout()
+    savefig(fig, "rom_vs_truth_off")
     plt.show()
