@@ -29,16 +29,20 @@ n = 64          # number of Fourier sine modes
 n_pts = 4 * n   # physical-space grid points for dealiasing
 
 # ── Time stepping ───────────────────────────────────────────────────────────
-dt = 1e-3                # time step
-T_transient = 500.0      # integration time to wash out transients
+dt = 2e-4                # time step (tightened 5x for orbit accuracy)
+T_transient = 1000.0     # integration time to wash out transients
 T_detect = 200.0         # window for period detection after transient
 save_every_detect = 1    # save every step during detection phase
 
 # ── Periodicity detection ───────────────────────────────────────────────────
 poincare_mode = 0        # index of the sine mode used for the Poincaré section
-n_crossings_skip = 2     # skip the first few crossings (residual transient)
-n_crossings_avg = 8      # average this many consecutive periods for T estimate
-period_rtol = 1e-3       # relative tolerance: all averaged periods must agree
+n_crossings_skip = 8     # skip the first few crossings (residual transient)
+n_crossings_avg = 32     # average this many consecutive periods for T estimate
+period_rtol = 1e-5       # relative tolerance: all averaged periods must agree
+
+# ── Newton refinement of the period ─────────────────────────────────────────
+newton_iters = 10        # Newton steps for period-by-shooting refinement
+newton_tol = 1e-12       # residual tolerance on the Poincaré section
 
 
 # %% Setup
@@ -75,22 +79,52 @@ section_level = c[poincare_mode]
 
 n_detect = int(T_detect / dt)
 crossing_times: list[float] = []
-prev_val = c[poincare_mode] - section_level
-t_current = 0.0
+# Keep a rolling window of the monitored signal so we can do a quadratic
+# fit through three samples (steps ``i-2, i-1, i``) when a sign change is
+# detected between steps ``i-1`` and ``i``.  Quadratic fit gives an error
+# ``O(dt^3)`` in the crossing time versus ``O(dt^2)`` for linear interp.
+val_m2 = c[poincare_mode] - section_level   # step i-2
+val_m1 = val_m2                             # step i-1 (init)
+
+# Also keep the state at step i-1 so we can launch Newton refinement from a
+# clean initial-condition / crossing pair.
+c_at_crossing = None
+t_crossing_last = None
 
 for step in range(1, n_detect + 1):
     c = imex_step(c, lam, N_fn, dt)
-    t_current = step * dt
     cur_val = c[poincare_mode] - section_level
 
-    # Detect upward zero crossing
-    if prev_val < 0.0 and cur_val >= 0.0:
-        # Linear interpolation for sub-step accuracy
-        frac = prev_val / (prev_val - cur_val)
-        t_cross = (step - 1 + frac) * dt
+    # Detect upward zero crossing between step-1 and step
+    if val_m1 < 0.0 and cur_val >= 0.0:
+        # Quadratic fit through (step-2, val_m2), (step-1, val_m1), (step, cur_val).
+        # Local coord u = (t/dt) - (step-1), so u = -1, 0, 1 at the three samples.
+        # Fit y(u) = a u^2 + b u + c0 with
+        #   a  = 0.5*(val_m2 + cur_val) - val_m1
+        #   b  = 0.5*(cur_val - val_m2)
+        #   c0 = val_m1
+        a = 0.5 * (val_m2 + cur_val) - val_m1
+        b = 0.5 * (cur_val - val_m2)
+        c0 = val_m1
+        if abs(a) < 1e-14:
+            # Degenerate to linear interp
+            u_cross = -c0 / b if abs(b) > 1e-14 else 0.0
+        else:
+            disc = b * b - 4.0 * a * c0
+            disc = max(disc, 0.0)
+            sqrt_d = np.sqrt(disc)
+            u1 = (-b + sqrt_d) / (2.0 * a)
+            u2 = (-b - sqrt_d) / (2.0 * a)
+            # Pick the root in [-1, 1] that corresponds to an upward crossing
+            candidates = [u for u in (u1, u2) if -1.0 - 1e-9 <= u <= 1.0 + 1e-9]
+            u_cross = min(candidates, key=abs) if candidates else 0.0
+        t_cross = (step - 1 + u_cross) * dt
         crossing_times.append(t_cross)
+        c_at_crossing = c.copy()
+        t_crossing_last = step * dt
 
-    prev_val = cur_val
+    val_m2 = val_m1
+    val_m1 = cur_val
 
 n_required = n_crossings_skip + n_crossings_avg + 1
 if len(crossing_times) < n_required:
@@ -118,21 +152,67 @@ if T_spread > period_rtol:
           f"The orbit may not be well converged.")
 
 
+# %% Phase 2.5 – Newton-shooting refinement of the period
+#
+# Take the state at the last detected Poincaré crossing as ``c0`` and find
+# the return time ``T`` such that ``c(T)[poincare_mode] = c0[poincare_mode]``
+# (upward crossing).  Newton iteration on the scalar residual
+#
+#     r(T) = c(T)[mode] - c0[mode],     r'(T) = (dc/dt)[mode] at T,
+#
+# where ``(dc/dt)[mode] = lam[mode] * c(T)[mode] + N(c(T))[mode]``.
+
+print(f"\nPhase 2.5: Newton-shooting refinement of the period ...")
+
+
+def integrate_to_T(c0_local, T_target):
+    """Integrate ``c0_local`` forward by exactly ``T_target``.
+
+    Uses ``n_steps`` full steps at ``dt`` plus a single residual step at
+    ``dt_rem = T_target - n_steps*dt``.
+    """
+    n_steps = int(np.floor(T_target / dt))
+    dt_rem = T_target - n_steps * dt
+    c_local = c0_local.copy()
+    for _ in range(n_steps):
+        c_local = imex_step(c_local, lam, N_fn, dt)
+    if dt_rem > 1e-15:
+        c_local = imex_step(c_local, lam, N_fn, dt_rem)
+    return c_local
+
+
+c0_newton = c_at_crossing.copy()
+T_newton = T_mean
+section_val = c0_newton[poincare_mode]
+
+for it in range(newton_iters):
+    c_T = integrate_to_T(c0_newton, T_newton)
+    res = c_T[poincare_mode] - section_val
+    # r'(T) = (d c / d t)[mode] evaluated at t = T
+    dres_dT = lam[poincare_mode] * c_T[poincare_mode] + N_fn(c_T)[poincare_mode]
+    if abs(dres_dT) < 1e-14:
+        print(f"  iter {it}: derivative ~0 — stopping")
+        break
+    dT = -res / dres_dT
+    T_newton = T_newton + dT
+    print(f"  iter {it}: T = {T_newton:.12f},  |res| = {abs(res):.3e},  "
+          f"dT = {dT:+.3e}")
+    if abs(res) < newton_tol:
+        break
+
+
 # %% Phase 3 – Record one full period
 
-T_orbit = T_mean
+T_orbit = T_newton
 n_orbit = int(np.round(T_orbit / dt))
 dt_orbit = T_orbit / n_orbit  # adjusted dt to land exactly on T_orbit
 
-print(f"\nPhase 3: recording one orbit (T = {T_orbit:.8f}, "
+print(f"\nPhase 3: recording one orbit (T = {T_orbit:.10f}, "
       f"{n_orbit} steps, dt_orbit = {dt_orbit:.6e}) ...")
 
-# Continue from the last crossing so the saved orbit starts near the section
-# Re-integrate one more period to reach a clean crossing point
-# (we are currently dt past the last crossing; march forward ~one period)
-n_approach = n_orbit
-for _ in range(n_approach):
-    c = imex_step(c, lam, N_fn, dt)
+# Start from the Newton-refined crossing state so the saved orbit closes
+# to the Newton residual tolerance.
+c = c0_newton.copy()
 
 # Now record
 t_orbit = np.linspace(0, T_orbit, n_orbit + 1)
