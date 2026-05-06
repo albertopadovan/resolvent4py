@@ -1,5 +1,6 @@
 __all__ = [
     "compute_local_size",
+    "compute_local_size_block_aligned",
     "sequential_to_distributed_matrix",
     "sequential_to_distributed_vector",
     "distributed_to_sequential_matrix",
@@ -43,6 +44,56 @@ def compute_local_size(Ng: int) -> int:
     size, rank = PETSc.COMM_WORLD.getSize(), PETSc.COMM_WORLD.Get_rank()
     Nl = Ng // size + 1 if np.mod(Ng, size) > rank else Ng // size
     return Nl
+
+
+def compute_local_size_block_aligned(n: int, N: int) -> typing.Tuple[int, int]:
+    r"""
+    Compute per-rank local sizes :code:`(nl, Nl)` for a block-structured
+    :math:`N \times N` PETSc matrix made of :code:`nblocks = N // n`
+    diagonal blocks of size :math:`n \times n`, such that the cumulative
+    row count at every block boundary lands on a rank ownership boundary.
+
+    This is required when the matrix will be preconditioned with
+    PCBJACOBI(nblocks): PETSc snaps sub-block boundaries to the nearest
+    rank boundary, so a misaligned distribution yields the wrong
+    sub-blocks (some rows leak into a neighbour's sub-block where they
+    have no nonzeros, making that sub-block near-singular).
+
+    The function distributes :math:`n` rows across
+    :code:`ranks_per_block = pool_size // nblocks` ranks (using the same
+    formula as :func:`compute_local_size`) and replicates that pattern
+    for every block. Each rank therefore owns exactly one block's
+    portion, so :code:`Nl == nl`.
+
+    Requires :code:`pool_size % nblocks == 0` and :code:`N % n == 0`.
+
+    :param n: block size (each diagonal block is :math:`n \times n`)
+    :type n: int
+    :param N: total matrix size; must be divisible by :code:`n`
+    :type N: int
+
+    :return: :code:`(nl, Nl)` for the current rank.
+    :rtype: tuple[int, int]
+    """
+    if N % n != 0:
+        raise ValueError(f"N ({N}) must be divisible by n ({n})")
+    nblocks = N // n
+    size = PETSc.COMM_WORLD.getSize()
+    rank = PETSc.COMM_WORLD.getRank()
+    if size == 1:
+        return n, N
+    if size % nblocks != 0:
+        raise ValueError(
+            f"MPI pool size ({size}) must be divisible by nblocks "
+            f"({nblocks}) for block boundaries to align with rank "
+            f"boundaries"
+        )
+    ranks_per_block = size // nblocks
+    sub_rank = rank % ranks_per_block
+    nl = n // ranks_per_block + (
+        1 if (n % ranks_per_block) > sub_rank else 0
+    )
+    return nl, nl
 
 
 def sequential_to_distributed_matrix(
