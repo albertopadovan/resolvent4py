@@ -13,12 +13,29 @@ from .miscellaneous import petscprint
 from .random import generate_random_petsc_vector
 
 
-def create_mumps_solver(A: PETSc.Mat) -> PETSc.KSP:
+def create_mumps_solver(
+    A: PETSc.Mat,
+    icntl: typing.Optional[typing.Dict[int, int]] = None,
+    cntl: typing.Optional[typing.Dict[int, float]] = None,
+) -> PETSc.KSP:
     r"""
     Compute an LU factorization of the matrix A using MUMPS.
 
     :param A: PETSc matrix
     :type A: PETSc.Mat
+    :param icntl: optional dict mapping MUMPS ICNTL indices to integer values,
+        e.g. ``{14: 50, 7: 5, 28: 2, 29: 2, 35: 2}``. Common knobs:
+
+        * ``ICNTL(14)`` workspace headroom in % (default ~35); raise to 50/100/200
+          if MUMPS reports ``INFO(1) = -9`` (real workarray too small).
+        * ``ICNTL(7)`` sequential ordering (5 = METIS).
+        * ``ICNTL(28)`` parallel analysis (2 = on, requires PT-Scotch/ParMETIS).
+        * ``ICNTL(29)`` parallel ordering (1 = PT-Scotch, 2 = ParMETIS).
+        * ``ICNTL(35)`` Block Low-Rank (2 = factor with BLR; pair with ``CNTL(7)``).
+    :type icntl: Optional[Dict[int, int]]
+    :param cntl: optional dict mapping MUMPS CNTL indices to float values,
+        e.g. ``{7: 1e-10}`` for the BLR dropping tolerance.
+    :type cntl: Optional[Dict[int, float]]
 
     :return ksp: PETSc KSP solver
     :rtype ksp: PETSc.KSP
@@ -29,10 +46,14 @@ def create_mumps_solver(A: PETSc.Mat) -> PETSc.KSP:
     pc = ksp.getPC()
     pc.setType("lu")
     pc.setFactorSolverType("mumps")
-    # pc.setReusePreconditioner(True)
-    # Mat = pc.getFactorMatrix()
-    # Mat.setMumpsIcntl(7, 5)
-    # Mat.setMumpsIcntl(28, 1)
+    if icntl or cntl:
+        F = pc.getFactorMatrix()
+        if icntl:
+            for k, v in icntl.items():
+                F.setMumpsIcntl(k, v)
+        if cntl:
+            for k, v in cntl.items():
+                F.setMumpsCntl(k, v)
     pc.setUp()
     ksp.setUp()
     return ksp

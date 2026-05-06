@@ -306,7 +306,7 @@ def reshape_harmonic_balanced_vector_into_bv(
 
     # Use CSR assembly via convert_coo_to_csr: PETSc handles
     # cross-rank redistribution during the COO-to-CSR conversion.
-    from .matrix import convert_coo_to_csr_v2 as convert_coo_to_csr
+    from .matrix import convert_coo_to_csr
     bvMat = bv.getMat()
     rows_ptr, cols_csr, vals_csr = convert_coo_to_csr(
         [bv_rows, bv_cols, bv_vals], bvMat.getSizes()

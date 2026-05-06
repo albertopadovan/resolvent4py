@@ -3,7 +3,7 @@ import scipy as sp
 import resolvent4py as res4py
 from petsc4py import PETSc
 from resolvent4py.utils.comms import scatter_array_from_root_to_all, compute_local_size
-from resolvent4py.utils.matrix import convert_coo_to_csr_v2, extract_block_diagonal
+from resolvent4py.utils.matrix import convert_coo_to_csr, extract_block_diagonal
 from .. import pytest_utils
 
 
@@ -147,7 +147,7 @@ def _numpy_to_petsc(comm, A_np):
     vals = scatter_array_from_root_to_all(vals_coo)
     Nl = compute_local_size(N)
     sizes = ((Nl, N), (Nl, N))
-    rp, cs, vs = convert_coo_to_csr_v2([rows, cols, vals], sizes)
+    rp, cs, vs = convert_coo_to_csr([rows, cols, vals], sizes)
     M = PETSc.Mat().createAIJ(sizes, comm=comm)
     M.setPreallocationCSR((rp, cs))
     M.setValuesCSR(rp, cs, vs, True)

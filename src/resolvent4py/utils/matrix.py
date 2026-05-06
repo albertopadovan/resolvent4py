@@ -4,7 +4,6 @@ __all__ = [
     "mat_solve_hermitian_transpose",
     "hermitian_transpose",
     "convert_coo_to_csr",
-    "convert_coo_to_csr_v2",
     "assemble_harmonic_resolvent_generator",
     "extract_matrix_block",
     "extract_block_diagonal",
@@ -142,124 +141,9 @@ def convert_coo_to_csr(
     (Petsc4py currently does not support COO matrix assembly, hence the need
     to convert.)
 
-    :param arrays: a list of numpy arrays (e.g., arrays = [rows,cols,vals])
-    :type array: tuple[np.array, np.array, np.array]
-    :param sizes: see `MatSizeSpec <MatSizeSpec_>`_
-    :type sizes: tuple[np.array, np.array, np.array]
-
-    :return: csr row pointers, column indices and matrix values for CSR
-        matrix assembly
-    :rtype: tuple[np.array, np.array, np.array]
-    """
-
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    pool_size = comm.Get_size()
-    pool = np.arange(pool_size)
-    rows, cols, vals = arrays
-    idces = np.argsort(rows).reshape(-1)
-    # Make sure the arrays have the correct data types (save for MPI comms)
-    # and sort for CSR consistency
-    rows = np.asarray(rows[idces], dtype=PETSc.IntType)
-    cols = np.asarray(cols[idces], dtype=PETSc.IntType)
-    vals = np.asarray(vals[idces], dtype=PETSc.ScalarType)
-
-    # Each processor (ID rank) is aware of how many local rows are
-    # owned by the other processors in the pool
-    mat_row_sizes_local = np.asarray(
-        comm.allgather(sizes[0][0]), dtype=PETSc.IntType
-    )
-    mat_row_displ = np.concatenate(([0], np.cumsum(mat_row_sizes_local[:-1])))
-    ownership_ranges = np.zeros((comm.Get_size(), 2), dtype=PETSc.IntType)
-    ownership_ranges[:, 0] = mat_row_displ
-    ownership_ranges[:-1, 1] = ownership_ranges[1:, 0]
-    ownership_ranges[-1, 1] = sizes[0][-1]
-
-    # Each processor (ID rank) computes how many which rows, cols, data
-    # need to be sent to every other processor in the pool. The number of
-    # rows, cols, data values is store in the 'lengths' list
-    send_rows = []
-    send_cols = []
-    send_vals = []
-    send_lengths = []
-    for i in pool:
-        idces = np.argwhere(
-            (rows >= ownership_ranges[i, 0]) & (rows < ownership_ranges[i, 1])
-        ).reshape(-1)
-        send_lengths.append(np.asarray([len(idces)], dtype=PETSc.IntType))
-        send_rows.append(rows[idces])
-        send_cols.append(cols[idces])
-        send_vals.append(vals[idces])
-
-    recv_bufs = [np.empty(1, dtype=PETSc.IntType) for _ in pool]
-    recv_reqs = [comm.Irecv(bf, source=i) for (bf, i) in zip(recv_bufs, pool)]
-    send_reqs = [comm.Isend(sz, dest=i) for (i, sz) in enumerate(send_lengths)]
-    MPI.Request.waitall(send_reqs + recv_reqs)
-    recv_lengths = [buf[0] for buf in recv_bufs]
-
-    comm.Barrier()  # Sync processors after non-blocking send/recv for safety
-
-    dtypes = [PETSc.IntType, PETSc.IntType, PETSc.ScalarType]
-    my_arrays = []
-    for j, array in enumerate([send_rows, send_cols, send_vals]):
-        dtype = dtypes[j]
-        mpi_type = get_mpi_type(np.dtype(dtype))
-        recv_bufs = [
-            [np.empty(recv_lengths[i], dtype=dtype), mpi_type] for i in pool
-        ]
-        recv_reqs = [
-            comm.Irecv(
-                bf, source=i, tag=rank * pool_size + i + j * pool_size**2
-            )
-            for (bf, i) in zip(recv_bufs, pool)
-        ]
-        send_reqs = [
-            comm.Isend(
-                array[i], dest=i, tag=rank + i * pool_size + j * pool_size**2
-            )
-            for i in pool
-        ]
-        MPI.Request.waitall(send_reqs + recv_reqs)
-        my_arrays.append([recv_bufs[i][0] for i in pool])
-        comm.Barrier()  # Sync processors after non-blocking send/recv for safety
-
-    my_rows, my_cols, my_vals = [], [], []
-    for i in pool:
-        my_rows.extend(my_arrays[0][i])
-        my_cols.extend(my_arrays[1][i])
-        my_vals.extend(my_arrays[2][i])
-
-    my_rows = (
-        np.asarray(my_rows, dtype=PETSc.IntType) - ownership_ranges[rank, 0]
-    )
-    my_cols = np.asarray(my_cols, dtype=PETSc.IntType)
-    my_vals = np.asarray(my_vals, dtype=PETSc.ScalarType)
-
-    idces = np.argsort(my_rows).reshape(-1)
-    my_rows = my_rows[idces]
-    my_cols = my_cols[idces]
-    my_vals = my_vals[idces]
-
-    my_rows_ptr = np.zeros(sizes[0][0] + 1, dtype=PETSc.IntType)
-    my_rows_ptr[1:] = np.cumsum(np.bincount(my_rows, minlength=sizes[0][0]))
-
-    return my_rows_ptr, my_cols, my_vals
-
-
-def convert_coo_to_csr_v2(
-    arrays: tuple[np.array, np.array, np.array],
-    sizes: tuple[tuple[int, int], tuple[int, int]],
-) -> tuple[np.array, np.array, np.array]:
-    r"""
-    Convert arrays = [row indices, col indices, values] for COO matrix
-    assembly to [row pointers, col indices, values] for CSR matrix assembly.
-    (Petsc4py currently does not support COO matrix assembly, hence the need
-    to convert.)
-
-    This version replaces the O(P^2) non-blocking Isend/Irecv pattern in
-    :func:`convert_coo_to_csr` with Alltoall for counts and pairwise
-    Sendrecv for data. This avoids MPI request exhaustion and tag overflow
-    on large machines while keeping memory usage bounded.
+    Uses Alltoall for counts and pairwise Sendrecv for data, which avoids
+    MPI request exhaustion and tag overflow on large machines while keeping
+    memory usage bounded.
 
     :param arrays: a list of numpy arrays (e.g., arrays = [rows,cols,vals])
     :type array: tuple[np.array, np.array, np.array]
@@ -384,7 +268,7 @@ def assemble_harmonic_resolvent_generator(
     rows = np.asarray(rows_lst, dtype=PETSc.IntType)
     vals = np.asarray(vals_lst, dtype=np.complex128)
 
-    rows_ptr, cols, vals = convert_coo_to_csr_v2([rows, rows, vals], A.getSizes())
+    rows_ptr, cols, vals = convert_coo_to_csr([rows, rows, vals], A.getSizes())
     omId = PETSc.Mat().createAIJ(A.getSizes(), comm=A.getComm())
     omId.setPreallocationCSR((rows_ptr, cols))
     omId.setValuesCSR(rows_ptr, cols, vals, True)
@@ -421,7 +305,7 @@ def assemble_matrix_from_coo(comm, coo_arrays, mat_sizes):
     rows = scatter_array_from_root_to_all(rows_coo)
     cols = scatter_array_from_root_to_all(cols_coo)
     data = scatter_array_from_root_to_all(data_coo)
-    rows_ptr, cols, vals = convert_coo_to_csr_v2(
+    rows_ptr, cols, vals = convert_coo_to_csr(
         [rows, cols, data], mat_sizes
     )
 
