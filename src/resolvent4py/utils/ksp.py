@@ -42,7 +42,22 @@ def create_mumps_solver(
     :return ksp: PETSc KSP solver
     :rtype ksp: PETSc.KSP
     """
-    ksp = PETSc.KSP().create(comm=A.getComm())
+    comm = A.getComm()
+    if icntl and icntl.get(35, 0) > 0 and comm.getRank() == 0:
+        print("\n")
+        warnings.warn(
+            f"create_mumps_solver: ICNTL(35)={icntl[35]} enables BLR "
+            f"factorization, so the LU solve is inexact and the "
+            f"resulting KSP is no longer a true direct solver.  Either "
+            f"tighten CNTL(7) and add iterative refinement (ICNTL(10)>0), "
+            f"or use this solver as a preconditioner inside an outer "
+            f"GMRES.",
+            UserWarning,
+            stacklevel=2,
+        )
+        print("\n")
+
+    ksp = PETSc.KSP().create(comm=comm)
     ksp.setOperators(A)
     ksp.setType("preonly")
     pc = ksp.getPC()
@@ -94,6 +109,8 @@ def create_gmres_bjacobi_solver(
     rtol: typing.Optional[float] = 1e-10,
     atol: typing.Optional[float] = 1e-10,
     monitor: typing.Optional[bool] = False,
+    sub_icntl: typing.Optional[typing.Dict[int, int]] = None,
+    sub_cntl: typing.Optional[typing.Dict[int, float]] = None,
 ) -> PETSc.KSP:
     r"""
     Create GMRES solver with block-jacobi preconditioner.
@@ -109,6 +126,15 @@ def create_gmres_bjacobi_solver(
     :param monitor: :code:`True` to monitor convergence and print residual
         history to terminal. :code:`False` otherwise
     :type monitor: Optional[bool], default is :code:`False`
+    :param sub_icntl: optional dict mapping MUMPS ICNTL indices to integer
+        values applied uniformly to every bjacobi sub-block (e.g.
+        ``{35: 2}`` to enable Block Low-Rank). See
+        :func:`.create_mumps_solver` for common knobs.
+    :type sub_icntl: Optional[Dict[int, int]]
+    :param sub_cntl: optional dict mapping MUMPS CNTL indices to float values
+        applied uniformly to every bjacobi sub-block (e.g. ``{7: 1e-10}``
+        for the BLR dropping tolerance).
+    :type sub_cntl: Optional[Dict[int, float]]
 
     :return ksp: PETSc KSP solver
     :rtype ksp: PETSc.KSP
@@ -155,6 +181,17 @@ def create_gmres_bjacobi_solver(
     pc.setFromOptions()
     pc.setUp()
     ksp.setUp()
+
+    if sub_icntl or sub_cntl:
+        sub_ksps = pc.getBJacobiSubKSP()
+        for sk in sub_ksps:
+            F = sk.getPC().getFactorMatrix()
+            if sub_icntl:
+                for k, v in sub_icntl.items():
+                    F.setMumpsIcntl(k, v)
+            if sub_cntl:
+                for k, v in sub_cntl.items():
+                    F.setMumpsCntl(k, v)
 
     return ksp
 
