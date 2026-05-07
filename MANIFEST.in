@@ -1,0 +1,5 @@
+include README.md LICENSE pyproject.toml
+
+# Ship the Claude Code expert agent + per-area skills with the sdist
+# (see [tool.claude] in pyproject.toml).
+recursive-include .claude *.md *.json

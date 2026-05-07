@@ -40,9 +40,34 @@ Documentation = "https://albertopadovan.github.io/resolvent4py/"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.claude]
+# Declares a Claude Code expert agent ("resolvent4py-expert") that has
+# read access to the per-area skills under .claude/skills/. The agent
+# definition lives in .claude/agents/resolvent4py-expert.md and the
+# skills in .claude/skills/<name>/SKILL.md. Both directories are shipped
+# in the sdist via MANIFEST.in so a clone of the source distribution
+# carries the expert with it.
+agent = ".claude/agents/resolvent4py-expert.md"
+skills_dir = ".claude/skills"
+skills = [
+    "resolvent4py-linalg",
+    "resolvent4py-linear-operators",
+    "resolvent4py-model-reduction",
+    "resolvent4py-spectral-submanifold",
+    "resolvent4py-utils",
+    "resolvent4py-examples",
+    "resolvent4py-tests",
+    "resolvent4py-tests-linalg",
+    "resolvent4py-tests-linear-operators",
+    "resolvent4py-tests-model-reduction",
+    "resolvent4py-tests-spectral-submanifold",
+    "resolvent4py-tests-utils",
+]
 
 [tool.ruff]
 line-length = 79
