@@ -3,6 +3,7 @@ __all__ = [
     "check_lu_factorization",
     "create_gmres_bjacobi_solver",
     "check_gmres_bjacobi_solver",
+    "create_gmres_epslu_solver",
 ]
 
 import typing
@@ -193,6 +194,83 @@ def create_gmres_bjacobi_solver(
                 for k, v in sub_cntl.items():
                     F.setMumpsCntl(k, v)
 
+    return ksp
+
+
+def create_gmres_epslu_solver(
+    A: PETSc.Mat,
+    Aeps: PETSc.Mat,
+    rtol: typing.Optional[float] = 1e-10,
+    atol: typing.Optional[float] = 1e-10,
+    monitor: typing.Optional[bool] = False,
+    icntl: typing.Optional[typing.Dict[int, int]] = None,
+    cntl: typing.Optional[typing.Dict[int, float]] = None,
+) -> PETSc.KSP:
+    r"""
+    Create a GMRES solver for :math:`A x = b` whose left preconditioner is
+    the MUMPS LU factorization of an auxiliary matrix :math:`A_\epsilon`,
+    typically a regularized perturbation of :math:`A` (for example
+    :math:`A_\epsilon = A + \epsilon P` with :math:`P` a diagonal indicator
+    that breaks an ill-conditioned saddle-point structure of :math:`A`).
+    Internally calls ``ksp.setOperators(A, Aeps)`` so the outer Krylov
+    iteration is on :math:`A` while the preconditioner is built from
+    :math:`A_\epsilon`.
+
+    The convergence test uses the unpreconditioned residual norm so that
+    printed residuals match :math:`\|b - A x_k\|`.
+
+    :param A: PETSc matrix iterated on by GMRES (the "true" operator).
+    :type A: PETSc.Mat
+    :param Aeps: PETSc matrix whose MUMPS LU factor is used as the
+        preconditioner.  Must share size and parallel layout with
+        :code:`A`.
+    :type Aeps: PETSc.Mat
+    :param rtol: relative tolerance for GMRES
+    :type rtol: Optional[float], default :math:`10^{-10}`
+    :param atol: absolute tolerance for GMRES
+    :type atol: Optional[float], default :math:`10^{-10}`
+    :param monitor: :code:`True` to monitor convergence and print residual
+        history to terminal. :code:`False` otherwise
+    :type monitor: Optional[bool], default :code:`False`
+    :param icntl: optional dict mapping MUMPS ICNTL indices to integer
+        values for the LU of :math:`A_\epsilon`.  See
+        :func:`.create_mumps_solver` for common knobs.
+    :type icntl: Optional[Dict[int, int]]
+    :param cntl: optional dict mapping MUMPS CNTL indices to float values
+        for the LU of :math:`A_\epsilon`.
+    :type cntl: Optional[Dict[int, float]]
+
+    :return ksp: PETSc KSP solver
+    :rtype ksp: PETSc.KSP
+    """
+    comm = A.getComm()
+
+    ksp = PETSc.KSP().create(comm=comm)
+    ksp.setOperators(A, Aeps)
+    ksp.setType("gmres")
+    ksp.setTolerances(rtol=rtol, atol=atol)
+    ksp.setNormType(PETSc.KSP.NormType.UNPRECONDITIONED)
+    if monitor:
+
+        def monitor_fun(ksp, its, rnorm):
+            string = f"GMRES Iteration {its:3d}, Residual Norm = {rnorm:.3e}"
+            petscprint(comm, string)
+
+        ksp.setMonitor(monitor_fun)
+
+    pc = ksp.getPC()
+    pc.setType("lu")
+    pc.setFactorSolverType("mumps")
+    if icntl or cntl:
+        F = pc.getFactorMatrix()
+        if icntl:
+            for k, v in icntl.items():
+                F.setMumpsIcntl(k, v)
+        if cntl:
+            for k, v in cntl.items():
+                F.setMumpsCntl(k, v)
+    pc.setUp()
+    ksp.setUp()
     return ksp
 
 
