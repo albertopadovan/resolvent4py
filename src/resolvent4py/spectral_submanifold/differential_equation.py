@@ -19,11 +19,36 @@ class DifferentialEquation(metaclass=abc.ABCMeta):
 
     Subclasses must implement :meth:`evaluate_linear_term`,
     :meth:`evaluate_quadratic_term`, and :meth:`solve_linear_system`.
+
+    If ``periodic_diffeq`` is provided at construction, this class
+    becomes a factory: it returns an instance of a dynamically
+    generated subclass that mixes :class:`PeriodicDifferentialEquation`
+    in front of the requested subclass in the MRO.  The user's
+    :meth:`evaluate_quadratic_term` is then treated as the
+    *per-time-instant* bilinear, while the periodic mixin handles the
+    harmonic-balanced (IFFT → per-t → FFT) scaffolding around it.
     """
+
+    def __new__(cls, *args, periodic_diffeq=None, **kwargs):
+        # Wrap with PeriodicDifferentialEquation only when:
+        #   (a) the caller is NOT already a periodic class, AND
+        #   (b) periodic_diffeq is provided.
+        if (
+            periodic_diffeq is not None
+            and not issubclass(cls, PeriodicDifferentialEquation)
+        ):
+            DynCls = type(
+                cls.__name__,
+                (PeriodicDifferentialEquation, cls),
+                {},
+            )
+            return object.__new__(DynCls)
+        return super().__new__(cls)
 
     def __init__(
         self, comm: PETSc.Comm, name: str,
         state_dim: Tuple[int, int], poly_deg: int,
+        periodic_diffeq: Tuple[np.ndarray, np.ndarray, bool] | None = None,
     ) -> None:
         r"""
         :param comm: MPI communicator
@@ -136,3 +161,248 @@ class DifferentialEquation(metaclass=abc.ABCMeta):
         y.axpy(1.0, Bqq)
         Bqq.destroy()
         return y
+
+from ..utils.vector import reshape_harmonic_balanced_vector_into_bv
+from ..utils.bv import reshape_bv_into_harmonic_balanced_vector
+from ..utils.time_stepping import fft, ifft
+
+class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
+    r"""
+    Cooperative mixin that lifts a time-domain bilinear nonlinearity to
+    its harmonic-balanced (HB) form.
+
+    Given an autonomous quadratic system
+
+    .. math::
+
+        \dot{q} = A\,q + B(q, q),
+
+    the time-periodic perturbation about a :math:`T`-periodic orbit
+    admits the HB representation
+
+    .. math::
+
+        \hat{q} = \big(\hat{q}_{-n_f}, \ldots, \hat{q}_0, \ldots,
+        \hat{q}_{n_f}\big)^T,
+        \qquad
+        q(t) = \sum_{k=-n_f}^{n_f} \hat{q}_k\, e^{i k \omega t},
+
+    in which the bilinear term becomes the discrete convolution
+
+    .. math::
+
+        \big(\widehat{B(q_1, q_2)}\big)_k
+        = \frac{1}{n_t}\sum_{i=0}^{n_t-1}
+            B\!\big(q_1(t_i),\, q_2(t_i)\big)\, e^{-i k \omega t_i}.
+
+    This class implements that pipeline (IFFT → per-time-instant
+    bilinear → FFT) on top of a user-supplied
+    :meth:`DifferentialEquation.evaluate_quadratic_term` that returns
+    the bilinear at a single time instant.  The per-time call is made
+    via ``super().evaluate_quadratic_term``, which under the MRO
+    dispatches to the user's class.
+
+    The mixin is not meant to be instantiated or subclassed directly:
+    the factory in :meth:`DifferentialEquation.__new__` inserts it
+    ahead of the user's subclass in the MRO when ``periodic_diffeq``
+    is provided to the constructor.
+    """
+
+    def __init__(
+        self,
+        *args,
+        periodic_diffeq: Tuple[np.ndarray, np.ndarray, bool],
+        **kwargs,
+    ) -> None:
+        r"""
+        :param periodic_diffeq: ``(omegas, time, is_period_doubling)``.
+
+            - ``omegas``: 1-D array of *non-negative* angular
+              frequencies for a real-valued system (the negative half
+              is recovered by conjugate symmetry), or the full
+              two-sided spectrum otherwise.  Must include the
+              fundamental :math:`\omega`.
+            - ``time``: 1-D array of physical-time samples, uniformly
+              spaced on ``[0, T)`` with
+              ``T = time[-1] + (time[1] - time[0])``.  The Nyquist
+              condition ``2*pi / fund_frequency == T`` is checked
+              here.
+            - ``is_period_doubling``: ``bool`` flag for
+              period-doubling (sub-harmonic) cases.
+        :type periodic_diffeq: Tuple[np.ndarray, np.ndarray, bool]
+
+        :raises ValueError: if the period implied by the frequency
+            vector does not match ``time[-1] + dt``.
+        """
+        super().__init__(*args, periodic_diffeq=periodic_diffeq, **kwargs)
+
+        self._omegas = periodic_diffeq[0].copy()
+        self._time = periodic_diffeq[1]
+        self._is_period_doubling = periodic_diffeq[2]
+
+        self._nt = len(self._time)
+        self._real_bflow = False
+        if np.min(self._omegas) == 0:
+            self._omegas = np.concatenate(
+                (np.flipud(-self._omegas[1:]), self._omegas)
+            )
+            self._real_bflow = True
+        self._nblocks = len(self._omegas)
+        fund_freq = self._omegas[int((self._nblocks - 1) / 2) + 1]
+
+        T = self._time[-1] + (self._time[1] - self._time[0])
+        if np.abs(2 * np.pi / fund_freq - T) > 1e-10:
+            raise ValueError(
+                f"Mismatch between time vector and frequency vector. Make sure "
+                f"that 2 pi / fund_frequency = time[-1] + dt."
+            )
+
+        self._Q_freqs, self._Q_time = [], []
+        for _ in range(self._poly_deg + 1):
+            Qf = SLEPc.BV().create(comm=self._comm)
+            Qf.setSizes(self._state_dim, self._nblocks)
+            Qf.setType("mat")
+            self._Q_freqs.append(Qf)
+
+            Qt = SLEPc.BV().create(comm=self._comm)
+            Qt.setSizes(self._state_dim, self._nt)
+            Qt.setType("mat")
+            self._Q_time.append(Qt)
+
+
+    def evaluate_linear_term(
+        self,
+        q: PETSc.Vec,
+        y: Optional[PETSc.Vec] = None,
+    ) -> PETSc.Vec:
+        r"""
+        Apply the harmonic resolvent generator
+
+        .. math::
+
+            \mathcal{L} = -\mathrm{diag}(i k \omega I) + \mathcal{A}
+
+        to an HB state vector.  Reshapes ``q`` into BV form,
+        reconstructs it in the time domain at every sample
+        :math:`t_i` via :func:`ifft`, calls the user's per-time-instant
+        linear operator at each :math:`t_i` through
+        ``super().evaluate_linear_term``, projects back onto the
+        harmonic basis via :func:`fft`, and subtracts the time-
+        derivative term :math:`i \omega_k\, q_k` from each Fourier
+        coefficient to obtain
+
+        .. math::
+
+            (\mathcal{L}\, q)_k
+            = \widehat{A(t)\, q(t)}_k - i \omega_k\, q_k.
+
+        The per-time call resolves through the MRO inserted by
+        :meth:`DifferentialEquation.__new__`: from this mixin,
+        ``super()`` points to the user's concrete subclass, whose
+        :meth:`evaluate_linear_term` is the time-domain operator
+        :math:`A(t_i)\, q(t_i)`.
+
+        :param q: HB state vector of size ``state_dim * nblocks``
+        :type q: PETSc.Vec
+        :param y: optional output vector (reused if provided)
+        :type y: Optional[PETSc.Vec]
+
+        :return: HB representation of :math:`\mathcal{L}\, q`
+        :rtype: PETSc.Vec
+        """
+        # Temporal reconstruction of the harmonic-balanced vectors
+        reshape_harmonic_balanced_vector_into_bv(q, self._nblocks, self._Q_freqs[0])
+        for i in range(self._nt):
+            q = self._Q_time[0].getColumn(i)
+            ifft(self._Q_freqs[0], q, self._omegas, self._time[i])
+            self._Q_time[0].restoreColumn(i, q)
+
+        # Per-time-instant bilinear, dispatched via MRO to the user's class
+        for k in range(self._nt):
+            qk = self._Q_time[0].getColumn(k)
+            yk = self._Q_time[-1].getColumn(k)
+            yk = super().evaluate_linear_term(qk, yk)
+            self._Q_time[-1].restoreColumn(k, yk)
+            self._Q_time[0].restoreColumn(k, qk)
+
+        # FFT back into the frequency domain and perform frequency shift (i.e., time derivative 
+        # in the frequency domain). 
+        self._Q_freqs[-1] = fft(self._Q_time[-1], self._Q_freqs[-1], False, True)
+        for k in range (self._nblocks):
+            qk = self._Q_freqs[-1].getColumn(k)
+            qk_in = self._Q_freqs[0].getColumn(k)
+            qk.axpy(-1j * self._omegas[k], qk_in)
+            self._Q_freqs[0].restoreColumn(k, qk_in)
+            self._Q_freqs[-1].restoreColumn(k, qk)
+        return reshape_bv_into_harmonic_balanced_vector(self._Q_freqs[-1], y)
+    
+    def evaluate_quadratic_term(
+        self,
+        q1: PETSc.Vec,
+        q2: PETSc.Vec,
+        y: Optional[PETSc.Vec] = None,
+    ) -> PETSc.Vec:
+        r"""
+        Evaluate the bilinear term in the harmonic-balanced
+        representation.
+
+        Reshapes ``q1`` and ``q2`` into BV form, reconstructs them in
+        the time domain at every sample ``t_i`` via :func:`ifft`,
+        calls the user's per-time-instant bilinear at each ``t_i``
+        through ``super().evaluate_quadratic_term``, and projects the
+        result back onto the harmonic basis via :func:`fft`.
+
+        The per-time call resolves through the MRO inserted by
+        :meth:`DifferentialEquation.__new__`: from this mixin,
+        ``super()`` points to the user's concrete subclass, whose
+        :meth:`evaluate_quadratic_term` is the *time-domain* bilinear
+        :math:`B(q_1(t_i), q_2(t_i))`.
+
+        :param q1: first HB state vector of size
+            ``state_dim * nblocks``
+        :type q1: PETSc.Vec
+        :param q2: second HB state vector of size
+            ``state_dim * nblocks``
+        :type q2: PETSc.Vec
+        :param y: optional output vector (reused if provided)
+        :type y: Optional[PETSc.Vec]
+
+        :return: HB representation of :math:`B(q_1, q_2)`
+        :rtype: PETSc.Vec
+        """
+        # Temporal reconstruction of the harmonic-balanced vectors
+        qlst = [q1, q2]
+        for j in range(len(qlst)):
+            reshape_harmonic_balanced_vector_into_bv(qlst[j], self._nblocks, self._Q_freqs[j])
+            for i in range(self._nt):
+                q = self._Q_time[j].getColumn(i)
+                ifft(self._Q_freqs[j], q, self._omegas, self._time[i])
+                self._Q_time[j].restoreColumn(i, q)
+
+        # Per-time-instant bilinear, dispatched via MRO to the user's class
+        for k in range(self._nt):
+            qk1 = self._Q_time[0].getColumn(k)
+            qk2 = self._Q_time[1].getColumn(k)
+            yk = self._Q_time[-1].getColumn(k)
+            yk = super().evaluate_quadratic_term(qk1, qk2, yk)
+
+            self._Q_time[-1].restoreColumn(k, yk)
+            self._Q_time[0].restoreColumn(k, qk1)
+            self._Q_time[1].restoreColumn(k, qk2)
+
+        # FFT back into the frequency domain
+        self._Q_freqs[-1] = fft(self._Q_time[-1], self._Q_freqs[-1], False, True)
+        return reshape_bv_into_harmonic_balanced_vector(self._Q_freqs[-1], y)
+    
+
+    def solve_linear_system(self, s, b, x = None):
+        return super().solve_linear_system(s, b, x)
+    
+    def evaluate_dynamics(self, t, q, y = None):
+        return super().evaluate_dynamics(t, q, y)
+
+
+
+
+        
+        
