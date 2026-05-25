@@ -1,17 +1,38 @@
+"""
+Step 4 of the KSE periodic-SSM workflow: load the cached SSM and run
+the on-/off-manifold ROM vs truth comparison + plotting.
+
+Inputs (all produced by the upstream scripts):
+    data/periodic_orbit.npz      (compute_periodic_orbit.py)
+    data/eigendecomp_cache.npz   (save_eigendecomp.py)
+    data/ssm_cache.npz           (save_ssm.py)
+
+Outputs (PNG/PDF figures into results/):
+    rom_vs_truth          time-series of dominant modes, on-manifold IC
+    rom_vs_truth_off      time-series of dominant modes, off-manifold IC
+    manifold_on           3D SSM surface with on-manifold trajectory
+    manifold_off          3D SSM surface with off-manifold trajectory
+
+No PETSc / MPI — purely numpy + scipy + matplotlib.
+
+Run with:
+    python demonstrate_ssm.py
+"""
+
 import os
+from functools import partial
+
 import numpy as np
 import scipy as sp
-from functools import partial
+from scipy.fft import fft, ifft
 from scipy.interpolate import interp1d
-from kse_differential_equation import KuramotoSivashinskyPeriodic
-from spatial_operators import linear_eigenvalues, nonlinear_rhs
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-from petsc4py import PETSc
-import resolvent4py as res4py
-from resolvent4py.spectral_submanifold import SpectralSubmanifold
+from resolvent4py.spectral_submanifold import SpectralSubmanifoldROM
+from spatial_operators import linear_eigenvalues, nonlinear_rhs
+
 
 res_path = "results/"
 
@@ -67,15 +88,7 @@ plt.rcParams.update(
 plt.rc("text.latex", preamble=r"\usepackage{amsmath}")
 
 
-# %% Parameters
-
-# ── Harmonic-balanced / SSM truncation ──────────────────────────────────────
-nf = 17             # number of positive frequencies for the SSM / HB system
-nfb = 12            # number of positive base-flow frequencies to retain
-r = 2               # SSM dimension (number of master modes)
-m = 9              # polynomial expansion order
-ssm_scaling = 0.2   # coordinate scaling applied during SSM solve
-manifold_tol = 1e-2 # truncation tolerance for estimating the valid SSM domain
+# %% Parameters that aren't in the cache
 
 # ── ROM / full-system comparison ─────────────────────────────────────────────
 n_periods = 10      # number of periods over which to compare ROM vs truth
@@ -84,175 +97,75 @@ rtol_rom = 1e-12
 atol_rom = 1e-12
 rtol_truth = 1e-10
 atol_truth = 1e-10
-scaling_off = 0.8   # scaling for off-manifold perturbation (relative to rho_domain)
+s0_fraction = 0.7   # on-manifold IC amplitude as fraction of rho_domain
+scaling_off = 0.7   # off-manifold IC: latent-component amplitude as fraction
+                    # of rho_domain (the off-manifold character comes from the
+                    # transverse part of x0_off, not from a large |s0_off| —
+                    # large |s0_off| pushes the truncated polynomial past the
+                    # cubic-balance point and the ROM transiently diverges).
 
 # ── Visualization ────────────────────────────────────────────────────────────
-dominant_modes = [1, 2, 3, 4, 5]      # Fourier mode indices for time-series plots
+dominant_modes = [1, 2, 3, 4, 5]
 figsize = (6, 5)
-n_rho = 40
-n_theta = 40
+n_phi = 60
+n_t_per_period = 80
 alpha_3d = 0.3
-clr_truth = "#2D3142"           # dark charcoal
-clr_rom = "#E85D04"             # burnt orange
-
-comm = PETSc.COMM_WORLD
+clr_truth = "#2D3142"
+clr_rom = "#E85D04"
 
 
-# %% Load periodic orbit
+# %% Load SSM cache
 
-data = np.load("data/periodic_orbit.npz")
-nu = float(data["nu"])
-n = int(data["n"])
-n_pts = int(data["n_pts"])
-T = float(data["T"])
-C_orbit = data["C"]                # shape (n, n_orbit + 1), last col ≈ first
+cache = np.load("data/ssm_cache.npz")
+PS_hb = cache["PS_hb"]              # (n_terms, n_harmonics, n) complex
+W_hb = cache["W_hb"]                # (n_harmonics, n, r)       complex
+V_neut_hb = cache["V_neut_hb"]      # (n_harmonics, n, n_neut)  complex
+W_neut_hb = cache["W_neut_hb"]      # (n_harmonics, n, n_neut)  complex
+multiindices = cache["multiindices"]  # (n_terms, r)            int
+Lams = cache["Lams"]                # (r,)                      complex
+gs = cache["gs"]                    # (n_terms, r)              complex
+conj_to_linear = bool(cache["conj_to_linear_dynamics"])
 
-# Drop duplicate endpoint so the samples span [0, T)
-C_periodic = C_orbit[:, :-1]
-n_time = C_periodic.shape[1]
-time_orbit = np.linspace(0, T, n_time, endpoint=False)
+nu = float(cache["nu"])
+n = int(cache["n"])
+n_pts = int(cache["n_pts"])
+T = float(cache["T"])
+nf = int(cache["nf"])
+nfb = int(cache["nfb"])
+r = int(cache["r"])
+m = int(cache["m"])
+rho_domain = float(cache["rho_domain"])
 
-res4py.petscprint(
-    comm,
-    f"KSE periodic orbit: nu={nu}, n={n}, T={T:.6f}, "
-    f"n_time={n_time}, nf={nf}, nfb={nfb}",
+C_periodic = cache["C_periodic"]
+time_orbit = cache["time_orbit"]
+
+omega = 2.0 * np.pi / T
+
+print(
+    f"Loaded SSM cache: nu={nu}, n={n}, T={T:.4f}, "
+    f"nf={nf}, nfb={nfb}, r={r}, m={m}, "
+    f"rho_domain={rho_domain:.4f}, n_terms={len(multiindices)}"
 )
 
-eq = KuramotoSivashinskyPeriodic(
-    n=n, nu=nu, nf=nf, nfb=nfb,
-    c_star=C_periodic, time=time_orbit, n_pts=n_pts,
+
+# %% Build the serial, numpy-only ROM (handles encode / decode /
+#    latent_space_dynamics / neutral_project).  The σ = 0 orbit-tangent
+#    neutral Floquet mode is stored at column 0 of the neutral bases by
+#    construction (``_compute_neutral_eigentriples`` loops with ``k=0`` first).
+rom = SpectralSubmanifoldROM(
+    multiindices=multiindices,
+    Lams=Lams,
+    gs=gs,
+    PS=PS_hb,
+    W=W_hb,
+    conj_to_linear_dynamics=conj_to_linear,
+    omega=omega,
+    v_neutral=V_neut_hb[:, :, 0],
+    w_neutral=W_neut_hb[:, :, 0],
 )
 
-res4py.petscprint(comm, f"omega = {eq.omega:.6f}")
-res4py.petscprint(comm, f"HB state dim = {n * (2 * nf + 1)}")
 
-
-# %% SSM computation
-
-idces = np.arange(r, dtype=np.int32)
-L = eq.L[idces]
-V = res4py.bv_slice(eq.Phi, idces)
-W = res4py.bv_slice(eq.Psi, idces)
-
-SSM = SpectralSubmanifold(eq, r, m)
-SSM.solve(V, W, L, scaling=ssm_scaling, verbose=1)
-
-res4py.petscprint(comm, f"Dominant eigenvalues: {SSM.Lams}")
-
-R, orders, coeff_sums, slope, intercept = SSM.estimate_convergence_radius()
-res4py.petscprint(comm, f"Estimated convergence radius: {R:.3f}")
-percent_domain, est_error = res4py.proper_radius(manifold_tol, intercept, m)
-rho_domain = percent_domain * R
-res4py.petscprint(
-    comm,
-    f"Using radius: {rho_domain:.3f} for estimated error {est_error:.3f}",
-)
-
-if comm.getRank() == 0:
-    os.makedirs(res_path, exist_ok=True)
-    res4py.plot_convergence_radius(orders, coeff_sums, slope, intercept, R)
-    plt.tight_layout()
-    savefig(plt.gcf(), "convergence_radius")
-    plt.show()
-
-
-# %% Helpers: physical-space encode / decode for the time-periodic SSM
-#
-# ``ssm.decode`` / ``ssm.encode`` work only for time-invariant SSMs.  For a
-# time-periodic SSM the polynomial coefficients ``ssm.ps`` and left
-# eigenvectors ``ssm.W`` live in HB (Fourier) space — each vector has
-# dimension ``n * (2*nf + 1)``.  Let
-#
-#     E(t) v_hb = sum_k v_k exp(i k omega t)
-#
-# denote the IFFT (HB → physical at time ``t``).  Then:
-#   * physical decoder: x(t) = sum_{idx} s^{j(idx)} * E(t) p_idx
-#   * physical encoder at time t: s = W_phys(t)^H x, where
-#                                  W_phys(t) = E(t) applied column-wise to W.
-
-n_harmonics = 2 * nf + 1
-k_idx = np.arange(-nf, nf + 1)
-
-
-def _gather_hb_vec(vec_hb):
-    """Gather a distributed HB PETSc vec and reshape to ``(n_harmonics, n)``."""
-    vec_seq = res4py.distributed_to_sequential_vector(vec_hb)
-    arr = vec_seq.getArray().copy().reshape(n_harmonics, n)
-    vec_seq.destroy()
-    return arr
-
-
-def _gather_hb_bv(bv):
-    """Gather an HB SLEPc BV to a numpy array of shape ``(n_harmonics, n, ncols)``."""
-    ncols = bv.getSizes()[-1]
-    out = np.zeros((n_harmonics, n, ncols), dtype=complex)
-    for j in range(ncols):
-        col = bv.getColumn(j)
-        out[:, :, j] = _gather_hb_vec(col)
-        bv.restoreColumn(j, col)
-    return out
-
-
-# Pre-gather the HB polynomial coefficients and left eigenvectors so we
-# only pay the communication cost once.  Shapes:
-#   PS_hb   : (n_terms, n_harmonics, n)
-#   W_hb    : (n_harmonics, n, r)
-PS_hb = np.stack([_gather_hb_vec(p) for p in SSM.ps], axis=0)
-W_hb = _gather_hb_bv(SSM.W)
-
-# Pre-gather the neutral Floquet bases (stored inside the projection operator
-# as ``L.L.U`` and ``L.L.V`` — they live in HB space).
-V_neut_hb = _gather_hb_bv(eq._neutral_proj.L.L.U)
-W_neut_hb = _gather_hb_bv(eq._neutral_proj.L.L.V)
-
-
-def _ifft_weights(t):
-    """``exp(i k omega t)`` for k in ``[-nf, ..., nf]``."""
-    return np.exp(1j * k_idx * eq.omega * t)
-
-
-def decode_phys(s, t):
-    """Physical-space decoder: ``x(t) = sum_idx s^{j(idx)} E(t) ps[idx]``."""
-    s = np.asarray(s)
-    coefs = np.array(
-        [np.prod(s ** np.asarray(j)) for j in SSM.ssm_multiindices],
-        dtype=complex,
-    )
-    hb = np.einsum("i,ihj->hj", coefs, PS_hb)      # (n_harmonics, n)
-    return (_ifft_weights(t) @ hb).real            # (n,)
-
-
-def encode_phys(x0, t):
-    """Physical-space encoder: ``s = W_phys(t)^H x0``."""
-    W_phys = np.einsum("h,hjr->jr", _ifft_weights(t), W_hb)  # (n, r)
-    return W_phys.conj().T @ x0
-
-
-# The σ = 0 neutral Floquet mode (orbit-tangent) is stored at column 0 of
-# the neutral bases by construction in ``_compute_neutral_eigentriples``.
-# The other 10 columns are Floquet modes at shifts ``±kiω`` — in HB they are
-# linearly independent, but after IFFT at a single time ``t`` they collapse
-# to the same physical direction, making the 11×11 oblique-projection Gram
-# rank-deficient.  Projecting with only the σ = 0 column avoids this.
-v_neut_hb = V_neut_hb[:, :, 0]
-w_neut_hb = W_neut_hb[:, :, 0]
-
-
-def neutral_project_phys(x0, t):
-    """Remove the orbit-tangent direction from ``x0`` at time ``t``.
-
-    Uses only the ``σ = 0`` neutral mode ``(v, w)`` IFFT-ed at time ``t``:
-    ``x - v (w^H x) / (w^H v)``.  ``v`` and ``w`` are biorthogonal in HB
-    and — for the ``σ = 0`` pair — remain biorthogonal pointwise in
-    physical space.
-    """
-    w_ifft = _ifft_weights(t)
-    v_t = w_ifft @ v_neut_hb
-    w_t = w_ifft @ w_neut_hb
-    return x0 - v_t * (np.vdot(w_t, x0) / np.vdot(w_t, v_t))
-
-
-# %% Perturbation dynamics around the periodic orbit (truth)
+# %% Truth RHS — KSE perturbation around the periodic orbit, pure numpy
 
 lam = linear_eigenvalues(n, nu)
 N_fn = partial(nonlinear_rhs, n_pts=n_pts)
@@ -268,86 +181,55 @@ def c_star_at(t):
     return c_star_interp(t % T)
 
 
+def _evaluate_quadratic_term_numpy(q1, q2):
+    """``B(q1, q2)`` for KSE — same formula as the periodic-eq class."""
+    j = np.arange(1, n + 1, dtype=float)
+    half_N = n_pts / 2.0
+
+    def _to_physical(c):
+        spec_u = np.zeros(n_pts, dtype=complex)
+        spec_ux = np.zeros(n_pts, dtype=complex)
+        spec_u[1:n + 1] = -1j * half_N * c
+        spec_ux[1:n + 1] = half_N * j * c
+        spec_u[n_pts - n:n_pts] = 1j * half_N * c[::-1]
+        spec_ux[n_pts - n:n_pts] = half_N * j[::-1] * c[::-1]
+        return ifft(spec_u), ifft(spec_ux)
+
+    u1, u1x = _to_physical(q1)
+    u2, u2x = _to_physical(q2)
+    B_spec = fft(-0.5 * (u1 * u2x + u2 * u1x))
+    result = 2j * B_spec[1:n + 1] / n_pts
+    if np.isrealobj(q1) and np.isrealobj(q2):
+        return result.real
+    return result
+
+
 def perturbation_rhs(t, v):
-    """v̇ = lam*v + 2*B(c*(t), v) + B(v, v)."""
+    """v̇ = lam*v + 2 B(c*(t), v) + B(v, v) — KSE linearised about c*(t)."""
     cs = c_star_at(t)
-    return lam * v + 2.0 * eq._evaluate_quadratic_term_numpy(cs, v) + N_fn(v)
+    return lam * v + 2.0 * _evaluate_quadratic_term_numpy(cs, v) + N_fn(v)
 
 
-# %% ROM vs Truth comparison (on-manifold IC)
+# %% Common grids and the 3D manifold surface (built once)
 
 t_end = n_periods * T
 t_eval = np.linspace(0, t_end, n_t)
 
-# Stay well inside the SSM convergence radius: ``rho_domain`` is the
-# radius where the *estimated* truncation error equals ``manifold_tol``
-# (here 1e-2).  At ``|s| = rho_domain`` that ~1% error is visible on the
-# plot.  Dropping to ``|s| ≈ 0.3·rho_domain`` shrinks the polynomial
-# truncation by ``(0.3)^(m+1)`` (~six orders of magnitude at m=9) and
-# the encoder's higher-order leakage by ``O(|s|^2)``.
-s0_fraction = 0.3
-s0 = s0_fraction * rho_domain * np.array([1.0, 1.0], dtype=complex)
-
-res4py.petscprint(comm, f"\nROM vs Truth (on-manifold), t_end = {t_end:.3f}")
-res4py.petscprint(comm, "  Integrating ROM ...")
-S = sp.integrate.solve_ivp(
-    SSM.latent_space_dynamics,
-    [0, t_end], s0, method="RK45", t_eval=t_eval,
-    rtol=rtol_rom, atol=atol_rom,
-).y
-
-Vapp = np.zeros((n, n_t))
-for i in range(n_t):
-    Vapp[:, i] = decode_phys(S[:, i], t_eval[i])
-
-# Truth: integrate perturbation dynamics in physical space
-v0 = decode_phys(s0, 0.0)
-
-res4py.petscprint(comm, "  Integrating truth ...")
-Vtruth = sp.integrate.solve_ivp(
-    perturbation_rhs, [0, t_end], v0, method="Radau", t_eval=t_eval,
-    rtol=rtol_truth, atol=atol_truth,
-).y
-
-if comm.getRank() == 0:
-    dominant_idcs = [jm - 1 for jm in dominant_modes]
-    fig, ax = plt.subplots(len(dominant_modes), 1, sharex=True, figsize=figsize)
-    for i, idx in enumerate(dominant_idcs):
-        ax[i].plot(t_eval, Vtruth[idx], color=clr_truth, lw=1.5, label="Truth")
-        ax[i].plot(t_eval, Vapp[idx], color=clr_rom, ls="--", lw=1.5, label="ROM")
-        ax[i].set_ylabel(rf"$v_{{{dominant_modes[i]}}}$")
-    ax[0].legend()
-    ax[-1].set_xlabel(r"Time $t$")
-    plt.tight_layout()
-    savefig(fig, "rom_vs_truth")
-    plt.show()
-
-
-# %% 3D manifold: evaluate (v_1, v_2, t) perturbation surface over the SSM domain
-
-n_s = 60
-n_phi = 60
-n_t_per_period = 80
-
 theta = np.linspace(0, 2 * np.pi, n_phi)
 s1 = rho_domain * np.exp(1j * theta)
-
-# Evaluate the perturbation SSM surface over one period and tile it across
-# ``n_periods`` (``decode_phys(s, t)`` is ``T``-periodic in ``t``).
 t_one_period = np.linspace(0, T, n_t_per_period, endpoint=False)
 
 V1_one = np.zeros((n_phi, n_t_per_period))
 V2_one = np.zeros((n_phi, n_t_per_period))
 
-res4py.petscprint(
-    comm,
-    f"\nEvaluating manifold surface on {n_phi}x{n_t_per_period} grid "
-    f"(tiled over {n_periods} periods) ...",
+print(
+    f"Evaluating manifold surface on {n_phi}x{n_t_per_period} grid "
+    f"(tiled over {n_periods} periods) ..."
 )
 for i in range(n_phi):
     for j in range(n_t_per_period):
         s = np.array([s1[i], s1[i].conj()], dtype=complex)
-        v = decode_phys(s, t_one_period[j])
+        v = rom.decode(t_one_period[j], s)
         V1_one[i, j] = v[0]
         V2_one[i, j] = v[1]
 
@@ -357,113 +239,144 @@ T_surf = np.concatenate(
     [t_one_period + p * T for p in range(n_periods)]
 )[None, :] * np.ones((n_phi, 1))
 
-if comm.getRank() == 0:
-    fig = plt.figure(figsize=(8, 6))
-    ax = fig.add_subplot(111, projection="3d")
-    ax.plot_surface(
-        T_surf, V1_surf, V2_surf,
-        rstride=1, cstride=1,
-        cmap=cm.plasma, linewidth=0, antialiased=False, alpha=alpha_3d,
-    )
-    ax.plot3D(t_eval, Vtruth[0], Vtruth[1], color=clr_truth, lw=1.5, label="Truth")
-    ax.plot3D(t_eval, Vapp[0], Vapp[1], color=clr_rom, ls="--", lw=1.5, label="ROM")
-    style_3d_axes(ax)
-    ax.set_xlabel(r"$t$")
-    ax.set_ylabel(r"$v_1$")
-    ax.set_zlabel(r"$v_2$")
-    ax.legend()
-    fig_3d = ax.get_figure()
-    fig_3d.canvas.mpl_connect(
-        "key_press_event",
-        lambda event: savefig(fig_3d, "manifold_on", is_3d=True)
-        if event.key == "s"
-        else None,
-    )
-    plt.show()
+
+os.makedirs(res_path, exist_ok=True)
 
 
-# %% Off-manifold initial condition
-#
-# Random physical-space IC.  Project out the neutral Floquet content at
-# t = 0 (the neutral projection is defined in HB space; we IFFT its bases
-# and apply the oblique projector in physical space) so the truth does
-# not drift in orbit phase relative to the ROM, which already lives in
-# the complement of the neutral directions.
+# %% On-manifold IC: pick s0 inside the SSM domain, integrate ROM + truth
+
+s0 = s0_fraction * rho_domain * np.array([1.0], dtype=complex)
+
+print(f"\nROM vs Truth (on-manifold), t_end = {t_end:.3f}")
+print("  Integrating ROM ...")
+S = sp.integrate.solve_ivp(
+    rom.latent_space_dynamics, [0, t_end], s0,
+    method="RK45", t_eval=t_eval, rtol=rtol_rom, atol=atol_rom,
+).y
+
+Vapp = np.zeros((n, n_t))
+for i in range(n_t):
+    Vapp[:, i] = rom.decode(t_eval[i], S[:, i])
+
+v0 = rom.decode(0.0, s0)
+print("  Integrating truth ...")
+Vtruth = sp.integrate.solve_ivp(
+    perturbation_rhs, [0, t_end], v0,
+    method="Radau", t_eval=t_eval, rtol=rtol_truth, atol=atol_truth,
+).y
+
+
+dominant_idcs = [jm - 1 for jm in dominant_modes]
+fig, ax = plt.subplots(len(dominant_modes), 1, sharex=True, figsize=figsize)
+for i, idx in enumerate(dominant_idcs):
+    ax[i].plot(t_eval, Vtruth[idx], color=clr_truth, lw=1.5, label="Truth")
+    ax[i].plot(t_eval, Vapp[idx], color=clr_rom, ls="--", lw=1.5, label="ROM")
+    ax[i].set_ylabel(rf"$v_{{{dominant_modes[i]}}}$")
+ax[0].legend()
+ax[-1].set_xlabel(r"Time $t$")
+plt.tight_layout()
+savefig(fig, "rom_vs_truth")
+plt.show()
+
+
+# fig = plt.figure(figsize=(8, 6))
+# ax = fig.add_subplot(111, projection="3d")
+# ax.plot_surface(
+#     T_surf, V1_surf, V2_surf,
+#     rstride=1, cstride=1,
+#     cmap=cm.plasma, linewidth=0, antialiased=False, alpha=alpha_3d,
+# )
+# ax.plot3D(t_eval, Vtruth[0], Vtruth[1], color=clr_truth, lw=1.5, label="Truth")
+# ax.plot3D(t_eval, Vapp[0], Vapp[1], color=clr_rom, ls="--", lw=1.5, label="ROM")
+# style_3d_axes(ax)
+# ax.set_xlabel(r"$t$")
+# ax.set_ylabel(r"$v_1$")
+# ax.set_zlabel(r"$v_2$")
+# ax.legend()
+# fig.canvas.mpl_connect(
+#     "key_press_event",
+#     lambda event: savefig(fig, "manifold_on", is_3d=True)
+#     if event.key == "s" else None,
+# )
+# plt.show()
+
+
+# %% Off-manifold IC: random direction, project out orbit-tangent neutral mode
 
 rng = np.random.default_rng(42)
 x0_off = rng.standard_normal(n)
-x0_off = neutral_project_phys(x0_off, 0.0).real
+x0_off = rom.neutral_project(0.0, x0_off).real
 x0_off /= np.linalg.norm(x0_off)
 
-# Encode via the physical-space encoder at t = 0, then scale so the
-# encoded latent coordinates have norm ``rho_domain * scaling_off``.
-s0_off = encode_phys(x0_off, 0.0)
+s0_off = rom.encode(0.0, x0_off)
 scaling_factor = rho_domain / np.linalg.norm(s0_off) * scaling_off
 s0_off *= scaling_factor
 x0_off *= scaling_factor
 
-res4py.petscprint(comm, f"\nROM vs Truth (off-manifold)")
-res4py.petscprint(comm, "  Integrating ROM ...")
+print(f"\nROM vs Truth (off-manifold)")
+print(
+    f"  |s0_off| = {np.linalg.norm(s0_off):.3f}  "
+    f"(rho_domain = {rho_domain:.3f}, ratio = "
+    f"{np.linalg.norm(s0_off) / rho_domain:.2f})"
+)
+print("  Integrating ROM ...")
 S_off = sp.integrate.solve_ivp(
-    SSM.latent_space_dynamics,
-    [0, t_end], s0_off, method="RK45", t_eval=t_eval,
-    rtol=rtol_rom, atol=atol_rom,
+    rom.latent_space_dynamics, [0, t_end], s0_off,
+    method="RK45", t_eval=t_eval, rtol=rtol_rom, atol=atol_rom,
 ).y
+S_abs_max = np.max(np.abs(S_off))
+print(
+    f"  max |s(t)| during ROM integration = {S_abs_max:.3f}  "
+    f"(rho_domain = {rho_domain:.3f})"
+)
+if S_abs_max > rho_domain:
+    print("  ⚠ latent trajectory left the convergence domain — "
+          "polynomial truncation is unreliable here.")
 
 Vapp_off = np.zeros((n, n_t))
 for i in range(n_t):
-    Vapp_off[:, i] = decode_phys(S_off[:, i], t_eval[i])
+    Vapp_off[:, i] = rom.decode(t_eval[i], S_off[:, i])
 
-v0_off = x0_off
-
-res4py.petscprint(comm, "  Integrating truth ...")
+print("  Integrating truth ...")
 Vtruth_off = sp.integrate.solve_ivp(
-    perturbation_rhs, [0, t_end], v0_off, method="Radau", t_eval=t_eval,
-    rtol=rtol_truth, atol=atol_truth,
+    perturbation_rhs, [0, t_end], x0_off,
+    method="Radau", t_eval=t_eval, rtol=rtol_truth, atol=atol_truth,
 ).y
 
-if comm.getRank() == 0:
-    fig = plt.figure(figsize=(8, 6))
-    ax = fig.add_subplot(111, projection="3d")
-    ax.plot_surface(
-        T_surf, V1_surf, V2_surf,
-        rstride=1, cstride=1,
-        cmap=cm.plasma, linewidth=0, antialiased=False, alpha=alpha_3d,
-    )
-    ax.plot3D(t_eval, Vtruth_off[0], Vtruth_off[1], color=clr_truth, lw=1.5, label="Truth")
-    ax.plot3D(t_eval, Vapp_off[0], Vapp_off[1], color=clr_rom, ls="--", lw=1.5, label="ROM")
-    style_3d_axes(ax)
-    ax.set_xlabel(r"$t$")
-    ax.set_ylabel(r"$v_1$")
-    ax.set_zlabel(r"$v_2$")
-    ax.legend()
-    fig_3d_off = ax.get_figure()
-    fig_3d_off.canvas.mpl_connect(
-        "key_press_event",
-        lambda event: savefig(fig_3d_off, "manifold_off", is_3d=True)
-        if event.key == "s"
-        else None,
-    )
-    plt.show()
-    plt.close('all')
 
-if comm.getRank() == 0:
-    dominant_idcs = [jm - 1 for jm in dominant_modes]
-    fig, ax = plt.subplots(len(dominant_modes), 1, sharex=True, figsize=figsize)
-    for i, idx in enumerate(dominant_idcs):
-        ax[i].plot(t_eval, Vtruth_off[idx], color=clr_truth, lw=1.5, label="Truth")
-        ax[i].plot(t_eval, Vapp_off[idx], color=clr_rom, ls="--", lw=1.5, label="ROM")
-        ax[i].set_ylabel(rf"$v_{{{dominant_modes[i]}}}$")
-    ax[0].legend()
-    ax[-1].set_xlabel(r"Time $t$")
-    plt.tight_layout()
-    savefig(fig, "rom_vs_truth_off")
-    plt.show()
-    plt.close('all')
+# fig = plt.figure(figsize=(8, 6))
+# ax = fig.add_subplot(111, projection="3d")
+# ax.plot_surface(
+#     T_surf, V1_surf, V2_surf,
+#     rstride=1, cstride=1,
+#     cmap=cm.plasma, linewidth=0, antialiased=False, alpha=alpha_3d,
+# )
+# ax.plot3D(t_eval, Vtruth_off[0], Vtruth_off[1], color=clr_truth, lw=1.5, label="Truth")
+# ax.plot3D(t_eval, Vapp_off[0], Vapp_off[1], color=clr_rom, ls="--", lw=1.5, label="ROM")
+# style_3d_axes(ax)
+# ax.set_xlabel(r"$t$")
+# ax.set_ylabel(r"$v_1$")
+# ax.set_zlabel(r"$v_2$")
+# ax.legend()
+# fig.canvas.mpl_connect(
+#     "key_press_event",
+#     lambda event: savefig(fig, "manifold_off", is_3d=True)
+#     if event.key == "s" else None,
+# )
+# plt.show()
+# plt.close("all")
 
 
-# Force clean termination: synchronise ranks, then kill the process bypassing
-# Python/MPI/matplotlib shutdown hooks (these sometimes hang after plt.show()
-# with PETSc initialised).
-comm.Barrier()
+fig, ax = plt.subplots(len(dominant_modes), 1, sharex=True, figsize=figsize)
+for i, idx in enumerate(dominant_idcs):
+    ax[i].plot(t_eval, Vtruth_off[idx], color=clr_truth, lw=1.5, label="Truth")
+    ax[i].plot(t_eval, Vapp_off[idx], color=clr_rom, ls="--", lw=1.5, label="ROM")
+    ax[i].set_ylabel(rf"$v_{{{dominant_modes[i]}}}$")
+ax[0].legend()
+ax[-1].set_xlabel(r"Time $t$")
+plt.tight_layout()
+savefig(fig, "rom_vs_truth_off")
+plt.show()
+plt.close("all")
+
 os._exit(0)

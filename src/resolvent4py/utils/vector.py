@@ -311,8 +311,12 @@ def reshape_harmonic_balanced_vector_into_bv(
     rows_ptr, cols_csr, vals_csr = convert_coo_to_csr(
         [bv_rows, bv_cols, bv_vals], bvMat.getSizes()
     )
+    # The BV's underlying Mat is reused across calls — overwrite, don't
+    # accumulate.  In petsc4py the 4th argument is the ``addv`` mode:
+    # True = ADD_VALUES, False = INSERT_VALUES.
+    bvMat.zeroEntries()
     bvMat.setPreallocationCSR((rows_ptr, cols_csr))
-    bvMat.setValuesCSR(rows_ptr, cols_csr, vals_csr, True)
+    bvMat.setValuesCSR(rows_ptr, cols_csr, vals_csr, False)
     bvMat.assemble()
 
     bv.restoreMat(bvMat)

@@ -24,7 +24,8 @@ import matplotlib.pyplot as plt
 
 
 # ── PDE / spatial discretization ────────────────────────────────────────────
-nu = 0.058     # past the Hopf bifurcation → periodic orbit
+# nu = 0.0313     # past the Hopf bifurcation → periodic orbit
+nu = 0.0595
 n = 64          # number of Fourier sine modes
 n_pts = 4 * n   # physical-space grid points for dealiasing
 
@@ -137,7 +138,33 @@ if len(crossing_times) < n_required:
 # Compute period estimates from consecutive crossings (after skipping early ones)
 crossing_times = np.array(crossing_times)
 usable = crossing_times[n_crossings_skip:]
-periods = np.diff(usable[: n_crossings_avg + 1])
+sub_periods = np.diff(usable[: n_crossings_avg + 1])
+
+# Detect a symmetric attractor where the Poincaré section is hit twice
+# per actual period (e.g. the KSE reflection symmetry ``x → 2π − x``).
+# In that case the sub-period sequence alternates between two values and
+# Newton would lock onto a *return time* rather than the true closure.
+# Sum consecutive pairs to recover the actual period before shooting.
+spread_single = (sub_periods.max() - sub_periods.min()) / sub_periods.mean()
+n_full = len(sub_periods) // 2
+periods = sub_periods
+if n_full >= 1 and spread_single > period_rtol:
+    full_periods = (
+        sub_periods[: 2 * n_full : 2] + sub_periods[1 : 2 * n_full : 2]
+    )
+    spread_full = (
+        (full_periods.max() - full_periods.min()) / full_periods.mean()
+    )
+    if spread_full < 0.5 * spread_single:
+        print(
+            "  Symmetric attractor detected (Poincaré section hit twice "
+            "per actual period); pairing sub-periods."
+        )
+        print(
+            f"  sub-period spread = {spread_single:.2e}  →  "
+            f"paired-period spread = {spread_full:.2e}"
+        )
+        periods = full_periods
 
 T_mean = np.mean(periods)
 T_spread = (np.max(periods) - np.min(periods)) / T_mean
@@ -266,26 +293,26 @@ plt.tight_layout()
 plt.show()
 
 
-# %% Energy spectrum via temporal FFT
+# %% Temporal amplitude spectrum of the modes
+#
+# FFT each spatial mode separately over one period (exclude duplicate
+# endpoint), then take the max amplitude across modes per harmonic so the
+# plot shows the orbit's spectral footprint without depending on a single
+# mode that might be accidentally small at some harmonic.
 
-# Kinetic energy per mode: E_j(t) = 0.5 * c_j(t)^2
-# Total energy: E(t) = sum_j E_j(t) = 0.5 * ||c||^2
-E = 0.5 * np.sum(C_orbit ** 2, axis=0)
+C_per = C_orbit[:, :-1]
+C_hat = np.fft.rfft(C_per, axis=1) / C_per.shape[1]
+amp_per_harmonic = np.max(np.abs(C_hat), axis=0)
 
-# FFT of E(t) over one period (exclude last point = duplicate of first)
-E_periodic = E[:-1]
-N_fft = len(E_periodic)
-E_hat = np.fft.rfft(E_periodic) / N_fft
-freqs = np.fft.rfftfreq(N_fft, d=dt_orbit)
-
-# Amplitude spectrum (skip DC component for log scale)
-amplitude = np.abs(E_hat)
+n_harm = 20
+k_idx = np.arange(1, n_harm + 1)  # skip DC
 
 fig, ax = plt.subplots(figsize=(8, 5))
-ax.semilogy(freqs[:20], amplitude[:20], "k", lw=1, marker='o')
-ax.set_xlabel(r"Frequency $f$")
-ax.set_ylabel(r"$|\hat{E}(f)|$")
-ax.set_title(rf"Energy spectrum of periodic orbit ($\nu = {nu}$)")
+ax.semilogy(k_idx, amp_per_harmonic[k_idx], "ko", markerfacecolor="none")
+ax.set_xlabel(r"Harmonic index $k$ (frequency $k/T$)")
+ax.set_ylabel(r"$\max_j |\hat{c}_j(k)|$")
+ax.set_title(rf"Mode amplitude spectrum ($\nu = {nu}$, $T = {T_orbit:.4f}$)")
+ax.set_xticks(k_idx[::2])
 ax.grid(True, which="both", ls=":", alpha=0.5)
 plt.tight_layout()
 plt.show()

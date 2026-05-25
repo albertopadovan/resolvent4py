@@ -59,13 +59,20 @@ class Hopf3D(DifferentialEquation):
         shutil.rmtree(tmp) if comm.getRank() == 0 else None
 
     def evaluate_linear_term(
-        self, q: PETSc.Vec, y: Optional[PETSc.Vec] = None
+        self, t: float, q: PETSc.Vec, y: Optional[PETSc.Vec] = None
     ) -> PETSc.Vec:
+        # Autonomous system: t argument is accepted (for the abstract
+        # signature) but ignored.
         return self.A.apply(q, y)
 
     def evaluate_quadratic_term(
-        self, q1: PETSc.Vec, q2: PETSc.Vec, y: Optional[PETSc.Vec] = None
+        self,
+        t: float,
+        q1: PETSc.Vec,
+        q2: PETSc.Vec,
+        y: Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
+        # Autonomous bilinear: t argument is accepted but ignored.
         q1seq = res4py.distributed_to_sequential_vector(q1)
         q2seq = res4py.distributed_to_sequential_vector(q2)
         alpha, beta = self.alpha, self.beta

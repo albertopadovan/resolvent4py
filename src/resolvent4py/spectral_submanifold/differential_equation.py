@@ -85,29 +85,37 @@ class DifferentialEquation(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def evaluate_linear_term(
-        self, q: PETSc.Vec, y: Optional[PETSc.Vec] = None
+        self, t: float, q: PETSc.Vec, y: Optional[PETSc.Vec] = None
     ) -> PETSc.Vec:
         r"""
-        Compute the linear part of the RHS: :math:`A q`.
+        Compute the linear part of the RHS at time :math:`t`:
+        :math:`A(t)\, q`.  For autonomous systems the ``t`` argument
+        may be ignored.
 
+        :param t: time
+        :type t: float
         :param q: state vector
         :type q: PETSc.Vec
         :param y: optional output vector (reused if provided)
         :type y: Optional[PETSc.Vec]
 
-        :return: result of :math:`A q`
+        :return: result of :math:`A(t)\, q`
         :rtype: PETSc.Vec
         """
         ...
 
     @abc.abstractmethod
     def evaluate_quadratic_term(
-        self, q1: PETSc.Vec, q2: PETSc.Vec, y: Optional[PETSc.Vec] = None
+        self, t: float, q1: PETSc.Vec, q2: PETSc.Vec, y: Optional[PETSc.Vec] = None
     ) -> PETSc.Vec:
         r"""
-        Compute the quadratic bilinear term :math:`B(q_1, q_2)`.
-        Must satisfy :math:`B(q_1, q_2) = B(q_2, q_1)`.
+        Compute the quadratic bilinear term at time :math:`t`:
+        :math:`B(t;\, q_1, q_2)`.  Must satisfy
+        :math:`B(t;\, q_1, q_2) = B(t;\, q_2, q_1)`.  For autonomous
+        systems the ``t`` argument may be ignored.
 
+        :param t: time
+        :type t: float
         :param q1: first state vector
         :type q1: PETSc.Vec
         :param q2: second state vector
@@ -115,7 +123,7 @@ class DifferentialEquation(metaclass=abc.ABCMeta):
         :param y: optional output vector (reused if provided)
         :type y: Optional[PETSc.Vec]
 
-        :return: result of :math:`B(q_1, q_2)`
+        :return: result of :math:`B(t;\, q_1, q_2)`
         :rtype: PETSc.Vec
         """
         ...
@@ -143,7 +151,8 @@ class DifferentialEquation(metaclass=abc.ABCMeta):
         self, t: float, q: PETSc.Vec, y: Optional[PETSc.Vec] = None
     ) -> PETSc.Vec:
         r"""
-        Compute the full RHS: :math:`A q + B(q, q)`.
+        Compute the full RHS at time :math:`t`:
+        :math:`A(t)\, q + B(t;\, q, q)`.
         Override if the system has additional terms.
 
         :param t: time
@@ -153,32 +162,33 @@ class DifferentialEquation(metaclass=abc.ABCMeta):
         :param y: optional output vector (reused if provided)
         :type y: Optional[PETSc.Vec]
 
-        :return: result of :math:`A q + B(q, q)`
+        :return: result of :math:`A(t)\, q + B(t;\, q, q)`
         :rtype: PETSc.Vec
         """
-        y = self.evaluate_linear_term(q, y)
-        Bqq = self.evaluate_quadratic_term(q, q)
+        y = self.evaluate_linear_term(t, q, y)
+        Bqq = self.evaluate_quadratic_term(t, q, q)
         y.axpy(1.0, Bqq)
         Bqq.destroy()
         return y
 
 from ..utils.vector import reshape_harmonic_balanced_vector_into_bv
-from ..utils.bv import reshape_bv_into_harmonic_balanced_vector
+from ..utils.bv import reshape_bv_into_harmonic_balanced_vector, bv_slice
 from ..utils.time_stepping import fft, ifft
 
 class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
     r"""
-    Cooperative mixin that lifts a time-domain bilinear nonlinearity to
-    its harmonic-balanced (HB) form.
+    Cooperative mixin that lifts the time-domain linear and bilinear
+    operators of a :class:`DifferentialEquation` subclass to their
+    harmonic-balanced (HB) forms.
 
-    Given an autonomous quadratic system
+    Given a (possibly time-periodic) quadratic system
 
     .. math::
 
-        \dot{q} = A\,q + B(q, q),
+        \dot{q} = A(t)\,q + B(t;\, q, q),
 
-    the time-periodic perturbation about a :math:`T`-periodic orbit
-    admits the HB representation
+    the perturbation about a :math:`T`-periodic orbit admits the HB
+    representation
 
     .. math::
 
@@ -187,20 +197,34 @@ class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
         \qquad
         q(t) = \sum_{k=-n_f}^{n_f} \hat{q}_k\, e^{i k \omega t},
 
-    in which the bilinear term becomes the discrete convolution
+    in which:
 
-    .. math::
+    - the linear part becomes the harmonic resolvent generator
+      :math:`\mathcal{L} = -\mathrm{diag}(i k \omega I) + \mathcal{A}`
+      whose action on :math:`\hat{q}` satisfies
 
-        \big(\widehat{B(q_1, q_2)}\big)_k
-        = \frac{1}{n_t}\sum_{i=0}^{n_t-1}
-            B\!\big(q_1(t_i),\, q_2(t_i)\big)\, e^{-i k \omega t_i}.
+      .. math::
 
-    This class implements that pipeline (IFFT → per-time-instant
-    bilinear → FFT) on top of a user-supplied
-    :meth:`DifferentialEquation.evaluate_quadratic_term` that returns
-    the bilinear at a single time instant.  The per-time call is made
-    via ``super().evaluate_quadratic_term``, which under the MRO
-    dispatches to the user's class.
+          (\mathcal{L}\, q)_k
+          = \widehat{A(t)\, q(t)}_k - i \omega_k\, q_k;
+
+    - the bilinear part becomes the discrete convolution
+
+      .. math::
+
+          \big(\widehat{B(q_1, q_2)}\big)_k
+          = \frac{1}{n_t}\sum_{i=0}^{n_t-1}
+              B\!\big(t_i;\, q_1(t_i),\, q_2(t_i)\big)\,
+              e^{-i k \omega t_i}.
+
+    This class implements both pipelines (IFFT → per-time-instant
+    operator → FFT) on top of a user-supplied
+    :meth:`DifferentialEquation.evaluate_linear_term` and
+    :meth:`DifferentialEquation.evaluate_quadratic_term` that return
+    the time-domain operators at a single time instant.  The per-time
+    calls are made via ``super().evaluate_linear_term`` /
+    ``super().evaluate_quadratic_term``, which under the MRO dispatch
+    to the user's class.
 
     The mixin is not meant to be instantiated or subclassed directly:
     the factory in :meth:`DifferentialEquation.__new__` inserts it
@@ -234,10 +258,10 @@ class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
         :raises ValueError: if the period implied by the frequency
             vector does not match ``time[-1] + dt``.
         """
-        super().__init__(*args, periodic_diffeq=periodic_diffeq, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self._omegas = periodic_diffeq[0].copy()
-        self._time = periodic_diffeq[1]
+        self._time = periodic_diffeq[1].copy()
         self._is_period_doubling = periodic_diffeq[2]
 
         self._nt = len(self._time)
@@ -269,9 +293,27 @@ class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
             Qt.setType("mat")
             self._Q_time.append(Qt)
 
+        # if self._is_period_doubling:
+        #     nf = int((len(self._omegas) - 1) / 2)
+        #     if nf % 2 == 0:
+        #         self.idces_T = np.arange(1, self._nblocks, 2)
+        #         self.idces_2T = np.arange(0, self._nblocks + 1, 2)
+        #     else:
+        #         self.idces_T = np.arange(0, self._nblocks + 1, 2)
+        #         self.idces_2T = np.arange(1, self._nblocks, 2)
+            
+        #     self._Q_freqs_T = SLEPc.BV().create(comm=self._comm)
+        #     self._Q_freqs_T.setSizes(self._state_dim, len(self._idces_T))
+        #     self._Q_freqs_T.setType("mat")
+
+        #     self._Q_freqs_2T = SLEPc.BV().create(comm=self._comm)
+        #     self._Q_freqs_2T.setSizes(self._state_dim, len(self._idces_2T))
+        #     self._Q_freqs_2T.setType("mat")
+
 
     def evaluate_linear_term(
         self,
+        t: float,
         q: PETSc.Vec,
         y: Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
@@ -286,10 +328,10 @@ class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
         reconstructs it in the time domain at every sample
         :math:`t_i` via :func:`ifft`, calls the user's per-time-instant
         linear operator at each :math:`t_i` through
-        ``super().evaluate_linear_term``, projects back onto the
-        harmonic basis via :func:`fft`, and subtracts the time-
-        derivative term :math:`i \omega_k\, q_k` from each Fourier
-        coefficient to obtain
+        ``super().evaluate_linear_term(t_i, qk, yk)``, projects back
+        onto the harmonic basis via :func:`fft`, and subtracts the
+        time-derivative term :math:`i \omega_k\, q_k` from each
+        Fourier coefficient to obtain
 
         .. math::
 
@@ -302,6 +344,12 @@ class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
         :meth:`evaluate_linear_term` is the time-domain operator
         :math:`A(t_i)\, q(t_i)`.
 
+        :param t: accepted for signature consistency with
+            :meth:`DifferentialEquation.evaluate_linear_term`, but
+            unused — there is no single time at the HB level; the
+            internal loop supplies ``self._time[k]`` to each
+            per-time-instant call instead.
+        :type t: float
         :param q: HB state vector of size ``state_dim * nblocks``
         :type q: PETSc.Vec
         :param y: optional output vector (reused if provided)
@@ -321,7 +369,7 @@ class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
         for k in range(self._nt):
             qk = self._Q_time[0].getColumn(k)
             yk = self._Q_time[-1].getColumn(k)
-            yk = super().evaluate_linear_term(qk, yk)
+            yk = super().evaluate_linear_term(self._time[k], qk, yk)
             self._Q_time[-1].restoreColumn(k, yk)
             self._Q_time[0].restoreColumn(k, qk)
 
@@ -338,6 +386,7 @@ class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
     
     def evaluate_quadratic_term(
         self,
+        t: float,
         q1: PETSc.Vec,
         q2: PETSc.Vec,
         y: Optional[PETSc.Vec] = None,
@@ -347,17 +396,25 @@ class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
         representation.
 
         Reshapes ``q1`` and ``q2`` into BV form, reconstructs them in
-        the time domain at every sample ``t_i`` via :func:`ifft`,
-        calls the user's per-time-instant bilinear at each ``t_i``
-        through ``super().evaluate_quadratic_term``, and projects the
-        result back onto the harmonic basis via :func:`fft`.
+        the time domain at every sample :math:`t_i` via :func:`ifft`,
+        calls the user's per-time-instant bilinear at each
+        :math:`t_i` through
+        ``super().evaluate_quadratic_term(t_i, qk1, qk2, yk)``, and
+        projects the result back onto the harmonic basis via
+        :func:`fft`.
 
         The per-time call resolves through the MRO inserted by
         :meth:`DifferentialEquation.__new__`: from this mixin,
         ``super()`` points to the user's concrete subclass, whose
         :meth:`evaluate_quadratic_term` is the *time-domain* bilinear
-        :math:`B(q_1(t_i), q_2(t_i))`.
+        :math:`B(t_i;\, q_1(t_i), q_2(t_i))`.
 
+        :param t: accepted for signature consistency with
+            :meth:`DifferentialEquation.evaluate_quadratic_term`, but
+            unused — there is no single time at the HB level; the
+            internal loop supplies ``self._time[k]`` to each
+            per-time-instant call instead.
+        :type t: float
         :param q1: first HB state vector of size
             ``state_dim * nblocks``
         :type q1: PETSc.Vec
@@ -384,7 +441,7 @@ class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
             qk1 = self._Q_time[0].getColumn(k)
             qk2 = self._Q_time[1].getColumn(k)
             yk = self._Q_time[-1].getColumn(k)
-            yk = super().evaluate_quadratic_term(qk1, qk2, yk)
+            yk = super().evaluate_quadratic_term(self._time[k], qk1, qk2, yk)
 
             self._Q_time[-1].restoreColumn(k, yk)
             self._Q_time[0].restoreColumn(k, qk1)
@@ -393,16 +450,16 @@ class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
         # FFT back into the frequency domain
         self._Q_freqs[-1] = fft(self._Q_time[-1], self._Q_freqs[-1], False, True)
         return reshape_bv_into_harmonic_balanced_vector(self._Q_freqs[-1], y)
-    
-
-    def solve_linear_system(self, s, b, x = None):
-        return super().solve_linear_system(s, b, x)
-    
-    def evaluate_dynamics(self, t, q, y = None):
-        return super().evaluate_dynamics(t, q, y)
 
 
+    # def solve_linear_system(self, s, b, x = None):
+    #     reshape_harmonic_balanced_vector_into_bv(b, self._nblocks, self._Q_freqs[0])
+    #     bv_slice(self._Q_freqs[0], self.idces_T, self._Q_freqs_T)
+    #     bv_slice(self._Q_freqs[0], self.idces_2T, self._Q_freqs_2T)
+    #     bT = reshape_bv_into_harmonic_balanced_vector(self._Q_freqs_T)
+    #     b2T = reshape_bv_into_harmonic_balanced_vector(self._Q_freqs_T)
 
+    #     return super().solve_linear_system(s, b, x)
 
         
         

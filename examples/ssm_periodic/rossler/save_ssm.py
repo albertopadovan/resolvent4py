@@ -1,9 +1,6 @@
 """
-Compute the time-periodic SSM for the KSE and dump every piece needed
-to reproduce the ROM without PETSc to ``data/ssm_cache.npz``.
-
-The companion script ``debug_off_manifold.py`` loads this cache and is
-pure numpy — no PETSc/MPI — so the debug iteration is fast.
+Compute the time-periodic SSM for the Rössler system and dump every
+piece needed to reproduce the ROM without PETSc to ``data/ssm_cache.npz``.
 
 Run with ``mpirun -n <nprocs> python save_ssm.py``.
 """
@@ -12,18 +9,19 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import resample
-from kse_differential_equation import KuramotoSivashinskyPeriodic
-from eigendecomp_kse import load as load_eigendecomp
+
+from rossler_differential_equation import RosslerPeriodic
+from eigendecomp_rossler import load as load_eigendecomp
 
 from petsc4py import PETSc
 import resolvent4py as res4py
 from resolvent4py.spectral_submanifold import SpectralSubmanifold
 
 # ── Parameters (keep in sync with demonstrate_ssm.py) ───────────────────────
-nf = 17
-nfb = 12
+nf = 50
+nfb = 35
 r = 1
-m = 25
+m = 15
 ssm_scaling = 0.1
 manifold_tol = 1e-2
 
@@ -33,41 +31,35 @@ comm = PETSc.COMM_WORLD
 # %% Load periodic orbit
 
 data = np.load("data/periodic_orbit.npz")
-nu = float(data["nu"])
-n = int(data["n"])
-n_pts = int(data["n_pts"])
+c = float(data["c"])
 T = float(data["T"])
-C_orbit = data["C"]
-C_periodic_full = C_orbit[:, :-1]
+C_periodic_full = data["C"][:, :-1]   # drop repeated endpoint → (3, n_orbit)
 
-# Resample to the un-aliased grid: A_trunc has |k|<=nfb and v has
-# |l|<=nf, so the per-time linear-term convolution has |k|<=nf+nfb
-# and Nyquist needs n_time >= 2*(nf+nfb)+1 to match the assembled
-# HB matrix exactly.
 n_time = 2 * (nf + nfb) + 1
 C_periodic = resample(C_periodic_full, n_time, axis=1)
 time_orbit = np.linspace(0, T, n_time, endpoint=False)
 
 res4py.petscprint(
     comm,
-    f"KSE periodic orbit: nu={nu}, n={n}, T={T:.6f}, "
+    f"Rossler periodic orbit: c={c}, T={T:.6f}, "
     f"n_time={n_time}, nf={nf}, nfb={nfb}",
 )
 
 
 # %% Build eq and compute SSM
 
-omega_orbit = 2.0 * np.pi / T
-omegas_one_sided = omega_orbit * np.arange(nf + 1)
+# periodic_diffeq triggers the PeriodicDifferentialEquation mixin in
+# DifferentialEquation.__new__, which wraps the per-time evaluate_*
+# backends into HB-acting versions that SpectralSubmanifold needs.
+omega = 2.0 * np.pi / T
+omegas_one_sided = omega * np.arange(nf + 1)
 periodic_diffeq = (omegas_one_sided, time_orbit, False)
 
-eq = KuramotoSivashinskyPeriodic(
-    n=n, nu=nu, nf=nf, nfb=nfb,
-    c_star=C_periodic, time=time_orbit, n_pts=n_pts,
+eq = RosslerPeriodic(
+    c=c, nf=nf, nfb=nfb, c_star=C_periodic, time=time_orbit,
     periodic_diffeq=periodic_diffeq,
 )
 
-# Load the precomputed Floquet eigendecomposition and neutral projection.
 eq.L, eq.Phi, eq.Psi, eq._neutral_proj = load_eigendecomp(
     "data/eigendecomp_cache.npz", comm=comm,
 )
@@ -119,6 +111,7 @@ if comm.getRank() == 0:
 
 # %% Gather HB arrays to numpy
 
+n = 3  # Rössler state dimension
 n_harmonics = 2 * nf + 1
 
 
@@ -144,9 +137,9 @@ W_hb = _gather_hb_bv(SSM.W)
 V_neut_hb = _gather_hb_bv(eq._neutral_proj.L.L.U)
 W_neut_hb = _gather_hb_bv(eq._neutral_proj.L.L.V)
 
-multiindices = np.array(SSM.ssm_multiindices, dtype=np.int64)  # (n_terms, r)
+multiindices = np.array(SSM.ssm_multiindices, dtype=np.int64)
 Lams = np.asarray(SSM.Lams)
-gs = np.asarray(SSM.gs)                                        # (n_terms, r)
+gs = np.asarray(SSM.gs)
 conj_to_linear_dynamics = bool(SSM.conj_to_linear_dynamics)
 
 
@@ -156,7 +149,6 @@ if comm.getRank() == 0:
     os.makedirs("data", exist_ok=True)
     np.savez_compressed(
         "data/ssm_cache.npz",
-        # SSM HB arrays
         PS_hb=PS_hb,
         W_hb=W_hb,
         V_neut_hb=V_neut_hb,
@@ -165,11 +157,9 @@ if comm.getRank() == 0:
         Lams=Lams,
         gs=gs,
         conj_to_linear_dynamics=conj_to_linear_dynamics,
-        # Parameters
-        nu=nu, n=n, n_pts=n_pts, T=T,
+        c=c, n=n, T=T,
         nf=nf, nfb=nfb, r=r, m=m,
         rho_domain=rho_domain,
-        # Periodic orbit
         C_periodic=C_periodic,
         time_orbit=time_orbit,
     )

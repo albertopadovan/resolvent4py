@@ -26,7 +26,7 @@ def _check_eigen_triplets(diff_eq, V, W, L, tol=1e-10):
     for i in range (r):
         v = V.getColumn(i)
         Av = AV.getColumn(i)
-        Av = diff_eq.evaluate_linear_term(v, Av)
+        Av = diff_eq.evaluate_linear_term(0, v, Av)
         AV.restoreColumn(i, Av)
         V.restoreColumn(i, v)
     WtAV = AV.dot(W)
@@ -377,7 +377,7 @@ class SpectralSubmanifold:
                     for p in pair
                 ]
                 rhsj = self.diff_eq.evaluate_quadratic_term(
-                    ps[idces[0]], ps[idces[1]], rhsj
+                    0, ps[idces[0]], ps[idces[1]], rhsj
                 )
                 rhs.axpy(1.0, rhsj)
 
@@ -399,10 +399,12 @@ class SpectralSubmanifold:
             pj = self.diff_eq.solve_linear_system(shift, rhs)
 
             if not conj:
+                tol_conj = 1e-4
                 proj = W.dotVec(pj)
-                if np.linalg.norm(proj) >= 1e-6:
+                error_conj = np.linalg.norm(proj)
+                if error_conj >= tol_conj:
                     raise ValueError (
-                        f"|W^* pj| > tolerance. Please try modifying "
+                        f"|W^* pj| = {error_conj} > {tol_conj}. Please try modifying "
                         f"the scaling parameters when running .solve()"
                     )
             gs.append(gj)

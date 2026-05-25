@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import scipy as sp
 
@@ -172,3 +174,5 @@ if ax is not None:
 res4py.petscprint(comm, "Program is done executing.")
 res4py.petscprint(comm, " ")
 res4py.petscprint(comm, " ")
+
+os._exit(0)

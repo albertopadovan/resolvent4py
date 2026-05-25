@@ -70,6 +70,12 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
         time: np.ndarray,
         n_pts: int = None,
     ) -> None:
+        # NOTE: callers must also pass ``periodic_diffeq`` as a keyword
+        # argument; it is captured by
+        # :meth:`DifferentialEquation.__new__` to trigger the
+        # ``PeriodicDifferentialEquation`` mixin wrap and is consumed
+        # by ``PeriodicDifferentialEquation.__init__`` before this
+        # ``__init__`` is called via the MRO.
         comm = PETSc.COMM_WORLD
 
         # Validate inputs
@@ -86,11 +92,18 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
         if nfb > nf:
             raise ValueError(f"nfb={nfb} must be <= nf={nf}.")
 
-        # Harmonic-balanced state dimension: n * (2*nf + 1)
-        n_harmonics = 2 * nf + 1
-        N_hb = n * n_harmonics
-        state_dim = (res4py.compute_local_size(N_hb), N_hb)
-        super().__init__(comm, "KuramotoSivashinskyPeriodic", state_dim, 2)
+        # PER-TIME (per-frequency-block) state dimension.  The PDE mixin
+        # allocates BVs sized by self._state_dim, so this must be the
+        # per-time block size; the HB vector that callers pass to
+        # evaluate_quadratic_term has size n * (2*nf + 1).
+        state_dim = (res4py.compute_local_size(n), n)
+
+        T_period = time[-1] + (time[1] - time[0])
+        omega = 2 * np.pi / T_period
+
+        super().__init__(
+            comm, "KuramotoSivashinskyPeriodic", state_dim, 2,
+        )
 
         self.n = n
         self.nu = nu
@@ -101,19 +114,36 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
         self.time = time
         self._lam = linear_eigenvalues(n, nu)
 
-        T_period = time[-1] + (time[1] - time[0])
-        self.omega = 2 * np.pi / T_period
+        # FFT-truncate the base flow to |k| <= nfb so the per-time
+        # operator A(t) = L + 2 B(c*_trunc(t), .) has the same Fourier
+        # support as the assembled HB matrix in self.A (which truncates
+        # A_k to the same band).  Without this the mixin's HB matvec
+        # (IFFT → per-t → FFT) and self.A would disagree by the energy
+        # in the discarded harmonics of c*.
+        rfft_c = np.fft.rfft(c_star, axis=1)
+        rfft_c[:, nfb + 1:] = 0
+        self.c_star_trunc = np.fft.irfft(rfft_c, n=n_time, axis=1)
+
+        self.omega = omega
         self.T_period = T_period
 
         # Perturbation frequencies: -nf*omega, ..., 0, ..., nf*omega
         self.pertb_freqs = self.omega * np.arange(-nf, nf + 1)
 
         # ── Build A(t) Fourier coefficients and HB matrix ───────────────
+        # The HB matrix is kept for solve_linear_system and the
+        # shift-invert eigendecomposition (which need an explicit
+        # PETSc.Mat to factor with MUMPS).  Matrix-vector products at
+        # the HB level are handled by the PDE mixin via the per-time
+        # methods below.
         self._build_harmonic_balanced_operator()
 
-        # ── Eigendecomposition of the harmonic resolvent generator ───────
-        self.L, self.Phi, self.Psi = self.compute_eigendecomposition()
-        self.L = np.diag(self.L)
+        # Eigendecomposition is the slow part of __init__ and is now
+        # opt-in: call ``self.compute_eigendecomposition()`` explicitly,
+        # or load a cached one from disk (see ``save_eigendecomp.py``
+        # and the loader in the workflow scripts).  ``self.L``,
+        # ``self.Phi``, ``self.Psi`` and ``self._neutral_proj`` are
+        # populated by either path.
 
     # -----------------------------------------------------------------
     # FFT / IFFT helpers
@@ -234,11 +264,15 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
 
             filenames_lst.append(fnames_k)
 
-        # Assemble the block-Toeplitz HB matrix A_HB
+        # Assemble the block-Toeplitz HB matrix A_HB.  The HB global
+        # size is n * (2*nf + 1); self._state_dim is now the per-time
+        # block size, so we build the full HB size explicitly here.
         block_dim = (res4py.compute_local_size(n), n)
         block_sizes = (block_dim, block_dim)
-        state_dim = self.get_state_dimension()
-        full_sizes = (state_dim, state_dim)
+        n_harmonics = 2 * self.nf + 1
+        N_hb = n * n_harmonics
+        hb_state_dim = (res4py.compute_local_size(N_hb), N_hb)
+        full_sizes = (hb_state_dim, hb_state_dim)
 
         A_hb = res4py.read_harmonic_balanced_matrix(
             filenames_lst, real_bflow=True,
@@ -251,7 +285,6 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
         )
         A_hb.destroy()
 
-        n_harmonics = 2 * self.nf + 1
         self.A = res4py.linear_operators.MatrixLinearOperator(
             L_hb, nblocks=n_harmonics,
         )
@@ -292,66 +325,72 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
         return result
 
     # -----------------------------------------------------------------
-    # DifferentialEquation interface
+    # DifferentialEquation interface — per-time-instant methods.
+    # The PeriodicDifferentialEquation mixin wraps these with the HB
+    # scaffolding (IFFT → per-t → FFT) automatically.
     # -----------------------------------------------------------------
 
     def evaluate_linear_term(
-        self, q: PETSc.Vec, y: Optional[PETSc.Vec] = None,
-    ) -> PETSc.Vec:
-        r"""Apply the harmonic resolvent generator to an HB vector."""
-        return self.A.apply(q, y)
-
-    def evaluate_quadratic_term(
-        self, q1: PETSc.Vec, q2: PETSc.Vec,
+        self,
+        t: float,
+        q: PETSc.Vec,
         y: Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
         r"""
-        Evaluate the quadratic term in harmonic-balanced form:
-        IFFT both inputs to the time domain, evaluate :math:`B` at
-        each time sample, then FFT back.
+        Compute
+        :math:`A(t)\, q = (L + 2\,B(c^*_{\text{trunc}}(t),\,\cdot\,))\, q`
+        at a single time instant.  Uses ``self.c_star_trunc`` — the
+        base flow Fourier-truncated to ``|k| <= nfb`` in
+        ``__init__`` — so the result is consistent with the assembled
+        HB matrix ``self.A``.  ``t`` is one of the sample times in
+        ``self.time``; the truncated ``c^*(t)`` is looked up by
+        closest-index match.
         """
-        n = self.n
-        nf = self.nf
-        n_harmonics = 2 * nf + 1
-        n_time = len(self.time)
+        idx = int(np.argmin(np.abs(self.time - t)))
+        c_t = self.c_star_trunc[:, idx]
 
-        # Gather the HB vectors to sequential arrays
+        q_seq = res4py.distributed_to_sequential_vector(q)
+        q_arr = q_seq.getArray().copy()
+
+        Aq = self._lam * q_arr + 2.0 * self._evaluate_quadratic_term_numpy(
+            c_t, q_arr,
+        )
+
+        y_seq = PETSc.Vec().createWithArray(
+            np.asarray(Aq, dtype=np.complex128),
+            len(Aq), comm=PETSc.COMM_SELF,
+        )
+        y = q.duplicate() if y is None else y
+        y = res4py.sequential_to_distributed_vector(y_seq, y)
+        q_seq.destroy()
+        y_seq.destroy()
+        return y
+
+    def evaluate_quadratic_term(
+        self,
+        t: float,
+        q1: PETSc.Vec,
+        q2: PETSc.Vec,
+        y: Optional[PETSc.Vec] = None,
+    ) -> PETSc.Vec:
+        r"""
+        Evaluate :math:`B(q_1, q_2)` at a single time instant.  KSE
+        is autonomous in the quadratic, so ``t`` is accepted but
+        ignored.
+        """
         q1_seq = res4py.distributed_to_sequential_vector(q1)
         q2_seq = res4py.distributed_to_sequential_vector(q2)
-        q1_arr = q1_seq.getArray().copy().reshape(n_harmonics, n)  # (n_harm, n)
-        q2_arr = q2_seq.getArray().copy().reshape(n_harmonics, n)
-        q1_seq.destroy()
-        q2_seq.destroy()
-
-        # IFFT: (n_harm, n) → (n_time, n)
-        # Each row k of q_arr corresponds to harmonic k-nf
-        # q(t_i) = sum_k q_hat_k * exp(i*k*omega*t_i)
-        k_idx = np.arange(-nf, nf + 1)
-        E = np.exp(1j * np.outer(self.time, k_idx * self.omega))  # (n_time, n_harm)
-        q1_t = E @ q1_arr  # (n_time, n)
-        q2_t = E @ q2_arr  # (n_time, n)
-
-        # Evaluate B(q1(t_i), q2(t_i)) at each time sample
-        B_t = np.zeros((n_time, n), dtype=complex)
-        for ti in range(n_time):
-            B_t[ti, :] = self._evaluate_quadratic_term_numpy(
-                q1_t[ti, :], q2_t[ti, :],
-            )
-
-        # FFT back: (n_time, n) → (n_harm, n)
-        # B_hat_k = (1/n_time) * sum_i B(t_i) * exp(-i*k*omega*t_i)
-        E_inv = np.exp(-1j * np.outer(k_idx * self.omega, self.time)) / n_time
-        B_hat = E_inv @ B_t  # (n_harm, n)
-
-        # Assemble into an HB PETSc vector
-        result = B_hat.ravel()
+        result = self._evaluate_quadratic_term_numpy(
+            q1_seq.getArray(), q2_seq.getArray(),
+        )
         y_seq = PETSc.Vec().createWithArray(
             np.asarray(result, dtype=np.complex128),
             len(result), comm=PETSc.COMM_SELF,
         )
         y = q1.duplicate() if y is None else y
         y = res4py.sequential_to_distributed_vector(y_seq, y)
-        y_seq.destroy()
+        for obj in (q1_seq, q2_seq, y_seq):
+            obj.destroy()
         return y
 
     def solve_linear_system(
@@ -363,173 +402,34 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
         the neutrally stable Floquet direction:
         :math:`b \leftarrow (I - v\,w^*)\,b`.
         """
-        # Project out all neutral Floquet directions from the RHS
-        if hasattr(self, "_neutral_proj"):
-            b = self._neutral_proj.apply(b)
+        # # Project out all neutral Floquet directions from the RHS
+        # if hasattr(self, "_neutral_proj"):
+        #     b = self._neutral_proj.apply(b)
 
         M = self.A.A.copy()
         M.scale(-1.0)
-        size = self.get_state_dimension()
+        # self.A is sized at the HB level (n * nblocks).  Use its row
+        # size directly — self.get_state_dimension() now returns the
+        # per-time block size after the PDE-mixin wrap.
+        size = M.getSizes()[0]
         I = res4py.create_AIJ_identity(self.get_comm(), (size, size))
         M.axpy(s, I)
         I.destroy()
-        ksp = res4py.create_mumps_solver(M)
+        # ICNTL(13)=1 disables MUMPS's parallel (ScaLAPACK) root-node
+        # factorization — works around an MPICH/ScaLAPACK assertion
+        # observed on macOS with complex MUMPS in parallel.
+        ksp = res4py.create_mumps_solver(M, icntl={13: 1})
         res4py.check_lu_factorization(M, ksp)
-        L = res4py.linear_operators.MatrixLinearOperator(M, ksp)
-        x = L.solve(b, x)
-        L.destroy()
+        Lop = res4py.linear_operators.MatrixLinearOperator(M, ksp)
+        x = Lop.solve(b, x)
+        Lop.destroy()
         return x
 
-    def _shift_invert_eig(
-        self,
-        sigma: complex,
-        n_evals: int,
-        krylov_dim: int,
-    ) -> Tuple[np.ndarray, SLEPc.BV, np.ndarray, SLEPc.BV]:
-        r"""
-        Shift-and-invert Arnoldi about ``sigma``.
-
-        Returns matched and biorthogonalised ``(Dv, V, Dw, W)``
-        where ``Dv``, ``Dw`` are diagonal matrices.
-        """
-        M = self.A.A.copy()
-        M.scale(-1.0)
-        size = self.get_state_dimension()
-        I = res4py.create_AIJ_identity(self.get_comm(), (size, size))
-        M.axpy(sigma, I)
-        I.destroy()
-        ksp = res4py.create_mumps_solver(M)
-        res4py.check_lu_factorization(M, ksp)
-        n_harmonics = 2 * self.nf + 1
-        Linv = res4py.linear_operators.MatrixLinearOperator(
-            M, ksp, nblocks=n_harmonics,
-        )
-
-        Dv, V = res4py.linalg.eig(
-            Linv, Linv.solve, krylov_dim, n_evals,
-            process_evals=lambda mu: sigma - 1.0 / mu,
-        )
-        Dw, W = res4py.linalg.eig(
-            Linv, Linv.solve_hermitian_transpose, krylov_dim, n_evals,
-            process_evals=lambda mu: np.conj(sigma) - 1.0 / mu,
-        )
-        Linv.destroy()
-
-        V, W, Dv, Dw = res4py.linalg.match_right_and_left_eigenvectors(
-            V, W, Dv, Dw,
-        )
-        return Dv, V, Dw, W
-
-    def _compute_neutral_eigentriples(
-        self,
-        n_evals: int = 4,
-        krylov_dim: int = 50,
-    ) -> None:
-        r"""
-        Compute the neutrally stable Floquet eigentriples at
-        :math:`\pm i k\omega` for :math:`k \in \{0,1,2,3,4,5\}` and
-        store them for projection in :meth:`solve_linear_system`.
-
-        Each shift locates the eigenvalue closest to :math:`i k\omega`;
-        the biorthogonalised pair ``(v, w)`` is kept.
-        """
-        v_list = []
-        w_list = []
-
-        for k in range(6):
-            for sign in ([0] if k == 0 else [1, -1]):
-                sigma = sign * k * 1j * self.omega
-                Dv, V, _, W = self._shift_invert_eig(
-                    sigma, n_evals, krylov_dim,
-                )
-                evals = np.diag(Dv)
-                idx = np.argmin(np.abs(evals - sigma))
-
-                v_col = V.getColumn(idx)
-                v_list.append(v_col.copy())
-                V.restoreColumn(idx, v_col)
-
-                w_col = W.getColumn(idx)
-                w_list.append(w_col.copy())
-                W.restoreColumn(idx, w_col)
-
-        # Assemble into BVs for the ProjectionLinearOperator
-        n_neutral = len(v_list)
-        state_dim = self.get_state_dimension()
-        comm = self.get_comm()
-
-        V_neutral = SLEPc.BV().create(comm=comm)
-        V_neutral.setSizes(state_dim, n_neutral)
-        V_neutral.setType("mat")
-        W_neutral = SLEPc.BV().create(comm=comm)
-        W_neutral.setSizes(state_dim, n_neutral)
-        W_neutral.setType("mat")
-
-        for i in range(n_neutral):
-            V_neutral.insertVec(i, v_list[i])
-            W_neutral.insertVec(i, w_list[i])
-            v_list[i].destroy()
-            w_list[i].destroy()
-
-        # Check W^* A V for the neutral directions
-        comm = self.get_comm()
-        AV = V_neutral.copy()
-        for i in range(n_neutral):
-            v = V_neutral.getColumn(i)
-            av = AV.getColumn(i)
-            av = self.evaluate_linear_term(v, av)
-            AV.restoreColumn(i, av)
-            V_neutral.restoreColumn(i, v)
-        WtAV = AV.dot(W_neutral)
-        res4py.petscprint(comm, "W^* A V (neutral directions):")
-        res4py.petscprint(comm, np.diag(WtAV.getDenseArray()))
-        WtAV.destroy()
-        AV.destroy()
-
-        n_harmonics = 2 * self.nf + 1
-        self._neutral_proj = res4py.linear_operators.ProjectionLinearOperator(
-            V_neutral, W_neutral, complement=True, nblocks=n_harmonics,
-        )
-
-    def compute_eigendecomposition(
-        self,
-        n_evals: int = 200,
-        krylov_dim: int = 600,
-        sigma: complex = 0.0,
-    ) -> Tuple[np.ndarray, SLEPc.BV, SLEPc.BV]:
-        r"""
-        Compute Floquet exponents closest to ``sigma`` via shift-and-invert
-        Arnoldi.  First computes and removes the neutrally stable directions
-        at :math:`\pm i k\omega` for :math:`k = 0, \ldots, 5`.
-
-        :param n_evals: number of eigenvalues to compute
-        :param krylov_dim: Krylov subspace dimension (must be > n_evals)
-        :param sigma: shift for the main eigenvalue computation
-        """
-        # Compute neutral Floquet directions across all strips
-        self._compute_neutral_eigentriples()
-
-        # Main eigenvalue computation
-        Dv, V, _, W = self._shift_invert_eig(sigma, n_evals, krylov_dim)
-
-        # Keep only Floquet exponents in the principal strip
-        # |Im(lambda)| <= omega/2, sorted by descending Re(lambda)
-        evals = np.diag(Dv)
-        half_omega = self.omega / 2.0
-        in_strip = np.abs(evals.imag) <= half_omega + 1e-10
-        idces = np.where(in_strip)[0]
-        idces = idces[np.argsort(-evals[idces].real)]
-
-        Dv = np.diag(evals[idces])
-        V = res4py.bv_slice(V, idces.astype(np.int32))
-        W = res4py.bv_slice(W, idces.astype(np.int32))
-
-        # Remove the neutral direction (eigenvalue closest to 0)
-        evals_strip = np.diag(Dv)
-        idx_neutral = np.argmin(np.abs(evals_strip))
-        keep = np.delete(np.arange(len(evals_strip)), idx_neutral)
-        Dv = np.diag(evals_strip[keep])
-        V = res4py.bv_slice(V, keep.astype(np.int32))
-        W = res4py.bv_slice(W, keep.astype(np.int32))
-
-        return Dv, V, W
+    # The Floquet eigendecomposition and the neutral-projection
+    # operator are computed off-class in ``eigendecomp_kse.py``; the
+    # user is expected to set ``self.L``, ``self.Phi``, ``self.Psi``,
+    # and ``self._neutral_proj`` from there (either by recomputing or
+    # by loading a previously cached result from disk).
+    # ``solve_linear_system`` above already gates the neutral
+    # projection behind a ``hasattr(self, "_neutral_proj")`` check, so
+    # both code paths work without those attributes being present.

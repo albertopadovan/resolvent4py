@@ -110,14 +110,20 @@ class KuramotoSivashinsky(DifferentialEquation):
         return result
 
     def evaluate_linear_term(
-        self, q: PETSc.Vec, y: Optional[PETSc.Vec] = None,
+        self, t: float, q: PETSc.Vec, y: Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
+        # Autonomous system: t argument is accepted (for the abstract
+        # signature) but ignored.
         return self.A.apply(q, y)
 
     def evaluate_quadratic_term(
-        self, q1: PETSc.Vec, q2: PETSc.Vec,
+        self,
+        t: float,
+        q1: PETSc.Vec,
+        q2: PETSc.Vec,
         y: Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
+        # Autonomous bilinear: t argument is accepted but ignored.
         q1_seq = res4py.distributed_to_sequential_vector(q1)
         q2_seq = res4py.distributed_to_sequential_vector(q2)
         result = self._evaluate_quadratic_term_numpy(

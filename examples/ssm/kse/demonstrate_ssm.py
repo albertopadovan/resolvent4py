@@ -339,3 +339,5 @@ if comm.getRank() == 0:
     plt.tight_layout()
     savefig(fig, "rom_vs_truth_off")
     plt.show()
+
+os._exit(0)
