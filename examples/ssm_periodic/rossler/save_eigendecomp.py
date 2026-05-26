@@ -23,7 +23,7 @@ from eigendecomp_rossler import compute_eigendecomposition, save
 nf = 50
 nfb = 35
 
-n_evals = 20
+n_evals = 2
 krylov_dim = 100
 n_neutral_strips = 6
 
@@ -43,7 +43,7 @@ n_time = 2 * (nf + nfb) + 1
 C_periodic = resample(C_periodic_full, n_time, axis=1)
 time_orbit = np.linspace(0, T, n_time, endpoint=False)
 
-sigma = 0.0
+sigma = 1j * 2 * np.pi / T / 2
 
 res4py.petscprint(
     comm,
@@ -99,7 +99,6 @@ if comm.getRank() == 0:
     ax.set_xlabel(r"$\mathrm{Re}(\mu)$")
     ax.set_ylabel(r"$\mathrm{Im}(\mu)$")
     ax.set_title(f"Floquet multipliers (c={c}, T={T:.4f})")
-    ax.legend(loc="best", fontsize=9)
 
     r_max = max(1.1, 1.05 * np.max(np.abs(mults)))
     ax.set_xlim(-r_max, r_max)

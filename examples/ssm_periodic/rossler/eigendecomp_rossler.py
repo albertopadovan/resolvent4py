@@ -180,16 +180,26 @@ def compute_eigendecomposition(
 
     evals = np.diag(Dv)
     half_omega = eq.omega / 2.0
-    in_strip = np.abs(evals.imag) <= half_omega + 1e-10
+    # Relative tolerance on the strip boundary: period-doubled modes
+    # sit at |Im λ| = ω/2 by construction, and Arnoldi's converged
+    # imaginary part can be ~1e-3 noisy, so a hard +1e-10 cutoff would
+    # drop them.
+    in_strip = np.abs(evals.imag) <= half_omega * (1.0 + 1e-2)
     idces = np.where(in_strip)[0]
     idces = idces[np.argsort(-evals[idces].real)]
     Dv = np.diag(evals[idces])
     V = res4py.bv_slice(V, idces.astype(np.int32))
     W = res4py.bv_slice(W, idces.astype(np.int32))
 
+    # Only strip out the orbit-tangent neutral if one is actually
+    # present in the surviving set — otherwise we'd accidentally
+    # discard the master pair when the strip caught only them.
     evals_strip = np.diag(Dv)
-    idx_neutral = np.argmin(np.abs(evals_strip))
-    keep = np.delete(np.arange(len(evals_strip)), idx_neutral)
+    idx_neutral = int(np.argmin(np.abs(evals_strip)))
+    if np.abs(evals_strip[idx_neutral]) < 1e-6:
+        keep = np.delete(np.arange(len(evals_strip)), idx_neutral)
+    else:
+        keep = np.arange(len(evals_strip))
     Dv = np.diag(evals_strip[keep])
     V = res4py.bv_slice(V, keep.astype(np.int32))
     W = res4py.bv_slice(W, keep.astype(np.int32))
