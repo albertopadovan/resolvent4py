@@ -143,7 +143,7 @@ def create_gmres_bjacobi_solver(
 
     comm = A.getComm()
     nprocs = comm.getSize()
-    if nprocs % nblocks != 0 and comm.getRank() == 0:
+    if nblocks % nprocs != 0 and comm.getRank() == 0:
         print("\n")
         warnings.warn(
             f"create_gmres_bjacobi_solver: nblocks={nblocks} is not a "

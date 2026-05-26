@@ -182,8 +182,8 @@ class LinearOperator(metaclass=abc.ABCMeta):
         :rtype: bool
         """
         x = generate_random_petsc_vector(self.get_dimensions()[-1])
-        enforce_complex_conjugacy(self.get_comm(), x, self.get_nblocks())
-        cc_x = check_complex_conjugacy(self.get_comm(), x, self.get_nblocks())
+        enforce_complex_conjugacy(x, self.get_nblocks())
+        cc_x = check_complex_conjugacy(x, self.get_nblocks())
         if cc_x == False:
             raise ValueError(
                 f"Error from {self.get_name()}.check_if_complex_conjugate"
@@ -191,9 +191,7 @@ class LinearOperator(metaclass=abc.ABCMeta):
                 f"appropriately."
             )
         Lx = self.apply(x)
-        result = check_complex_conjugacy(
-            self.get_comm(), Lx, self.get_nblocks()
-        )
+        result = check_complex_conjugacy(Lx, self.get_nblocks())
         x.destroy()
         Lx.destroy()
         return result

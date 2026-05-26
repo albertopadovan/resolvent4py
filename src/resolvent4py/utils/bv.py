@@ -13,10 +13,7 @@ import numpy as np
 from slepc4py import SLEPc
 from petsc4py import PETSc
 
-from .matrix import convert_coo_to_csr
-
-
-def bv_add(alpha: float, X: SLEPc.BV, Y: SLEPc.BV) -> None:
+def bv_add(alpha: float, X: SLEPc.BV, Y: SLEPc.BV) -> SLEPc.BV:
     r"""
     Compute in-place addition :math:`X \leftarrow X + \alpha Y`
 
@@ -107,10 +104,10 @@ def bv_slice(
         Y = SLEPc.BV().create(X.getComm())
         Y.setSizes(X.getSizes()[0], len(columns))
         Y.setType("mat")
-    Q = np.zeros((X.getSizes()[-1], len(columns)))
+    Q_data = np.zeros((X.getSizes()[-1], len(columns)))
     for i in range(len(columns)):
-        Q[columns[i], i] = 1.0
-    Q = PETSc.Mat().createDense(Q.shape, None, Q, PETSc.COMM_SELF)
+        Q_data[columns[i], i] = 1.0
+    Q = PETSc.Mat().createDense(Q_data.shape, None, Q_data, PETSc.COMM_SELF)
     Y.mult(1.0, 0.0, X, Q)
     Q.destroy()
     return Y
@@ -175,48 +172,24 @@ def reshape_bv_into_harmonic_balanced_vector(
 def bv_roll(
     X: SLEPc.BV,
     roll: int,
-    axis: int,
     in_place: typing.Optional[bool] = False,
-):
+) -> SLEPc.BV:
     r"""
-    If :code:`axis=0` roll the rows of X by amount :code:`roll`, if
-    :code:`axis=-1` roll the columns of X by amount :code:`roll`. This operation
-    can be done in place if :code:`in_place == True` (default is :code:`False`).
+    Roll the columns of :code:`X` by amount :code:`roll`. This operation
+    can be done in place if :code:`in_place == True` (default is
+    :code:`False`).
 
     :type X: SLEPc.BV
     :type roll: int
-    :type axis: int
     :type in_place: Optional[bool], default is :code:`False`
 
     :rtype: SLEPc.BV
     """
     Y = X.copy() if not in_place else X
 
-    if axis == -1:
-        Q = np.diag(np.ones(Y.getSizes()[-1]))
-        Q = np.roll(Q, roll, axis=-1)
-        Q = PETSc.Mat().createDense(Q.shape, None, Q, PETSc.COMM_SELF)
-        Y.multInPlace(Q, 0, Y.getSizes()[-1])
-        Q.destroy()
-    else:
-        # from ..linear_operators import MatrixLinearOperator
-        Ym = Y.getMat()
-        r0, r1 = Ym.getOwnershipRange()
-        cols = np.arange(r1 - r0) + r0
-        rows = np.mod(cols.copy() + roll, Y.getSizes()[0][-1])
-        vals = np.ones(len(rows))
-        sizes = (Y.getSizes()[0], Y.getSizes()[0])
-        row_ptr, col, val = convert_coo_to_csr([rows, cols, vals], sizes)
-        M = PETSc.Mat().createAIJ(sizes, comm=X.getComm())
-        M.setPreallocationCSR((row_ptr, col))
-        M.setValuesCSR(row_ptr, col, val, True)
-        M.assemble(False)
-        raise ValueError(
-            "This error is coming from utils.bv.bv_roll(). "
-            + "Need to fix this function because it was causing a"
-            + "circular import."
-        )
-        # Mlop = MatrixLinearOperator(comm, M)
-        # Y = Mlop.apply_mat(X, Y)
-        # Mlop.destroy()
+    Q_data = np.diag(np.ones(Y.getSizes()[-1]))
+    Q_data = np.roll(Q_data, roll, axis=-1)
+    Q = PETSc.Mat().createDense(Q_data.shape, None, Q_data, PETSc.COMM_SELF)
+    Y.multInPlace(Q, 0, Y.getSizes()[-1])
+    Q.destroy()
     return Y

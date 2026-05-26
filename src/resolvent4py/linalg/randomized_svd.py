@@ -89,7 +89,7 @@ def randomized_svd(
             xj.setValues(rows, xj.getArray().real)
             xj.assemble()
         if L.get_block_cc_flag():
-            enforce_complex_conjugacy(comm, xj, L.get_nblocks())
+            enforce_complex_conjugacy(xj, L.get_nblocks())
         X.restoreColumn(j, xj)
     X.orthogonalize(None)
     # Perform randomized SVD loop
@@ -115,17 +115,17 @@ def randomized_svd(
         Qadj = action_adj(Qfwd, Qadj)
         Qadj.orthogonalize(R)
     # Compute low-rank SVD
-    u, s, v = sp.linalg.svd(R.getDenseArray())
+    u_data, s, v_data = sp.linalg.svd(R.getDenseArray())
     R.destroy()
-    v = v.conj().T
+    v_data = v_data.conj().T
     s = s[:n_svals]
-    u = u[:, :n_svals]
-    v = v[:, :n_svals]
+    u_data = u_data[:, :n_svals]
+    v_data = v_data[:, :n_svals]
     u = PETSc.Mat().createDense(
-        (n_rand, n_svals), None, u, comm=PETSc.COMM_SELF
+        (n_rand, n_svals), None, u_data, comm=PETSc.COMM_SELF
     )
     v = PETSc.Mat().createDense(
-        (n_rand, n_svals), None, v, comm=PETSc.COMM_SELF
+        (n_rand, n_svals), None, v_data, comm=PETSc.COMM_SELF
     )
     Qfwd.multInPlace(v, 0, n_svals)
     Qfwd.setActiveColumns(0, n_svals)

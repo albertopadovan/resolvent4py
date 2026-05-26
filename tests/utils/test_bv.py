@@ -163,14 +163,14 @@ def test_bv_slice_with_preallocated_output(comm, square_matrix_size):
 
 
 def test_bv_roll_columns(comm, square_matrix_size):
-    r"""Test bv_roll with axis=-1 (column roll)"""
+    r"""Test bv_roll (column roll)"""
     from resolvent4py.utils.bv import bv_roll
 
     N = square_matrix_size[0]
     s = 5
     X, Xpython = pytest_utils.generate_random_bv(comm, (N, s))
     roll_amount = 2
-    Y = bv_roll(X, roll_amount, axis=-1, in_place=False)
+    Y = bv_roll(X, roll_amount, in_place=False)
 
     Ym = Y.getMat()
     Yms = res4py.distributed_to_sequential_matrix(Ym)

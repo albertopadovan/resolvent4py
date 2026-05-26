@@ -285,16 +285,16 @@ def resolvent_analysis_rsvd_dt(
     # Compute low-rank SVD
     Slst = []
     for j, R in enumerate(Rlst):
-        u, s, v = sp.linalg.svd(R.getDenseArray())
-        v = v.conj().T
+        u_data, s, v_data = sp.linalg.svd(R.getDenseArray())
+        v_data = v_data.conj().T
         s = s[:n_svals]
-        u = u[:, :n_svals]
-        v = v[:, :n_svals]
+        u_data = u_data[:, :n_svals]
+        v_data = v_data[:, :n_svals]
         u = PETSc.Mat().createDense(
-            (n_rand, n_svals), None, u, comm=PETSc.COMM_SELF
+            (n_rand, n_svals), None, u_data, comm=PETSc.COMM_SELF
         )
         v = PETSc.Mat().createDense(
-            (n_rand, n_svals), None, v, comm=PETSc.COMM_SELF
+            (n_rand, n_svals), None, v_data, comm=PETSc.COMM_SELF
         )
         Qfwd_hat_lst2[j].multInPlace(v, 0, n_svals)
         Qfwd_hat_lst2[j].setActiveColumns(0, n_svals)

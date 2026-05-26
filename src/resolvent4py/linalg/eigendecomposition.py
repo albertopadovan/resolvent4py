@@ -62,7 +62,7 @@ def arnoldi_iteration(
     H = np.zeros((krylov_dim + 1, krylov_dim), dtype=np.complex128)
     complex = False if L.get_real_flag() else True
     q = generate_random_petsc_vector(sizes, complex)
-    enforce_complex_conjugacy(comm, q, nblocks) if block_cc == True else None
+    enforce_complex_conjugacy(q, nblocks) if block_cc == True else None
     q.scale(1.0 / q.norm())
     Q.insertVec(0, q)
     # Perform the Arnoldi iterations

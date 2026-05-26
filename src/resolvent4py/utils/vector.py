@@ -3,6 +3,9 @@ __all__ = [
     "check_complex_conjugacy",
     "vec_real",
     "vec_imag",
+    "assemble_harmonic_balanced_vector",
+    "reshape_harmonic_balanced_vector_into_bv",
+    "embed_into_2T_vec",
 ]
 
 import numpy as np
@@ -10,6 +13,7 @@ import typing
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
+from .bv import reshape_bv_into_harmonic_balanced_vector
 
 def vec_real(
     x: PETSc.Vec, inplace: typing.Optional[bool] = False
@@ -50,7 +54,7 @@ def vec_imag(
 
 
 def enforce_complex_conjugacy(
-    comm: PETSc.Comm, vec: PETSc.Vec, nblocks: int
+    vec: PETSc.Vec, nblocks: int
 ) -> None:
     r"""
     Suppose we have a vector
@@ -78,7 +82,7 @@ def enforce_complex_conjugacy(
     scatter, vec_seq = PETSc.Scatter().toZero(vec)
     scatter.begin(vec, vec_seq, addv=PETSc.InsertMode.INSERT)
     scatter.end(vec, vec_seq, addv=PETSc.InsertMode.INSERT)
-    if comm.getRank() == 0:
+    if vec.getComm().getRank() == 0:
         array = vec_seq.getArray()
         block_size = len(array) // nblocks
         for i in range(nblocks // 2):
@@ -108,7 +112,7 @@ def enforce_complex_conjugacy(
 
 
 def check_complex_conjugacy(
-    comm: PETSc.Comm, vec: PETSc.Vec, nblocks: int
+    vec: PETSc.Vec, nblocks: int
 ) -> bool:
     r"""
     Verify whether the components :math:`v_i` of the vector
@@ -133,6 +137,7 @@ def check_complex_conjugacy(
             "The number of blocks must be an odd number. "
             "Currently you set {nblocks} blocks."
         )
+    comm = vec.getComm()
     scatter, vec_seq = PETSc.Scatter().toZero(vec)
     scatter.begin(vec, vec_seq, addv=PETSc.InsertMode.INSERT)
     scatter.end(vec, vec_seq, addv=PETSc.InsertMode.INSERT)
@@ -321,3 +326,72 @@ def reshape_harmonic_balanced_vector_into_bv(
 
     bv.restoreMat(bvMat)
     return bv
+
+def embed_into_2T_vec(
+    freqsT: np.ndarray,
+    vecT: PETSc.Vec,
+    freqs2T: np.ndarray,
+    vec2T: typing.Optional[PETSc.Vec] = None,
+    enforce_cc: bool = False,
+) -> PETSc.Vec:
+    r"""
+    Embed a T-periodic harmonic-balanced vector into a 2T-periodic one.
+
+    Given the T-periodic vector :math:`\hat{v}^T` with Fourier
+    coefficients at the frequencies listed in ``freqsT``, lay them out
+    into the (larger) 2T-periodic vector :math:`\hat{v}^{2T}` whose
+    Fourier coefficients live at ``freqs2T``.  Each ``freqsT[i]`` is
+    matched to the closest entry in ``freqs2T`` and the corresponding
+    block is copied across; entries of ``freqs2T`` with no match in
+    ``freqsT`` are left at zero.
+
+    Typical use: ``freqsT = omega * arange(-nf, nf+1)`` and
+    ``freqs2T = (omega/2) * arange(-2*nf, 2*nf+1)``.  The T harmonics
+    then land on the even (integer-:math:`\omega`) indices of the 2T
+    basis and the odd (half-integer-:math:`\omega`) indices stay zero
+    — exactly the structure of a period-doubling lift.
+
+    :param freqsT: frequency array of the T-periodic vector, length
+        :math:`2 n_f^T + 1`.
+    :type freqsT: np.ndarray
+    :param vecT: T-periodic harmonic-balanced vector, size
+        ``n * len(freqsT)``.
+    :type vecT: PETSc.Vec
+    :param freqs2T: frequency array of the 2T-periodic vector, length
+        :math:`2 n_f^{2T} + 1`.  Must contain every entry of ``freqsT``
+        to within numerical tolerance.
+    :type freqs2T: np.ndarray
+    :param vec2T: optional pre-allocated 2T-periodic vector to write
+        into.  If ``None``, a new vector is created.
+    :type vec2T: Optional[PETSc.Vec]
+    :param enforce_cc: if ``True``, call
+        :func:`enforce_complex_conjugacy` on the result to make
+        :math:`v_{-i} = \overline{v_i}`.
+    :type enforce_cc: bool
+
+    :return: the assembled 2T-periodic harmonic-balanced vector.
+    :rtype: PETSc.Vec
+    """
+    bvT = reshape_harmonic_balanced_vector_into_bv(vecT, len(freqsT))
+
+    bv2T = SLEPc.BV().create(comm=vecT.getComm())
+    bv2T.setSizes(bvT.getSizes()[0], len(freqs2T))
+    bv2T.setType("mat")
+
+    for iT, fT in enumerate(freqsT):
+        i2T = np.argmin(np.abs(freqs2T - fT))
+        if np.abs(fT - freqs2T[i2T]) > 1e-10:
+            raise ValueError (
+                f"The array freqsT should be a subset of the the "
+                f"array freqs2T. Embedding otherwise makes no sense."
+            )
+        vT = bvT.getColumn(iT)
+        bv2T.insertVec(i2T, vT)
+        bvT.restoreColumn(iT, vT)
+
+    vec2T = reshape_bv_into_harmonic_balanced_vector(bv2T, vec2T)
+    enforce_complex_conjugacy(vec2T, len(freqs2T)) if enforce_cc else None
+
+    bvT.destroy()
+    bv2T.destroy()
+    return vec2T
