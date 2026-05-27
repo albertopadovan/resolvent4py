@@ -2,8 +2,14 @@ import numpy as np
 import scipy as sp
 import resolvent4py as res4py
 from petsc4py import PETSc
-from resolvent4py.utils.comms import scatter_array_from_root_to_all, compute_local_size
-from resolvent4py.utils.matrix import convert_coo_to_csr, extract_block_diagonal
+from resolvent4py.utils.comms import (
+    scatter_array_from_root_to_all,
+    compute_local_size,
+)
+from resolvent4py.utils.matrix import (
+    convert_coo_to_csr,
+    extract_block_diagonal,
+)
 from .. import pytest_utils
 
 
@@ -54,9 +60,7 @@ def test_hermitian_transpose_out_of_place(comm, square_matrix_size):
 
     ys = res4py.distributed_to_sequential_vector(y)
     expected = Apython.conj().T.dot(xpython)
-    error = np.linalg.norm(ys.getArray() - expected) / np.linalg.norm(
-        expected
-    )
+    error = np.linalg.norm(ys.getArray() - expected) / np.linalg.norm(expected)
     ys.destroy()
     x.destroy()
     y.destroy()
@@ -81,9 +85,9 @@ def test_mat_solve_hermitian_transpose(comm, square_random_matrix):
 
     Yms = res4py.distributed_to_sequential_matrix(Ym)
     Ypython = sp.linalg.inv(Apython).conj().T.dot(Xpython)
-    error = np.linalg.norm(
-        Yms.getDenseArray() - Ypython
-    ) / np.linalg.norm(Ypython)
+    error = np.linalg.norm(Yms.getDenseArray() - Ypython) / np.linalg.norm(
+        Ypython
+    )
     Yms.destroy()
     Ym.destroy()
     X.destroy()
@@ -121,9 +125,7 @@ def test_assemble_harmonic_resolvent_generator(comm, square_matrix_size):
     T.mult(x, y)
     ys = res4py.distributed_to_sequential_vector(y)
     expected = Tpython.dot(xpython)
-    error = np.linalg.norm(ys.getArray() - expected) / np.linalg.norm(
-        expected
-    )
+    error = np.linalg.norm(ys.getArray() - expected) / np.linalg.norm(expected)
     ys.destroy()
     x.destroy()
     y.destroy()
@@ -172,9 +174,9 @@ def test_extract_block_diagonal(comm):
     # Build expected block-diagonal in numpy
     B_expected = np.zeros_like(A_np)
     for k in range(nblocks):
-        B_expected[k * n : (k + 1) * n, k * n : (k + 1) * n] = (
-            A_np[k * n : (k + 1) * n, k * n : (k + 1) * n]
-        )
+        B_expected[k * n : (k + 1) * n, k * n : (k + 1) * n] = A_np[
+            k * n : (k + 1) * n, k * n : (k + 1) * n
+        ]
 
     # Verify via matvec
     x, x_np = pytest_utils.generate_random_vector(comm, nN)

@@ -99,7 +99,7 @@ class JetFlowPeriodic(DifferentialEquation):
 
         if len(time) < 2 * self.nf + 1:
             raise ValueError(
-                f"len(time)={len(time)} < 2*nf+1={2*self.nf+1} "
+                f"len(time)={len(time)} < 2*nf+1={2 * self.nf + 1} "
                 f"violates Nyquist."
             )
 
@@ -123,7 +123,8 @@ class JetFlowPeriodic(DifferentialEquation):
     # -----------------------------------------------------------------
 
     def _evaluate_advection(
-        self, q: np.ndarray,
+        self,
+        q: np.ndarray,
     ) -> np.ndarray:
         r"""
         Evaluate the Navier-Stokes advection (the quadratic part of
@@ -149,7 +150,9 @@ class JetFlowPeriodic(DifferentialEquation):
         return qnl
 
     def _evaluate_quadratic_term(
-        self, q1: np.ndarray, q2: np.ndarray,
+        self,
+        q1: np.ndarray,
+        q2: np.ndarray,
     ) -> np.ndarray:
         r"""
         Evaluate the symmetric bilinear advection :math:`B(q_1, q_2)`
@@ -180,13 +183,17 @@ class JetFlowPeriodic(DifferentialEquation):
     # -----------------------------------------------------------------
 
     def evaluate_linear_term(
-        self, q: PETSc.Vec, y: Optional[PETSc.Vec] = None,
+        self,
+        q: PETSc.Vec,
+        y: Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
         r"""Apply the harmonic resolvent generator to an HB vector."""
         return self.A.apply(q, y)
 
     def evaluate_quadratic_term(
-        self, q1: PETSc.Vec, q2: PETSc.Vec,
+        self,
+        q1: PETSc.Vec,
+        q2: PETSc.Vec,
         y: Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
         r"""
@@ -216,22 +223,28 @@ class JetFlowPeriodic(DifferentialEquation):
             B_t = np.zeros((n_time, self.n_vel), dtype=np.complex128)
             for ti in range(n_time):
                 B_t[ti, :] = self._evaluate_quadratic_term(
-                    q1_t[ti, :], q2_t[ti, :],
+                    q1_t[ti, :],
+                    q2_t[ti, :],
                 )
 
-            E_inv = np.exp(
-                -1j * np.outer(k_idx * self.omega, self._time),
-            ) / n_time
+            E_inv = (
+                np.exp(
+                    -1j * np.outer(k_idx * self.omega, self._time),
+                )
+                / n_time
+            )
             B_hat = E_inv @ B_t
             result = np.ascontiguousarray(B_hat.ravel(), dtype=np.complex128)
-            
+
         q1_seq.destroy()
         q2_seq.destroy()
 
         comm.tompi4py().Bcast(result, root=0)
 
         y_seq = PETSc.Vec().createWithArray(
-            result, len(result), comm=PETSc.COMM_SELF,
+            result,
+            len(result),
+            comm=PETSc.COMM_SELF,
         )
         y = q1.duplicate() if y is None else y
         y = res4py.sequential_to_distributed_vector(y_seq, y)
@@ -239,7 +252,9 @@ class JetFlowPeriodic(DifferentialEquation):
         return y
 
     def solve_linear_system(
-        self, s: complex, b: PETSc.Vec,
+        self,
+        s: complex,
+        b: PETSc.Vec,
         x: Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
         r"""

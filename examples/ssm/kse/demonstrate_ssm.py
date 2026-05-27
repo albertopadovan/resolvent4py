@@ -39,6 +39,7 @@ def savefig(fig, name, is_3d=False):
     fig.savefig(res_path + name + ".pdf", **kw)
     print(f"Saved to {res_path}{name}.png/.pdf")
 
+
 # ---------------------------------------------------------------------------
 # Global style
 # ---------------------------------------------------------------------------
@@ -74,42 +75,44 @@ plt.rc("text.latex", preamble=r"\usepackage{amsmath}")
 # %% Parameters
 
 # ── PDE / spatial discretization ────────────────────────────────────────────
-nu = 0.061      # KSE viscosity parameter
-n = 64          # number of Fourier sine modes
-n_pts = 4 * n   # physical-space grid resolution for nonlinear term evaluation
+nu = 0.061  # KSE viscosity parameter
+n = 64  # number of Fourier sine modes
+n_pts = 4 * n  # physical-space grid resolution for nonlinear term evaluation
 
 # ── Time-marching to equilibrium ─────────────────────────────────────────────
-ic_seed = 42        # RNG seed for random initial condition
-ic_scale = 1e-3     # amplitude of random initial condition
-dt = 5e-3           # time step
-T = 200.0           # total integration time (long enough to reach equilibrium)
-save_interval = 1.0 # time between saved snapshots
+ic_seed = 42  # RNG seed for random initial condition
+ic_scale = 1e-3  # amplitude of random initial condition
+dt = 5e-3  # time step
+T = 200.0  # total integration time (long enough to reach equilibrium)
+save_interval = 1.0  # time between saved snapshots
 
 # ── SSM computation ──────────────────────────────────────────────────────────
-r = 2               # SSM dimension (number of master modes)
-m = 32              # polynomial expansion order
-ctld=False          # linear latent-space dynamics (True) or nonlinear (False)
-ssm_scaling = 0.5   # coordinate scaling applied during SSM solve
-manifold_tol = 1e-2 # truncation tolerance for estimating the valid SSM domain
+r = 2  # SSM dimension (number of master modes)
+m = 32  # polynomial expansion order
+ctld = False  # linear latent-space dynamics (True) or nonlinear (False)
+ssm_scaling = 0.5  # coordinate scaling applied during SSM solve
+manifold_tol = 1e-2  # truncation tolerance for estimating the valid SSM domain
 
 # ── ROM / full-system comparison ─────────────────────────────────────────────
-t_end = 5.0         # end time for ROM vs truth integration
-n_t = 500           # number of time-evaluation points
-rtol_rom = 1e-12    # relative tolerance for ROM ODE solver (RK45)
-atol_rom = 1e-12    # absolute tolerance for ROM ODE solver
+t_end = 5.0  # end time for ROM vs truth integration
+n_t = 500  # number of time-evaluation points
+rtol_rom = 1e-12  # relative tolerance for ROM ODE solver (RK45)
+atol_rom = 1e-12  # absolute tolerance for ROM ODE solver
 rtol_truth = 1e-10  # relative tolerance for truth ODE solver (Radau)
 atol_truth = 1e-10  # absolute tolerance for truth ODE solver
-off_seed = 123      # RNG seed for off-manifold initial condition
-scaling_off = 1.65   # scaling for off-manifold perturbation (relative to SSM domain )
+off_seed = 123  # RNG seed for off-manifold initial condition
+scaling_off = (
+    1.65  # scaling for off-manifold perturbation (relative to SSM domain )
+)
 
 # ── Visualization ────────────────────────────────────────────────────────────
-dominant_modes = [1, 2, 3]      # Fourier mode indices for time-series plots
-figsize = (6, 5)                # figure size for time-series plots
-n_rho = 40                      # radial grid points for 3D manifold surface
-n_theta = 40                    # angular grid points for 3D manifold surface
-alpha_3d = 0.3                  # transparency of 3D manifold surface
-clr_truth = "#2D3142"           # dark charcoal for truth
-clr_rom = "#E85D04"             # burnt orange for ROM
+dominant_modes = [1, 2, 3]  # Fourier mode indices for time-series plots
+figsize = (6, 5)  # figure size for time-series plots
+n_rho = 40  # radial grid points for 3D manifold surface
+n_theta = 40  # angular grid points for 3D manifold surface
+alpha_3d = 0.3  # transparency of 3D manifold surface
+clr_truth = "#2D3142"  # dark charcoal for truth
+clr_rom = "#E85D04"  # burnt orange for ROM
 
 comm = PETSc.COMM_WORLD
 
@@ -149,23 +152,29 @@ if comm.getRank() == 0:
 eq = KuramotoSivashinsky(n=n, nu=nu, n_pts=n_pts, c_star=c_star)
 
 
-#%% SSM computation
+# %% SSM computation
 
 idces = np.arange(r, dtype=np.int32)
 L = eq.L[idces]
 V = res4py.bv_slice(eq.Phi, idces)
 W = res4py.bv_slice(eq.Psi, idces)
 
-SSM = SpectralSubmanifold(eq, r, m, )
+SSM = SpectralSubmanifold(
+    eq,
+    r,
+    m,
+)
 SSM.solve(V, W, L, scaling=ssm_scaling)
 
 res4py.petscprint(comm, f"Dominant eigenvalues: {SSM.Lams}")
 
 R, orders, coeff_sums, slope, intercept = SSM.estimate_convergence_radius()
 res4py.petscprint(comm, f"Estimated convergence radius: {R:.3f}")
-percent_domain,est_error = res4py.proper_radius(manifold_tol, intercept, m)
+percent_domain, est_error = res4py.proper_radius(manifold_tol, intercept, m)
 rho_domain = percent_domain * R
-res4py.petscprint(comm, f"Using radius: {rho_domain:.3f} for estimated error {est_error:.3f}")
+res4py.petscprint(
+    comm, f"Using radius: {rho_domain:.3f} for estimated error {est_error:.3f}"
+)
 
 if comm.getRank() == 0:
     os.makedirs(res_path, exist_ok=True)
@@ -219,7 +228,9 @@ Q = c_star[:, None] + Vtruth
 
 if comm.getRank() == 0:
     dominant_idcs = [jm - 1 for jm in dominant_modes]
-    fig, ax = plt.subplots(len(dominant_modes), 1, sharex=True, figsize=figsize)
+    fig, ax = plt.subplots(
+        len(dominant_modes), 1, sharex=True, figsize=figsize
+    )
     for i, idx in enumerate(dominant_idcs):
         ax[i].plot(t, Q[idx], color=clr_truth, lw=1.5, label="Truth")
         ax[i].plot(t, Qapp[idx], color=clr_rom, ls="--", lw=1.5, label="ROM")
@@ -232,8 +243,13 @@ if comm.getRank() == 0:
 
 # 3D manifold + trajectories projected onto eigenspace basis
 ax, B, labels = plotting.plot_manifold_3d(
-    eq.Psi, eq.L, SSM, rho_max=rho_domain,
-    n_rho=n_rho, n_theta=n_theta, surface_alpha=alpha_3d,
+    eq.Psi,
+    eq.L,
+    SSM,
+    rho_max=rho_domain,
+    n_rho=n_rho,
+    n_theta=n_theta,
+    surface_alpha=alpha_3d,
 )
 
 # Project ROM and truth perturbation trajectories onto the same basis
@@ -308,8 +324,13 @@ for i in range(len(t)):
     Vtruth_off_proj[:, i] = plotting.project_to_3d(B, Vtruth_off[:, i])
 
 ax_off, _, _ = plotting.plot_manifold_3d(
-    eq.Psi, eq.L, SSM, rho_max=rho_domain,
-    n_rho=n_rho, n_theta=n_theta, surface_alpha=alpha_3d,
+    eq.Psi,
+    eq.L,
+    SSM,
+    rho_max=rho_domain,
+    n_rho=n_rho,
+    n_theta=n_theta,
+    surface_alpha=alpha_3d,
 )
 if comm.getRank() == 0:
     style_3d_axes(ax_off)
@@ -329,10 +350,14 @@ Qapp_off = c_star[:, None] + Vapp_off
 Q_off = c_star[:, None] + Vtruth_off
 if comm.getRank() == 0:
     dominant_idcs = [jm - 1 for jm in dominant_modes]
-    fig, ax = plt.subplots(len(dominant_modes), 1, sharex=True, figsize=figsize)
+    fig, ax = plt.subplots(
+        len(dominant_modes), 1, sharex=True, figsize=figsize
+    )
     for i, idx in enumerate(dominant_idcs):
         ax[i].plot(t, Q_off[idx], color=clr_truth, lw=1.5, label="Truth")
-        ax[i].plot(t, Qapp_off[idx], color=clr_rom, ls="--", lw=1.5, label="ROM")
+        ax[i].plot(
+            t, Qapp_off[idx], color=clr_rom, ls="--", lw=1.5, label="ROM"
+        )
         ax[i].set_ylabel(rf"$c_{{{dominant_modes[i]}}}$")
     ax[0].legend()
     ax[-1].set_xlabel(r"Time $t$")

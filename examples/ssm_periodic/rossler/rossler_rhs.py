@@ -28,11 +28,13 @@ import numpy as np
 
 
 def linear_matrix(c: float) -> np.ndarray:
-    return np.array([
-        [0.0, -1.0, -1.0],
-        [1.0,  0.1,  0.0],
-        [0.0,  0.0,  -c ],
-    ])
+    return np.array(
+        [
+            [0.0, -1.0, -1.0],
+            [1.0, 0.1, 0.0],
+            [0.0, 0.0, -c],
+        ]
+    )
 
 
 def constant_drive() -> np.ndarray:
@@ -52,7 +54,9 @@ def rossler_rhs(t: float, q: np.ndarray, c: float) -> np.ndarray:
 
 
 def perturbation_linear_action(
-    c_star_t: np.ndarray, v: np.ndarray, c: float,
+    c_star_t: np.ndarray,
+    v: np.ndarray,
+    c: float,
 ) -> np.ndarray:
     """A(t) v = M v + 2 B(q*(t), v) — single time instant."""
     return linear_matrix(c) @ v + 2.0 * quadratic_bilinear(c_star_t, v)

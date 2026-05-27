@@ -208,16 +208,22 @@ def convert_coo_to_csr(
         r0 = int(recv_displs[recv_from])
         rn = int(recv_counts[recv_from])
         comm.Sendrecv(
-            rows[s0 : s0 + sn], dest=send_to,
-            recvbuf=my_rows[r0 : r0 + rn], source=recv_from,
+            rows[s0 : s0 + sn],
+            dest=send_to,
+            recvbuf=my_rows[r0 : r0 + rn],
+            source=recv_from,
         )
         comm.Sendrecv(
-            cols[s0 : s0 + sn], dest=send_to,
-            recvbuf=my_cols[r0 : r0 + rn], source=recv_from,
+            cols[s0 : s0 + sn],
+            dest=send_to,
+            recvbuf=my_cols[r0 : r0 + rn],
+            source=recv_from,
         )
         comm.Sendrecv(
-            vals[s0 : s0 + sn], dest=send_to,
-            recvbuf=my_vals[r0 : r0 + rn], source=recv_from,
+            vals[s0 : s0 + sn],
+            dest=send_to,
+            recvbuf=my_vals[r0 : r0 + rn],
+            source=recv_from,
         )
 
     # Convert to local row indices and sort by row for CSR
@@ -305,9 +311,7 @@ def assemble_matrix_from_coo(comm, coo_arrays, mat_sizes):
     rows = scatter_array_from_root_to_all(rows_coo)
     cols = scatter_array_from_root_to_all(cols_coo)
     data = scatter_array_from_root_to_all(data_coo)
-    rows_ptr, cols, vals = convert_coo_to_csr(
-        [rows, cols, data], mat_sizes
-    )
+    rows_ptr, cols, vals = convert_coo_to_csr([rows, cols, data], mat_sizes)
 
     M = PETSc.Mat().createAIJ(mat_sizes, comm=comm)
     M.setPreallocationCSR((rows_ptr, cols))

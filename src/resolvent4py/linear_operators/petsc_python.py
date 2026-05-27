@@ -16,8 +16,7 @@ class _PCContext:
             self._action_t = L.apply_hermitian_transpose
         else:
             raise ValueError(
-                "action must be L.apply or L.solve, "
-                f"got {action}."
+                f"action must be L.apply or L.solve, got {action}."
             )
 
     def setUp(self, pc: PETSc.PC) -> None:
@@ -26,9 +25,7 @@ class _PCContext:
     def apply(self, pc: PETSc.PC, x: PETSc.Vec, y: PETSc.Vec) -> None:
         self._action(x, y)
 
-    def applyTranspose(
-        self, pc: PETSc.PC, x: PETSc.Vec, y: PETSc.Vec
-    ) -> None:
+    def applyTranspose(self, pc: PETSc.PC, x: PETSc.Vec, y: PETSc.Vec) -> None:
         # PETSc calls this for P^T, but our _action_t is P^H.
         # P^T x = conj(P^H conj(x))
         x.conjugate()
@@ -70,8 +67,7 @@ class PetscPythonLinearOperator:
             self._action_ht = L.solve_hermitian_transpose
         else:
             raise ValueError(
-                "action must be L.apply or L.solve, "
-                f"got {action}."
+                f"action must be L.apply or L.solve, got {action}."
             )
 
     def mult(self, A: PETSc.Mat, x: PETSc.Vec, y: PETSc.Vec) -> None:
@@ -105,4 +101,3 @@ class PetscPythonLinearOperator:
         A.setPythonContext(cls(L, action))
         A.setUp()
         return A
-

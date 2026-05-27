@@ -23,9 +23,9 @@ from eigendecomp_kse import compute_eigendecomposition, save
 nf = 17
 nfb = 12
 
-n_evals = 20                # Arnoldi window for the main eig
-krylov_dim = 100             # Krylov subspace dim (> n_evals)
-n_neutral_strips = 6        # k=0..n_neutral_strips-1 (±i*k*omega)
+n_evals = 20  # Arnoldi window for the main eig
+krylov_dim = 100  # Krylov subspace dim (> n_evals)
+n_neutral_strips = 6  # k=0..n_neutral_strips-1 (±i*k*omega)
 
 out_path = "data/eigendecomp_cache.npz"
 
@@ -52,7 +52,7 @@ periodic_diffeq = (omegas_one_sided, time_orbit, False)
 # Shift-invert target.  Period-doubling SSM: the leading non-neutral
 # Floquet multiplier approaches μ = -1, i.e. λ = ±i ω / 2 = ±i π / T,
 # which sits at the boundary of the principal Floquet strip.
-sigma = 0.0 #1j * omega_orbit / 2.0
+sigma = 0.0  # 1j * omega_orbit / 2.0
 
 res4py.petscprint(
     comm,
@@ -63,8 +63,13 @@ res4py.petscprint(
 
 # ── Build the equation (eigendecomp does NOT run automatically) ──────────────
 eq = KuramotoSivashinskyPeriodic(
-    n=n, nu=nu, nf=nf, nfb=nfb,
-    c_star=C_periodic, time=time_orbit, n_pts=n_pts,
+    n=n,
+    nu=nu,
+    nf=nf,
+    nfb=nfb,
+    c_star=C_periodic,
+    time=time_orbit,
+    n_pts=n_pts,
     periodic_diffeq=periodic_diffeq,
 )
 
@@ -90,7 +95,9 @@ save(out_path, L, Phi, Psi, neutral_proj, eq)
 if comm.getRank() == 0:
     mults = np.exp(L * T)
     order = np.argsort(-np.abs(mults))
-    print(f"Floquet multipliers (sorted by |μ| descending, {mults.size} total):")
+    print(
+        f"Floquet multipliers (sorted by |μ| descending, {mults.size} total):"
+    )
     for i, k in enumerate(order):
         print(
             f"  [{i:3d}] λ = {L[k].real:+.6e} {L[k].imag:+.6e}j   "
@@ -100,11 +107,25 @@ if comm.getRank() == 0:
     theta = np.linspace(0, 2 * np.pi, 400)
 
     fig, ax = plt.subplots(figsize=(5.5, 5.5))
-    ax.plot(np.cos(theta), np.sin(theta), color="0.5", lw=1, ls="--",
-            label="unit circle")
-    ax.scatter(mults.real, mults.imag, s=30, c="#E85D04", marker="o",
-               edgecolors="black", linewidths=0.5, zorder=3,
-               label=r"Floquet multipliers $\mu = e^{\lambda T}$")
+    ax.plot(
+        np.cos(theta),
+        np.sin(theta),
+        color="0.5",
+        lw=1,
+        ls="--",
+        label="unit circle",
+    )
+    ax.scatter(
+        mults.real,
+        mults.imag,
+        s=30,
+        c="#E85D04",
+        marker="o",
+        edgecolors="black",
+        linewidths=0.5,
+        zorder=3,
+        label=r"Floquet multipliers $\mu = e^{\lambda T}$",
+    )
     ax.axhline(0, color="0.8", lw=0.5)
     ax.axvline(0, color="0.8", lw=0.5)
     ax.set_aspect("equal")
@@ -120,9 +141,13 @@ if comm.getRank() == 0:
 
     os.makedirs("results", exist_ok=True)
     fig.tight_layout()
-    fig.savefig("results/floquet_multipliers.png", dpi=300, bbox_inches="tight")
+    fig.savefig(
+        "results/floquet_multipliers.png", dpi=300, bbox_inches="tight"
+    )
     fig.savefig("results/floquet_multipliers.pdf", bbox_inches="tight")
-    print("Saved Floquet-multiplier plot → results/floquet_multipliers.{png,pdf}")
+    print(
+        "Saved Floquet-multiplier plot → results/floquet_multipliers.{png,pdf}"
+    )
     plt.show()
 
 

@@ -37,7 +37,7 @@ comm = PETSc.COMM_WORLD
 data = np.load("data/periodic_orbit.npz")
 c = float(data["c"])
 T = float(data["T"])
-C_periodic_full = data["C"][:, :-1]   # drop repeated endpoint → (3, n_orbit)
+C_periodic_full = data["C"][:, :-1]  # drop repeated endpoint → (3, n_orbit)
 
 n_time = 2 * (nf + nfb) + 1
 C_periodic = resample(C_periodic_full, n_time, axis=1)
@@ -77,7 +77,9 @@ save(out_path, L, Phi, Psi, neutral_proj, eq)
 if comm.getRank() == 0:
     mults = np.exp(L * T)
     order = np.argsort(-np.abs(mults))
-    print(f"Floquet multipliers (sorted by |μ| descending, {mults.size} total):")
+    print(
+        f"Floquet multipliers (sorted by |μ| descending, {mults.size} total):"
+    )
     for i, k in enumerate(order):
         print(
             f"  [{i:3d}] λ = {L[k].real:+.6e} {L[k].imag:+.6e}j   "
@@ -88,11 +90,25 @@ if comm.getRank() == 0:
     theta = np.linspace(0, 2 * np.pi, 400)
 
     fig, ax = plt.subplots(figsize=(5.5, 5.5))
-    ax.plot(np.cos(theta), np.sin(theta), color="0.5", lw=1, ls="--",
-            label="unit circle")
-    ax.scatter(mults.real, mults.imag, s=30, c="#E85D04", marker="o",
-               edgecolors="black", linewidths=0.5, zorder=3,
-               label=r"Floquet multipliers $\mu = e^{\lambda T}$")
+    ax.plot(
+        np.cos(theta),
+        np.sin(theta),
+        color="0.5",
+        lw=1,
+        ls="--",
+        label="unit circle",
+    )
+    ax.scatter(
+        mults.real,
+        mults.imag,
+        s=30,
+        c="#E85D04",
+        marker="o",
+        edgecolors="black",
+        linewidths=0.5,
+        zorder=3,
+        label=r"Floquet multipliers $\mu = e^{\lambda T}$",
+    )
     ax.axhline(0, color="0.8", lw=0.5)
     ax.axvline(0, color="0.8", lw=0.5)
     ax.set_aspect("equal")
@@ -106,9 +122,13 @@ if comm.getRank() == 0:
 
     os.makedirs("results", exist_ok=True)
     fig.tight_layout()
-    fig.savefig("results/floquet_multipliers.png", dpi=300, bbox_inches="tight")
+    fig.savefig(
+        "results/floquet_multipliers.png", dpi=300, bbox_inches="tight"
+    )
     fig.savefig("results/floquet_multipliers.pdf", bbox_inches="tight")
-    print("Saved Floquet-multiplier plot → results/floquet_multipliers.{png,pdf}")
+    print(
+        "Saved Floquet-multiplier plot → results/floquet_multipliers.{png,pdf}"
+    )
     plt.show()
 
 

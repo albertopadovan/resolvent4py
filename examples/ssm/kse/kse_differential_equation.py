@@ -48,7 +48,10 @@ class KuramotoSivashinsky(DifferentialEquation):
     """
 
     def __init__(
-        self, n: int, nu: float, n_pts: int = None,
+        self,
+        n: int,
+        nu: float,
+        n_pts: int = None,
         c_star: np.ndarray = None,
     ) -> None:
         comm = PETSc.COMM_WORLD
@@ -69,21 +72,23 @@ class KuramotoSivashinsky(DifferentialEquation):
             for j in range(n):
                 e_j = np.zeros(n)
                 e_j[j] = 1.0
-                A_np[:, j] += 2.0 * self._evaluate_quadratic_term_numpy(e_j, c_star)
+                A_np[:, j] += 2.0 * self._evaluate_quadratic_term_numpy(
+                    e_j, c_star
+                )
 
         A_coo = sp.sparse.coo_matrix(A_np.astype(np.complex128))
         A_coo.eliminate_zeros()
         A_petsc = res4py.assemble_matrix_from_coo(
-            comm,
-            [A_coo.row, A_coo.col, A_coo.data],
-            (state_dim, state_dim)
+            comm, [A_coo.row, A_coo.col, A_coo.data], (state_dim, state_dim)
         )
         self.A = res4py.linear_operators.MatrixLinearOperator(A_petsc)
         self.L, self.Phi, self.Psi = self.compute_eigendecomposition()
         self.L = np.diag(self.L)
 
     def _evaluate_quadratic_term_numpy(
-        self, q1: np.ndarray, q2: np.ndarray,
+        self,
+        q1: np.ndarray,
+        q2: np.ndarray,
     ) -> np.ndarray:
         r"""
         Evaluate :math:`B(q_1, q_2)` in pure numpy (used during
@@ -95,22 +100,27 @@ class KuramotoSivashinsky(DifferentialEquation):
         def _to_physical(c):
             spec_u = np.zeros(self.n_pts, dtype=complex)
             spec_ux = np.zeros(self.n_pts, dtype=complex)
-            spec_u[1:self.n+1] = -1j * half_N * c
-            spec_ux[1:self.n+1] = half_N * j * c
-            spec_u[self.n_pts-self.n:self.n_pts] = 1j * half_N * c[::-1]
-            spec_ux[self.n_pts-self.n:self.n_pts] = half_N * j[::-1] * c[::-1]
+            spec_u[1 : self.n + 1] = -1j * half_N * c
+            spec_ux[1 : self.n + 1] = half_N * j * c
+            spec_u[self.n_pts - self.n : self.n_pts] = 1j * half_N * c[::-1]
+            spec_ux[self.n_pts - self.n : self.n_pts] = (
+                half_N * j[::-1] * c[::-1]
+            )
             return ifft(spec_u), ifft(spec_ux)
 
         u1, u1x = _to_physical(q1)
         u2, u2x = _to_physical(q2)
         B_spec = fft(-0.5 * (u1 * u2x + u2 * u1x))
-        result = 2j * B_spec[1:self.n+1] / self.n_pts
+        result = 2j * B_spec[1 : self.n + 1] / self.n_pts
         if np.isrealobj(q1) and np.isrealobj(q2):
             return result.real
         return result
 
     def evaluate_linear_term(
-        self, t: float, q: PETSc.Vec, y: Optional[PETSc.Vec] = None,
+        self,
+        t: float,
+        q: PETSc.Vec,
+        y: Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
         # Autonomous system: t argument is accepted (for the abstract
         # signature) but ignored.
@@ -127,11 +137,13 @@ class KuramotoSivashinsky(DifferentialEquation):
         q1_seq = res4py.distributed_to_sequential_vector(q1)
         q2_seq = res4py.distributed_to_sequential_vector(q2)
         result = self._evaluate_quadratic_term_numpy(
-            q1_seq.getArray(), q2_seq.getArray(),
+            q1_seq.getArray(),
+            q2_seq.getArray(),
         )
         y_seq = PETSc.Vec().createWithArray(
             np.asarray(result, dtype=np.complex128),
-            len(result), comm=PETSc.COMM_SELF,
+            len(result),
+            comm=PETSc.COMM_SELF,
         )
         y = q1.duplicate() if y is None else y
         y = res4py.sequential_to_distributed_vector(y_seq, y)
@@ -141,7 +153,9 @@ class KuramotoSivashinsky(DifferentialEquation):
         return y
 
     def solve_linear_system(
-        self, s: complex, b: PETSc.Vec,
+        self,
+        s: complex,
+        b: PETSc.Vec,
         x: Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
         M = self.A.A.copy()
@@ -162,22 +176,35 @@ class KuramotoSivashinsky(DifferentialEquation):
     ) -> Tuple[np.ndarray, SLEPc.BV, SLEPc.BV]:
         N = self.get_state_dimension()[-1]
         Dv, V = res4py.linalg.eig(
-            self.A, self.A.apply, N, N, lambda x: x,
+            self.A,
+            self.A.apply,
+            N,
+            N,
+            lambda x: x,
         )
         Dw, W = res4py.linalg.eig(
-            self.A, self.A.apply_hermitian_transpose, N, N, lambda x: x,
+            self.A,
+            self.A.apply_hermitian_transpose,
+            N,
+            N,
+            lambda x: x,
         )
         V, W, Dv, Dw = res4py.linalg.match_right_and_left_eigenvectors(
-            V, W, Dv, Dw,
+            V,
+            W,
+            Dv,
+            Dw,
         )
         return Dv, V, W
 
     def evaluate_dynamics_numpy(
-        self, t: float, q: np.ndarray,
+        self,
+        t: float,
+        q: np.ndarray,
     ) -> np.ndarray:
         q_seq = PETSc.Vec().createWithArray(
-            np.asarray(q, dtype=np.complex128), 
-            len(q), 
+            np.asarray(q, dtype=np.complex128),
+            len(q),
             comm=PETSc.COMM_SELF,
         )
         q_dist = PETSc.Vec().create(comm=self.get_comm())

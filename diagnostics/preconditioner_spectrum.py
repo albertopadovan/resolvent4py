@@ -62,7 +62,10 @@ def compute_spectrum(
     # Eigenvalues of T (via T^{-1}, mapped back by lambda -> -1/lambda)
     res4py.petscprint(comm, "Computing eigenvalues of T...")
     evals_T, _ = res4py.linalg.eig(
-        T, T.solve, krylov_dim, n_evals,
+        T,
+        T.solve,
+        krylov_dim,
+        n_evals,
         process_evals=lambda x: -1.0 / x,
     )
     evals_T = np.diag(evals_T)
@@ -75,7 +78,10 @@ def compute_spectrum(
         nblocks,
     )
     evals_SinvT, _ = res4py.linalg.eig(
-        SinvT, SinvT.apply, krylov_dim, n_evals,
+        SinvT,
+        SinvT.apply,
+        krylov_dim,
+        n_evals,
         process_evals=lambda x: x,
     )
     evals_SinvT = np.diag(evals_SinvT)
@@ -212,12 +218,18 @@ def plot_convergence(
     """
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.semilogy(
-        range(len(residuals_no_pc)), residuals_no_pc,
-        "k-o", markersize=3, label="No preconditioner",
+        range(len(residuals_no_pc)),
+        residuals_no_pc,
+        "k-o",
+        markersize=3,
+        label="No preconditioner",
     )
     ax.semilogy(
-        range(len(residuals_pc)), residuals_pc,
-        "r-s", markersize=3, label="Superoptimal block-circulant",
+        range(len(residuals_pc)),
+        residuals_pc,
+        "r-s",
+        markersize=3,
+        label="Superoptimal block-circulant",
     )
     ax.set_xlabel("GMRES iteration")
     ax.set_ylabel("Residual norm")

@@ -62,14 +62,20 @@ omegas_one_sided = omega_orbit * np.arange(nf + 1)
 periodic_diffeq = (omegas_one_sided, time_orbit, False)
 
 eq = KuramotoSivashinskyPeriodic(
-    n=n, nu=nu, nf=nf, nfb=nfb,
-    c_star=C_periodic, time=time_orbit, n_pts=n_pts,
+    n=n,
+    nu=nu,
+    nf=nf,
+    nfb=nfb,
+    c_star=C_periodic,
+    time=time_orbit,
+    n_pts=n_pts,
     periodic_diffeq=periodic_diffeq,
 )
 
 # Load the precomputed Floquet eigendecomposition and neutral projection.
 eq.L, eq.Phi, eq.Psi, eq._neutral_proj = load_eigendecomp(
-    "data/eigendecomp_cache.npz", comm=comm,
+    "data/eigendecomp_cache.npz",
+    comm=comm,
 )
 
 idces = np.arange(r, dtype=np.int32)
@@ -98,11 +104,22 @@ if comm.getRank() == 0:
     fit_line = 10.0 ** (slope * orders + intercept)
 
     fig, ax = plt.subplots(figsize=(6.5, 4.5))
-    ax.semilogy(orders[valid], coeff_sums[valid], "o", color="#E85D04",
-                markeredgecolor="black", markeredgewidth=0.5,
-                label=r"$C_k = \sum_{|j|=k} \|p_j\|_1$")
-    ax.semilogy(orders, fit_line, "--", color="0.3",
-                label=fr"fit: slope$={slope:.3f}$, $R={R:.3f}$")
+    ax.semilogy(
+        orders[valid],
+        coeff_sums[valid],
+        "o",
+        color="#E85D04",
+        markeredgecolor="black",
+        markeredgewidth=0.5,
+        label=r"$C_k = \sum_{|j|=k} \|p_j\|_1$",
+    )
+    ax.semilogy(
+        orders,
+        fit_line,
+        "--",
+        color="0.3",
+        label=rf"fit: slope$={slope:.3f}$, $R={R:.3f}$",
+    )
     ax.set_xlabel(r"order $k$")
     ax.set_ylabel(r"$C_k$")
     ax.set_title("Geometric decay of SSM polynomial coefficients")
@@ -111,9 +128,13 @@ if comm.getRank() == 0:
 
     os.makedirs("results", exist_ok=True)
     fig.tight_layout()
-    fig.savefig("results/ssm_geometric_decay.png", dpi=300, bbox_inches="tight")
+    fig.savefig(
+        "results/ssm_geometric_decay.png", dpi=300, bbox_inches="tight"
+    )
     fig.savefig("results/ssm_geometric_decay.pdf", bbox_inches="tight")
-    print("Saved SSM geometric-decay plot → results/ssm_geometric_decay.{png,pdf}")
+    print(
+        "Saved SSM geometric-decay plot → results/ssm_geometric_decay.{png,pdf}"
+    )
     plt.show()
 
 
@@ -146,7 +167,7 @@ W_neut_hb = _gather_hb_bv(eq._neutral_proj.L.L.V)
 
 multiindices = np.array(SSM.ssm_multiindices, dtype=np.int64)  # (n_terms, r)
 Lams = np.asarray(SSM.Lams)
-gs = np.asarray(SSM.gs)                                        # (n_terms, r)
+gs = np.asarray(SSM.gs)  # (n_terms, r)
 conj_to_linear_dynamics = bool(SSM.conj_to_linear_dynamics)
 
 
@@ -166,8 +187,14 @@ if comm.getRank() == 0:
         gs=gs,
         conj_to_linear_dynamics=conj_to_linear_dynamics,
         # Parameters
-        nu=nu, n=n, n_pts=n_pts, T=T,
-        nf=nf, nfb=nfb, r=r, m=m,
+        nu=nu,
+        n=n,
+        n_pts=n_pts,
+        T=T,
+        nf=nf,
+        nfb=nfb,
+        r=r,
+        m=m,
         rho_domain=rho_domain,
         # Periodic orbit
         C_periodic=C_periodic,

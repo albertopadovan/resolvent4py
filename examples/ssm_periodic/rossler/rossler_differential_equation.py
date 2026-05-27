@@ -20,11 +20,13 @@ import resolvent4py as res4py
 
 from resolvent4py.spectral_submanifold import DifferentialEquation
 from rossler_rhs import (
-    linear_matrix, quadratic_bilinear, perturbation_linear_action,
+    linear_matrix,
+    quadratic_bilinear,
+    perturbation_linear_action,
 )
 
 
-N_STATE = 3   # Rössler is 3-D
+N_STATE = 3  # Rössler is 3-D
 
 
 class RosslerPeriodic(DifferentialEquation):
@@ -51,9 +53,7 @@ class RosslerPeriodic(DifferentialEquation):
 
         n_time = len(time)
         if n_time < 2 * nf + 1:
-            raise ValueError(
-                f"len(time) = {n_time} < 2*nf+1 = {2*nf+1}."
-            )
+            raise ValueError(f"len(time) = {n_time} < 2*nf+1 = {2 * nf + 1}.")
         if c_star.shape != (N_STATE, n_time):
             raise ValueError(
                 f"c_star.shape = {c_star.shape}, expected ({N_STATE}, {n_time})."
@@ -66,7 +66,10 @@ class RosslerPeriodic(DifferentialEquation):
         omega = 2 * np.pi / T_period
 
         super().__init__(
-            comm, "RosslerPeriodic", state_dim, 2,
+            comm,
+            "RosslerPeriodic",
+            state_dim,
+            2,
         )
 
         self.c = c
@@ -83,7 +86,7 @@ class RosslerPeriodic(DifferentialEquation):
         # operator A(t) = M + 2 B(c*_trunc(t), .) has the same Fourier
         # support as the assembled HB matrix.
         rfft_c = np.fft.rfft(c_star, axis=1)
-        rfft_c[:, nfb + 1:] = 0
+        rfft_c[:, nfb + 1 :] = 0
         self.c_star_trunc = np.fft.irfft(rfft_c, n=n_time, axis=1)
 
         self.pertb_freqs = self.omega * np.arange(-nf, nf + 1)
@@ -140,7 +143,9 @@ class RosslerPeriodic(DifferentialEquation):
             ):
                 vec = PETSc.Vec().createWithArray(
                     np.asarray(array, dtype=dtype),
-                    len(array), None, comm=PETSc.COMM_SELF,
+                    len(array),
+                    None,
+                    comm=PETSc.COMM_SELF,
                 )
                 res4py.write_to_file(fname, vec)
                 vec.destroy()
@@ -155,16 +160,20 @@ class RosslerPeriodic(DifferentialEquation):
         full_sizes = (hb_state_dim, hb_state_dim)
 
         A_hb = res4py.read_harmonic_balanced_matrix(
-            filenames_lst, real_bflow=True,
-            block_sizes=block_sizes, full_sizes=full_sizes,
+            filenames_lst,
+            real_bflow=True,
+            block_sizes=block_sizes,
+            full_sizes=full_sizes,
         )
         L_hb = res4py.assemble_harmonic_resolvent_generator(
-            A_hb, self.pertb_freqs,
+            A_hb,
+            self.pertb_freqs,
         )
         A_hb.destroy()
 
         self.A = res4py.linear_operators.MatrixLinearOperator(
-            L_hb, nblocks=n_harmonics,
+            L_hb,
+            nblocks=n_harmonics,
         )
 
         shutil.rmtree(tmp) if comm.getRank() == 0 else None
@@ -174,7 +183,10 @@ class RosslerPeriodic(DifferentialEquation):
     # -----------------------------------------------------------------
 
     def evaluate_linear_term(
-        self, t: float, q: PETSc.Vec, y: Optional[PETSc.Vec] = None,
+        self,
+        t: float,
+        q: PETSc.Vec,
+        y: Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
         idx = int(np.argmin(np.abs(self.time - t)))
         c_t = self.c_star_trunc[:, idx]
@@ -186,7 +198,8 @@ class RosslerPeriodic(DifferentialEquation):
 
         y_seq = PETSc.Vec().createWithArray(
             np.asarray(Aq, dtype=np.complex128),
-            len(Aq), comm=PETSc.COMM_SELF,
+            len(Aq),
+            comm=PETSc.COMM_SELF,
         )
         y = q.duplicate() if y is None else y
         y = res4py.sequential_to_distributed_vector(y_seq, y)
@@ -195,7 +208,10 @@ class RosslerPeriodic(DifferentialEquation):
         return y
 
     def evaluate_quadratic_term(
-        self, t: float, q1: PETSc.Vec, q2: PETSc.Vec,
+        self,
+        t: float,
+        q1: PETSc.Vec,
+        q2: PETSc.Vec,
         y: Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
         q1_seq = res4py.distributed_to_sequential_vector(q1)
@@ -207,7 +223,8 @@ class RosslerPeriodic(DifferentialEquation):
 
         y_seq = PETSc.Vec().createWithArray(
             np.asarray(result, dtype=np.complex128),
-            len(result), comm=PETSc.COMM_SELF,
+            len(result),
+            comm=PETSc.COMM_SELF,
         )
         y = q1.duplicate() if y is None else y
         y = res4py.sequential_to_distributed_vector(y_seq, y)
@@ -216,7 +233,10 @@ class RosslerPeriodic(DifferentialEquation):
         return y
 
     def solve_linear_system(
-        self, s: complex, b: PETSc.Vec, x: Optional[PETSc.Vec] = None,
+        self,
+        s: complex,
+        b: PETSc.Vec,
+        x: Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
         M = self.A.A.copy()
         M.scale(-1.0)

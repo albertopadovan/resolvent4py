@@ -7,8 +7,8 @@ from slepc4py import SLEPc
 
 from .differential_equation import DifferentialEquation
 
-def _check_eigen_triplets(diff_eq, V, W, L, tol=1e-10):
 
+def _check_eigen_triplets(diff_eq, V, W, L, tol=1e-10):
     r = V.getActiveColumns()[-1]
     comm = diff_eq.get_comm()
 
@@ -18,12 +18,16 @@ def _check_eigen_triplets(diff_eq, V, W, L, tol=1e-10):
     WtV.destroy()
     if err_bio > tol:
         from ..utils.miscellaneous import petscprint
-        petscprint(comm, f"WARNING: biorthogonality error = {err_bio:.3e} "
-                         f"(tol = {tol:.0e})")
+
+        petscprint(
+            comm,
+            f"WARNING: biorthogonality error = {err_bio:.3e} "
+            f"(tol = {tol:.0e})",
+        )
 
     # Eigenvalue check
     AV = V.duplicate()
-    for i in range (r):
+    for i in range(r):
         v = V.getColumn(i)
         Av = AV.getColumn(i)
         Av = diff_eq.evaluate_linear_term(0, v, Av)
@@ -34,8 +38,11 @@ def _check_eigen_triplets(diff_eq, V, W, L, tol=1e-10):
     WtAV.destroy()
     if err_eig > tol:
         from ..utils.miscellaneous import petscprint
-        petscprint(comm, f"WARNING: eigenvalue error = {err_eig:.3e} "
-                         f"(tol = {tol:.0e})")
+
+        petscprint(
+            comm,
+            f"WARNING: eigenvalue error = {err_eig:.3e} (tol = {tol:.0e})",
+        )
 
 
 class SpectralSubmanifold:
@@ -63,10 +70,12 @@ class SpectralSubmanifold:
     # -------------------------------------------------------------------------
 
     def __init__(
-        self, diff_eq: DifferentialEquation, r: int, m: int,
+        self,
+        diff_eq: DifferentialEquation,
+        r: int,
+        m: int,
         conj_to_linear_dynamics: bool = False,
     ) -> None:
-
         self.diff_eq = diff_eq
         self.r = r
         self.m = m
@@ -331,11 +340,11 @@ class SpectralSubmanifold:
         W = Psi.copy()
         objs = [V, W]
         factors = [scaling, 1 / scaling]
-        for (j, obj) in enumerate(objs):
+        for j, obj in enumerate(objs):
             obj_mat = obj.getMat()
             obj_mat.scale(factors[j])
             obj.restoreMat(obj_mat)
-        
+
         _check_eigen_triplets(self.diff_eq, V, W, Lams)
 
         # Get a template vector for creating new PETSc Vecs
@@ -363,9 +372,10 @@ class SpectralSubmanifold:
             j = self.ssm_multiindices[j_idx]
             if verbose == 1:
                 from ..utils.miscellaneous import petscprint
+
                 petscprint(
                     self.diff_eq.get_comm(),
-                    f"Computing component {j} (order = {sum(j)})"
+                    f"Computing component {j} (order = {sum(j)})",
                 )
             shift = np.dot(Lams, np.asarray(j))
             rhs.zeroEntries()
@@ -403,7 +413,7 @@ class SpectralSubmanifold:
                 proj = W.dotVec(pj)
                 error_conj = np.linalg.norm(proj)
                 if error_conj >= tol_conj:
-                    raise ValueError (
+                    raise ValueError(
                         f"|W^* pj| = {error_conj} > {tol_conj}. Please try modifying "
                         f"the scaling parameters when running .solve()"
                     )
@@ -450,9 +460,7 @@ class SpectralSubmanifold:
             raise RuntimeError("Call solve() first.")
         return self.W.dotVec(q)
 
-    def latent_space_dynamics(
-        self, t: float, s: np.ndarray
-    ) -> np.ndarray:
+    def latent_space_dynamics(self, t: float, s: np.ndarray) -> np.ndarray:
         r"""
         Compute :math:`\dot{s} = \Lambda s + g(s)`.
 

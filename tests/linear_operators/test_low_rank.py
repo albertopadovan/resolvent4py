@@ -115,9 +115,9 @@ def test_low_rank_y_none(comm, rectangular_matrix_size):
     Yms = res4py.distributed_to_sequential_matrix(Ym)
     Y.restoreMat(Ym)
     Ypython = A.dot(Xpython)
-    error_bv = np.linalg.norm(
-        Ypython - Yms.getDenseArray()
-    ) / np.linalg.norm(Ypython)
+    error_bv = np.linalg.norm(Ypython - Yms.getDenseArray()) / np.linalg.norm(
+        Ypython
+    )
     Yms.destroy()
     X.destroy()
     Y.destroy()

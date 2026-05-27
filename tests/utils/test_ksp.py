@@ -48,8 +48,7 @@ def test_mumps_solver_multiple_rhs(comm, square_random_matrix):
         xs = res4py.distributed_to_sequential_vector(x)
         xpython = np.linalg.solve(Apython, bpython)
         errors.append(
-            np.linalg.norm(xs.getArray() - xpython)
-            / np.linalg.norm(xpython)
+            np.linalg.norm(xs.getArray() - xpython) / np.linalg.norm(xpython)
         )
         xs.destroy()
         b.destroy()
@@ -75,7 +74,7 @@ def test_gmres_bjacobi_block_diagonal_one_iter(comm):
     """
     nprocs = comm.getSize()
     nblocks = 5 if nprocs == 1 else nprocs
-    n = 8                              # rows/cols per diagonal block
+    n = 8  # rows/cols per diagonal block
     full_n = nblocks * n
     full_nl = res4py.compute_local_size(full_n)
 
@@ -88,8 +87,8 @@ def test_gmres_bjacobi_block_diagonal_one_iter(comm):
         Ab = (
             rng.standard_normal((n, n)) + 1j * rng.standard_normal((n, n))
         ).astype(np.complex128)
-        Ab += 5.0 * np.eye(n)          # diagonal shift → invertible
-        M_np[b * n:(b + 1) * n, b * n:(b + 1) * n] = Ab
+        Ab += 5.0 * np.eye(n)  # diagonal shift → invertible
+        M_np[b * n : (b + 1) * n, b * n : (b + 1) * n] = Ab
 
     # Place the full COO triple on rank 0 only and let convert_coo_to_csr
     # redistribute to the rank that owns each row.
@@ -105,7 +104,8 @@ def test_gmres_bjacobi_block_diagonal_one_iter(comm):
 
     sizes = ((full_nl, full_n), (full_nl, full_n))
     rows_ptr, cols_csr, vals_csr = res4py.convert_coo_to_csr(
-        [rows, cols, vals], sizes,
+        [rows, cols, vals],
+        sizes,
     )
     M = PETSc.Mat().createAIJ(sizes, comm=PETSc.COMM_WORLD)
     M.setPreallocationCSR((rows_ptr, cols_csr))
@@ -113,7 +113,10 @@ def test_gmres_bjacobi_block_diagonal_one_iter(comm):
     M.assemble(False)
 
     ksp = res4py.create_gmres_bjacobi_solver(
-        M, nblocks, rtol=1e-12, atol=1e-12,
+        M,
+        nblocks,
+        rtol=1e-12,
+        atol=1e-12,
     )
 
     b = res4py.generate_random_petsc_vector((full_nl, full_n))

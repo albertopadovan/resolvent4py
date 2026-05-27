@@ -36,6 +36,7 @@ import resolvent4py as res4py
 
 # ── Shift-invert Arnoldi block (HB) ──────────────────────────────────────────
 
+
 def _shift_invert_eig(
     A_op,
     sigma: complex,
@@ -59,29 +60,43 @@ def _shift_invert_eig(
     I.destroy()
     # ICNTL(13)=1 disables MUMPS's parallel root-node factorization
     # (ScaLAPACK), which was triggering an MPICH assertion on macOS.
-    ksp = res4py.create_mumps_solver(M, icntl=icntl if icntl is not None else {13: 1})
+    ksp = res4py.create_mumps_solver(
+        M, icntl=icntl if icntl is not None else {13: 1}
+    )
     res4py.check_lu_factorization(M, ksp)
     Linv = res4py.linear_operators.MatrixLinearOperator(
-        M, ksp, nblocks=n_harmonics,
+        M,
+        ksp,
+        nblocks=n_harmonics,
     )
 
     Dv, V = res4py.linalg.eig(
-        Linv, Linv.solve, krylov_dim, n_evals,
+        Linv,
+        Linv.solve,
+        krylov_dim,
+        n_evals,
         process_evals=lambda mu: sigma - 1.0 / mu,
     )
     Dw, W = res4py.linalg.eig(
-        Linv, Linv.solve_hermitian_transpose, krylov_dim, n_evals,
+        Linv,
+        Linv.solve_hermitian_transpose,
+        krylov_dim,
+        n_evals,
         process_evals=lambda mu: np.conj(sigma) - 1.0 / mu,
     )
     Linv.destroy()
 
     V, W, Dv, Dw = res4py.linalg.match_right_and_left_eigenvectors(
-        V, W, Dv, Dw,
+        V,
+        W,
+        Dv,
+        Dw,
     )
     return Dv, V, Dw, W
 
 
 # ── Neutral Floquet eigentriples & projection operator ──────────────────────
+
 
 def _compute_neutral_eigentriples(
     eq,
@@ -102,10 +117,14 @@ def _compute_neutral_eigentriples(
 
     v_list, w_list = [], []
     for k in range(n_strips):
-        for sign in ([0] if k == 0 else [1, -1]):
+        for sign in [0] if k == 0 else [1, -1]:
             sigma = sign * k * 1j * eq.omega
             Dv, V, _, W = _shift_invert_eig(
-                eq.A, sigma, n_evals, krylov_dim, n_harmonics,
+                eq.A,
+                sigma,
+                n_evals,
+                krylov_dim,
+                n_harmonics,
             )
             evals = np.diag(Dv)
             idx = np.argmin(np.abs(evals - sigma))
@@ -149,12 +168,16 @@ def _compute_neutral_eigentriples(
     AV.destroy()
 
     neutral_proj = res4py.linear_operators.ProjectionLinearOperator(
-        V_neutral, W_neutral, complement=True, nblocks=n_harmonics,
+        V_neutral,
+        W_neutral,
+        complement=True,
+        nblocks=n_harmonics,
     )
     return V_neutral, W_neutral, neutral_proj
 
 
 # ── Full eigendecomposition (neutrals + principal strip + remove DC) ────────
+
 
 def compute_eigendecomposition(
     eq,
@@ -181,11 +204,16 @@ def compute_eigendecomposition(
     n_harmonics = 2 * eq.nf + 1
 
     _V_neut, _W_neut, neutral_proj = _compute_neutral_eigentriples(
-        eq, n_strips=n_neutral_strips,
+        eq,
+        n_strips=n_neutral_strips,
     )
 
     Dv, V, _, W = _shift_invert_eig(
-        eq.A, sigma, n_evals, krylov_dim, n_harmonics,
+        eq.A,
+        sigma,
+        n_evals,
+        krylov_dim,
+        n_harmonics,
     )
 
     # Principal strip filter and descending Re(λ) sort
@@ -211,6 +239,7 @@ def compute_eigendecomposition(
 
 
 # ── On-disk cache I/O ───────────────────────────────────────────────────────
+
 
 def _gather_bv_to_array(bv: SLEPc.BV) -> np.ndarray:
     """Gather an HB SLEPc BV to a numpy array of shape ``(N_hb, ncols)``.
@@ -296,7 +325,12 @@ def save(
 def load(
     path: str,
     comm: Optional[PETSc.Comm] = None,
-) -> Tuple[np.ndarray, SLEPc.BV, SLEPc.BV, "res4py.linear_operators.ProjectionLinearOperator"]:
+) -> Tuple[
+    np.ndarray,
+    SLEPc.BV,
+    SLEPc.BV,
+    "res4py.linear_operators.ProjectionLinearOperator",
+]:
     """Load an eigendecomposition cache from ``path``.
 
     Reconstructs the SLEPc BVs and the
@@ -324,6 +358,9 @@ def load(
     W_neutral = _bv_from_array(Psi_neutral_arr, state_dim, comm)
 
     neutral_proj = res4py.linear_operators.ProjectionLinearOperator(
-        V_neutral, W_neutral, complement=True, nblocks=n_harmonics,
+        V_neutral,
+        W_neutral,
+        complement=True,
+        nblocks=n_harmonics,
     )
     return L, Phi, Psi, neutral_proj

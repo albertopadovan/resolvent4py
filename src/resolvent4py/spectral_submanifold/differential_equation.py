@@ -35,9 +35,8 @@ class DifferentialEquation(metaclass=abc.ABCMeta):
         # Wrap with PeriodicDifferentialEquation only when:
         #   (a) the caller is NOT already a periodic class, AND
         #   (b) periodic_diffeq is provided.
-        if (
-            periodic_diffeq is not None
-            and not issubclass(cls, PeriodicDifferentialEquation)
+        if periodic_diffeq is not None and not issubclass(
+            cls, PeriodicDifferentialEquation
         ):
             DynCls = type(
                 cls.__name__,
@@ -48,8 +47,11 @@ class DifferentialEquation(metaclass=abc.ABCMeta):
         return super().__new__(cls)
 
     def __init__(
-        self, comm: PETSc.Comm, name: str,
-        state_dim: Tuple[int, int], poly_deg: int,
+        self,
+        comm: PETSc.Comm,
+        name: str,
+        state_dim: Tuple[int, int],
+        poly_deg: int,
         periodic_diffeq: Tuple[np.ndarray, np.ndarray, bool] | None = None,
     ) -> None:
         r"""
@@ -83,7 +85,6 @@ class DifferentialEquation(metaclass=abc.ABCMeta):
     def get_poly_degree(self) -> int:
         r"""Return the degree of the polynomial nonlinearity."""
         return self._poly_deg
-    
 
     @abc.abstractmethod
     def evaluate_linear_term(
@@ -108,7 +109,11 @@ class DifferentialEquation(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def evaluate_quadratic_term(
-        self, t: float, q1: PETSc.Vec, q2: PETSc.Vec, y: Optional[PETSc.Vec] = None
+        self,
+        t: float,
+        q1: PETSc.Vec,
+        q2: PETSc.Vec,
+        y: Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
         r"""
         Compute the quadratic bilinear term at time :math:`t`:
@@ -173,11 +178,15 @@ class DifferentialEquation(metaclass=abc.ABCMeta):
         Bqq.destroy()
         return y
 
+
 from ..utils.vector import reshape_harmonic_balanced_vector_into_bv
 from ..utils.bv import reshape_bv_into_harmonic_balanced_vector, bv_slice
 from ..utils.time_stepping import fft, ifft
 
-class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
+
+class PeriodicDifferentialEquation(
+    DifferentialEquation, metaclass=abc.ABCMeta
+):
     r"""
     Cooperative mixin that lifts the time-domain linear and bilinear
     operators of a :class:`DifferentialEquation` subclass to their
@@ -303,7 +312,7 @@ class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
         #     else:
         #         self.idces_T = np.arange(0, self._nblocks + 1, 2)
         #         self.idces_2T = np.arange(1, self._nblocks, 2)
-            
+
         #     self._Q_freqs_T = SLEPc.BV().create(comm=self._comm)
         #     self._Q_freqs_T.setSizes(self._state_dim, len(self._idces_T))
         #     self._Q_freqs_T.setType("mat")
@@ -311,7 +320,6 @@ class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
         #     self._Q_freqs_2T = SLEPc.BV().create(comm=self._comm)
         #     self._Q_freqs_2T.setSizes(self._state_dim, len(self._idces_2T))
         #     self._Q_freqs_2T.setType("mat")
-
 
     def evaluate_linear_term(
         self,
@@ -361,7 +369,9 @@ class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
         :rtype: PETSc.Vec
         """
         # Temporal reconstruction of the harmonic-balanced vectors
-        reshape_harmonic_balanced_vector_into_bv(q, self._nblocks, self._Q_freqs[0])
+        reshape_harmonic_balanced_vector_into_bv(
+            q, self._nblocks, self._Q_freqs[0]
+        )
         for i in range(self._nt):
             q = self._Q_time[0].getColumn(i)
             ifft(self._Q_freqs[0], q, self._omegas, self._time[i])
@@ -375,17 +385,19 @@ class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
             self._Q_time[-1].restoreColumn(k, yk)
             self._Q_time[0].restoreColumn(k, qk)
 
-        # FFT back into the frequency domain and perform frequency shift (i.e., time derivative 
-        # in the frequency domain). 
-        self._Q_freqs[-1] = fft(self._Q_time[-1], self._Q_freqs[-1], False, True)
-        for k in range (self._nblocks):
+        # FFT back into the frequency domain and perform frequency shift (i.e., time derivative
+        # in the frequency domain).
+        self._Q_freqs[-1] = fft(
+            self._Q_time[-1], self._Q_freqs[-1], False, True
+        )
+        for k in range(self._nblocks):
             qk = self._Q_freqs[-1].getColumn(k)
             qk_in = self._Q_freqs[0].getColumn(k)
             qk.axpy(-1j * self._omegas[k], qk_in)
             self._Q_freqs[0].restoreColumn(k, qk_in)
             self._Q_freqs[-1].restoreColumn(k, qk)
         return reshape_bv_into_harmonic_balanced_vector(self._Q_freqs[-1], y)
-    
+
     def evaluate_quadratic_term(
         self,
         t: float,
@@ -432,7 +444,9 @@ class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
         # Temporal reconstruction of the harmonic-balanced vectors
         qlst = [q1, q2]
         for j in range(len(qlst)):
-            reshape_harmonic_balanced_vector_into_bv(qlst[j], self._nblocks, self._Q_freqs[j])
+            reshape_harmonic_balanced_vector_into_bv(
+                qlst[j], self._nblocks, self._Q_freqs[j]
+            )
             for i in range(self._nt):
                 q = self._Q_time[j].getColumn(i)
                 ifft(self._Q_freqs[j], q, self._omegas, self._time[i])
@@ -450,9 +464,10 @@ class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
             self._Q_time[1].restoreColumn(k, qk2)
 
         # FFT back into the frequency domain
-        self._Q_freqs[-1] = fft(self._Q_time[-1], self._Q_freqs[-1], False, True)
+        self._Q_freqs[-1] = fft(
+            self._Q_time[-1], self._Q_freqs[-1], False, True
+        )
         return reshape_bv_into_harmonic_balanced_vector(self._Q_freqs[-1], y)
-
 
     # def solve_linear_system(self, s, b, x = None):
     #     reshape_harmonic_balanced_vector_into_bv(b, self._nblocks, self._Q_freqs[0])
@@ -462,6 +477,3 @@ class PeriodicDifferentialEquation(DifferentialEquation, metaclass=abc.ABCMeta):
     #     b2T = reshape_bv_into_harmonic_balanced_vector(self._Q_freqs_T)
 
     #     return super().solve_linear_system(s, b, x)
-
-        
-        

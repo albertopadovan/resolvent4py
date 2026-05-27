@@ -26,8 +26,12 @@ def test_eigendecomposition(comm, square_random_matrix):
 
     # Compute eigenvalues of A via shift-invert Arnoldi
     D, _ = res4py.linalg.eig(
-        linop, linop.solve, krylov_dim, r,
-        lambda x: 1j * omega - 1 / x, 0,
+        linop,
+        linop.solve,
+        krylov_dim,
+        r,
+        lambda x: 1j * omega - 1 / x,
+        0,
     )
     D = np.diag(D)
 
@@ -52,24 +56,38 @@ def test_match_right_and_left_eigenvectors(comm, square_random_matrix):
 
     # Right eigendecomposition of A via shift-invert
     Dv, V = res4py.linalg.eig(
-        linop, linop.solve, krylov_dim, r, lambda x: s - 1 / x, 0,
+        linop,
+        linop.solve,
+        krylov_dim,
+        r,
+        lambda x: s - 1 / x,
+        0,
     )
     error = res4py.linalg.check_eig_convergence(Aop.apply, Dv, V)
     assert np.linalg.norm(error, ord=1) < 1e-7
 
     # Left eigendecomposition of A via shift-invert
     Dw, W = res4py.linalg.eig(
-        linop, linop.solve_hermitian_transpose, krylov_dim, r,
-        lambda x: np.conj(s) - 1 / x, 0,
+        linop,
+        linop.solve_hermitian_transpose,
+        krylov_dim,
+        r,
+        lambda x: np.conj(s) - 1 / x,
+        0,
     )
     error = res4py.linalg.check_eig_convergence(
-        Aop.apply_hermitian_transpose, Dw, W,
+        Aop.apply_hermitian_transpose,
+        Dw,
+        W,
     )
     assert np.linalg.norm(error, ord=1) < 1e-7
 
     # Biorthogonalize (conjugation of Dw handled internally)
     V, W, Dv, Dw = res4py.linalg.match_right_and_left_eigenvectors(
-        V, W, Dv, Dw,
+        V,
+        W,
+        Dv,
+        Dw,
     )
 
     # Eigenvalues sorted by descending real part
@@ -88,5 +106,7 @@ def test_match_right_and_left_eigenvectors(comm, square_random_matrix):
     # W^* A V = diag(evals)
     AV = Aop.apply_mat(V)
     WtAV = AV.dot(W)
-    projection_error = np.linalg.norm(WtAV.getDenseArray() - np.diag(np.diag(Dv)))
+    projection_error = np.linalg.norm(
+        WtAV.getDenseArray() - np.diag(np.diag(Dv))
+    )
     assert projection_error < 1e-6

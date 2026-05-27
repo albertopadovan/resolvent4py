@@ -13,6 +13,7 @@ import numpy as np
 from slepc4py import SLEPc
 from petsc4py import PETSc
 
+
 def bv_add(alpha: float, X: SLEPc.BV, Y: SLEPc.BV) -> SLEPc.BV:
     r"""
     Compute in-place addition :math:`X \leftarrow X + \alpha Y`
@@ -143,6 +144,7 @@ def reshape_bv_into_harmonic_balanced_vector(
 
     if vec is None:
         from .comms import compute_local_size
+
         vec = PETSc.Vec().create(comm=comm)
         vec.setSizes((compute_local_size(N), N))
         vec.setUp()

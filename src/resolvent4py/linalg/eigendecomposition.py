@@ -9,7 +9,6 @@ import typing
 
 import numpy as np
 import scipy as sp
-from mpi4py import MPI
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
@@ -17,7 +16,6 @@ from ..linear_operators import LinearOperator
 from ..utils.miscellaneous import petscprint
 from ..utils.random import generate_random_petsc_vector
 from ..utils.vector import enforce_complex_conjugacy
-from ..utils.matrix import create_dense_matrix
 from ..utils.bv import bv_slice
 
 
@@ -188,11 +186,15 @@ def match_right_and_left_eigenvectors(
     W = bv_slice(W, np.array(idces))
     # Biorthogonalize the eigenvectors
     M = V.dot(W)
-    evals, evecs = sp.linalg.eig(M.getDenseArray())
-    idces = np.argwhere(np.abs(evals) < 1e-10).reshape(-1)
-    # evals[idces] += 1e-10
-    Minv = evecs @ np.diag(1.0 / evals) @ sp.linalg.inv(evecs)
-    MinvH = PETSc.Mat().createDense(Minv.shape, None, np.conj(Minv).T, PETSc.COMM_SELF)
+    u, s, v = sp.linalg.svd(M.getDenseArray())
+    v = v.conj().T
+    idces = np.argwhere(np.abs(s) > 1e-12).reshape(-1)
+    # Compute pseudo inverse (this will be the exact inverse if M is full rank)
+    Minv = v[:, idces] @ np.diag(1.0 / s[idces]) @ (u[:, idces]).conj().T
+    MinvH_data = Minv.conj().T
+    MinvH = PETSc.Mat().createDense(
+        MinvH_data.shape, None, MinvH_data, PETSc.COMM_SELF
+    )
     W.multInPlace(MinvH, 0, W.getSizes()[-1])
     M.destroy()
     return (V, W, Dv, Dw)
@@ -232,7 +234,8 @@ def check_eig_convergence(
     for j in range(D.shape[-1]):
         v = V.getColumn(j)
         e = v.copy()
-        e.scale(D[j, j])
+        lj = D[j, j]
+        e.scale(lj)
         w = action(v, w)
         e.axpy(-1.0, w)
         error = e.norm()
@@ -240,7 +243,13 @@ def check_eig_convergence(
         V.restoreColumn(j, v)
         e.destroy()
         if monitor:
-            str = "Error for eigenpair %d = %1.15e" % (j + 1, error)
+            str = (
+                "Error for eigenpair %d (lam = %1.5e + i%1.5e) = %1.15e"
+                % (j + 1, lj.real, lj.imag, error)
+            ) if lj.imag >= 0 else (
+                "Error for eigenpair %d (lam = %1.5e - i%1.5e) = %1.15e"
+                % (j + 1, lj.real, -lj.imag, error)
+            ) 
             petscprint(PETSc.COMM_WORLD, str)
     w.destroy()
     if monitor:

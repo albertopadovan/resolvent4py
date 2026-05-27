@@ -90,9 +90,7 @@ def compute_local_size_block_aligned(n: int, N: int) -> typing.Tuple[int, int]:
         )
     ranks_per_block = size // nblocks
     sub_rank = rank % ranks_per_block
-    nl = n // ranks_per_block + (
-        1 if (n % ranks_per_block) > sub_rank else 0
-    )
+    nl = n // ranks_per_block + (1 if (n % ranks_per_block) > sub_rank else 0)
     return nl, nl
 
 

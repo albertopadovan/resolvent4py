@@ -27,13 +27,17 @@ W = res4py.bv_slice(Psi, idces)
 L = np.diag(L)[idces]
 
 # Compute the manifold
-SSM = res4py.spectral_submanifold.SpectralSubmanifold(diff_eq, r, m, conj_to_linear_dynamics=False)
+SSM = res4py.spectral_submanifold.SpectralSubmanifold(
+    diff_eq, r, m, conj_to_linear_dynamics=False
+)
 SSM.solve(V, W, L, scaling=0.2)
 
 R, orders, coeff_sums, slope, intercept = SSM.estimate_convergence_radius()
 res4py.petscprint(comm, f"Estimated convergence radius: {R:.3f}")
 if comm.getRank() == 0:
-    ax = res4py.plot_convergence_radius(orders, coeff_sums, slope, intercept, R)
+    ax = res4py.plot_convergence_radius(
+        orders, coeff_sums, slope, intercept, R
+    )
     plt.show()
 
 
@@ -77,19 +81,18 @@ Q = sp.integrate.solve_ivp(
 
 # Timeseries plot
 if comm.getRank() == 0:
-
-    ylabels = [r'$x$', r'$y$', r'$z$']
+    ylabels = [r"$x$", r"$y$", r"$z$"]
     fig, ax = plt.subplots(nrows=3, ncols=1)
-    for i in range (3):
+    for i in range(3):
         if i == 0:
-            ax[i].plot(t, Q[i], 'k', label=r'Truth')
-            ax[i].plot(t, Qapprox[i], 'r--', label=r'ROM')
+            ax[i].plot(t, Q[i], "k", label=r"Truth")
+            ax[i].plot(t, Qapprox[i], "r--", label=r"ROM")
         else:
-            ax[i].plot(t, Q[i], 'k')
-            ax[i].plot(t, Qapprox[i], 'r--')
+            ax[i].plot(t, Q[i], "k")
+            ax[i].plot(t, Qapprox[i], "r--")
         ax[i].set_ylabel(ylabels[i])
         if i == 2:
-            ax[i].set_xlabel(r'Time $t$')
+            ax[i].set_xlabel(r"Time $t$")
     ax[0].legend()
     plt.tight_layout()
     plt.show()
@@ -144,19 +147,18 @@ Q = sp.integrate.solve_ivp(
 
 # Timeseries plot
 if comm.getRank() == 0:
-
-    ylabels = [r'$x$', r'$y$', r'$z$']
+    ylabels = [r"$x$", r"$y$", r"$z$"]
     fig, ax = plt.subplots(nrows=3, ncols=1)
-    for i in range (3):
+    for i in range(3):
         if i == 0:
-            ax[i].plot(t, Q[i], 'k', label=r'Truth')
-            ax[i].plot(t, Qapprox[i], 'r--', label=r'ROM')
+            ax[i].plot(t, Q[i], "k", label=r"Truth")
+            ax[i].plot(t, Qapprox[i], "r--", label=r"ROM")
         else:
-            ax[i].plot(t, Q[i], 'k')
-            ax[i].plot(t, Qapprox[i], 'r--')
+            ax[i].plot(t, Q[i], "k")
+            ax[i].plot(t, Qapprox[i], "r--")
         ax[i].set_ylabel(ylabels[i])
         if i == 2:
-            ax[i].set_xlabel(r'Time $t$')
+            ax[i].set_xlabel(r"Time $t$")
     ax[0].legend()
     plt.tight_layout()
     plt.show()
@@ -168,7 +170,6 @@ if ax is not None:
     ax.plot3D(*Qapprox[:3], color="r", ls="--", lw=2, label=r"ROM")
     ax.legend()
     plt.show()
-
 
 
 res4py.petscprint(comm, "Program is done executing.")

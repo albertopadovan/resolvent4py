@@ -141,14 +141,18 @@ class SpectralSubmanifoldROM:
 
             self.v_neutral = (
                 np.asarray(v_neutral, dtype=np.complex128)
-                if v_neutral is not None else None
+                if v_neutral is not None
+                else None
             )
             self.w_neutral = (
                 np.asarray(w_neutral, dtype=np.complex128)
-                if w_neutral is not None else None
+                if w_neutral is not None
+                else None
             )
-            for nm, arr in (("v_neutral", self.v_neutral),
-                            ("w_neutral", self.w_neutral)):
+            for nm, arr in (
+                ("v_neutral", self.v_neutral),
+                ("w_neutral", self.w_neutral),
+            ):
                 if arr is not None and arr.shape != (self.n_harmonics, self.n):
                     raise ValueError(
                         f"Expected `{nm}` of shape "
@@ -213,13 +217,17 @@ class SpectralSubmanifoldROM:
         """
         if self.periodic:
             W_phys = np.einsum(
-                "h,hjr->jr", self._ifft_weights(t), self.W,
+                "h,hjr->jr",
+                self._ifft_weights(t),
+                self.W,
             )  # (n, r)
             return W_phys.conj().T @ x
         return self.W.conj().T @ x
 
     def latent_space_dynamics(
-        self, t: float, s: np.ndarray,
+        self,
+        t: float,
+        s: np.ndarray,
     ) -> np.ndarray:
         r"""
         Right-hand side of the latent flow:
@@ -245,7 +253,9 @@ class SpectralSubmanifoldROM:
         return ds
 
     def neutral_project(
-        self, t: float, x: np.ndarray,
+        self,
+        t: float,
+        x: np.ndarray,
     ) -> np.ndarray:
         r"""
         Remove the orbit-tangent neutral Floquet direction from ``x``

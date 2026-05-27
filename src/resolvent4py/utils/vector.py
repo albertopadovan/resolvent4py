@@ -15,6 +15,7 @@ from slepc4py import SLEPc
 
 from .bv import reshape_bv_into_harmonic_balanced_vector
 
+
 def vec_real(
     x: PETSc.Vec, inplace: typing.Optional[bool] = False
 ) -> PETSc.Vec:
@@ -53,9 +54,7 @@ def vec_imag(
     return y
 
 
-def enforce_complex_conjugacy(
-    vec: PETSc.Vec, nblocks: int
-) -> None:
+def enforce_complex_conjugacy(vec: PETSc.Vec, nblocks: int) -> None:
     r"""
     Suppose we have a vector
 
@@ -111,9 +110,7 @@ def enforce_complex_conjugacy(
     vec_seq.destroy()
 
 
-def check_complex_conjugacy(
-    vec: PETSc.Vec, nblocks: int
-) -> bool:
+def check_complex_conjugacy(vec: PETSc.Vec, nblocks: int) -> bool:
     r"""
     Verify whether the components :math:`v_i` of the vector
 
@@ -282,6 +279,7 @@ def reshape_harmonic_balanced_vector_into_bv(
 
     if bv is None:
         from .comms import compute_local_size
+
         bv = SLEPc.BV().create(comm=comm)
         bv.setSizes((compute_local_size(n), n), nblocks)
         bv.setType("mat")
@@ -312,6 +310,7 @@ def reshape_harmonic_balanced_vector_into_bv(
     # Use CSR assembly via convert_coo_to_csr: PETSc handles
     # cross-rank redistribution during the COO-to-CSR conversion.
     from .matrix import convert_coo_to_csr
+
     bvMat = bv.getMat()
     rows_ptr, cols_csr, vals_csr = convert_coo_to_csr(
         [bv_rows, bv_cols, bv_vals], bvMat.getSizes()
@@ -326,6 +325,7 @@ def reshape_harmonic_balanced_vector_into_bv(
 
     bv.restoreMat(bvMat)
     return bv
+
 
 def embed_into_2T_vec(
     freqsT: np.ndarray,
@@ -381,7 +381,7 @@ def embed_into_2T_vec(
     for iT, fT in enumerate(freqsT):
         i2T = np.argmin(np.abs(freqs2T - fT))
         if np.abs(fT - freqs2T[i2T]) > 1e-10:
-            raise ValueError (
+            raise ValueError(
                 f"The array freqsT should be a subset of the the "
                 f"array freqs2T. Embedding otherwise makes no sense."
             )

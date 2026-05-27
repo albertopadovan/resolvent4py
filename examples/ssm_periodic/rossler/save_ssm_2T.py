@@ -59,15 +59,24 @@ res4py.petscprint(
 # backends into HB-acting versions that SpectralSubmanifold needs.
 omega = 2.0 * np.pi / T
 omegas_one_sided = omega * np.arange(nf + 1)
-periodic_diffeq = (omegas_one_sided, time_orbit, True)  # True = period-doubling
+periodic_diffeq = (
+    omegas_one_sided,
+    time_orbit,
+    True,
+)  # True = period-doubling
 
 eq = RosslerPeriodic(
-    c=c, nf=nf, nfb=nfb, c_star=C_periodic, time=time_orbit,
+    c=c,
+    nf=nf,
+    nfb=nfb,
+    c_star=C_periodic,
+    time=time_orbit,
     periodic_diffeq=periodic_diffeq,
 )
 
 eq.L, eq.Phi, eq.Psi, eq._neutral_proj = load_eigendecomp(
-    "data/eigendecomp_cache_2T.npz", comm=comm,
+    "data/eigendecomp_cache_2T.npz",
+    comm=comm,
 )
 
 idces = np.arange(r, dtype=np.int32)
@@ -96,11 +105,22 @@ if comm.getRank() == 0:
     fit_line = 10.0 ** (slope * orders + intercept)
 
     fig, ax = plt.subplots(figsize=(6.5, 4.5))
-    ax.semilogy(orders[valid], coeff_sums[valid], "o", color="#E85D04",
-                markeredgecolor="black", markeredgewidth=0.5,
-                label=r"$C_k = \sum_{|j|=k} \|p_j\|_1$")
-    ax.semilogy(orders, fit_line, "--", color="0.3",
-                label=fr"fit: slope$={slope:.3f}$, $R={R:.3f}$")
+    ax.semilogy(
+        orders[valid],
+        coeff_sums[valid],
+        "o",
+        color="#E85D04",
+        markeredgecolor="black",
+        markeredgewidth=0.5,
+        label=r"$C_k = \sum_{|j|=k} \|p_j\|_1$",
+    )
+    ax.semilogy(
+        orders,
+        fit_line,
+        "--",
+        color="0.3",
+        label=rf"fit: slope$={slope:.3f}$, $R={R:.3f}$",
+    )
     ax.set_xlabel(r"order $k$")
     ax.set_ylabel(r"$C_k$")
     ax.set_title("Geometric decay of SSM polynomial coefficients (2T)")
@@ -109,9 +129,13 @@ if comm.getRank() == 0:
 
     os.makedirs("results", exist_ok=True)
     fig.tight_layout()
-    fig.savefig("results/ssm_geometric_decay_2T.png", dpi=300, bbox_inches="tight")
+    fig.savefig(
+        "results/ssm_geometric_decay_2T.png", dpi=300, bbox_inches="tight"
+    )
     fig.savefig("results/ssm_geometric_decay_2T.pdf", bbox_inches="tight")
-    print("Saved SSM geometric-decay plot → results/ssm_geometric_decay_2T.{png,pdf}")
+    print(
+        "Saved SSM geometric-decay plot → results/ssm_geometric_decay_2T.{png,pdf}"
+    )
     plt.show()
 
 
@@ -163,8 +187,14 @@ if comm.getRank() == 0:
         Lams=Lams,
         gs=gs,
         conj_to_linear_dynamics=conj_to_linear_dynamics,
-        c=c, n=n, T=T, T_base=T_base,
-        nf=nf, nfb=nfb, r=r, m=m,
+        c=c,
+        n=n,
+        T=T,
+        T_base=T_base,
+        nf=nf,
+        nfb=nfb,
+        r=r,
+        m=m,
         rho_domain=rho_domain,
         C_periodic=C_periodic,
         time_orbit=time_orbit,

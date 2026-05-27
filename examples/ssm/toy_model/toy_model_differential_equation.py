@@ -18,14 +18,13 @@ class Hopf3D(DifferentialEquation):
         y_dot =  x + mu*y - alpha*y*z + beta*x^2
         z_dot = -alpha*z + alpha*(x^2 + y^2)
     """
-    
+
     def __init__(
         self,
         mu: float = -0.2,
         alpha: float = 0.15,
         beta: float = 0.0,
     ) -> None:
-        
         comm = PETSc.COMM_WORLD
         name = "Hopf3D"
         N = 3
@@ -36,7 +35,7 @@ class Hopf3D(DifferentialEquation):
         self.mu = mu
         self.alpha = alpha
         self.beta = beta
-        
+
         # Build the A matrix as a distributed PETSc matrix via res4py COO I/O
         tmp = "tmp/"
         os.makedirs(tmp, exist_ok=True)
@@ -45,10 +44,15 @@ class Hopf3D(DifferentialEquation):
         )
         fnames = [tmp + "rows.dat", tmp + "cols.dat", tmp + "vals.dat"]
         dtypes = [np.int32, np.int32, np.complex128]
-        for (i, zipped) in enumerate(zip(fnames, [A_coo.row, A_coo.col, A_coo.data])):
+        for i, zipped in enumerate(
+            zip(fnames, [A_coo.row, A_coo.col, A_coo.data])
+        ):
             fname, array = zipped
             vec = PETSc.Vec().createWithArray(
-                np.asarray(array, dtype=dtypes[i]), len(array), None, comm=PETSc.COMM_SELF
+                np.asarray(array, dtype=dtypes[i]),
+                len(array),
+                None,
+                comm=PETSc.COMM_SELF,
             )
             res4py.write_to_file(fname, vec)
             vec.destroy()
@@ -112,9 +116,7 @@ class Hopf3D(DifferentialEquation):
         self,
     ) -> Tuple[np.ndarray, SLEPc.BV, SLEPc.BV]:
         N = self.get_state_dimension()[-1]
-        Df, V = res4py.linalg.eig(
-            self.A, self.A.apply, N, N, lambda x: x
-        )
+        Df, V = res4py.linalg.eig(self.A, self.A.apply, N, N, lambda x: x)
         Da, W = res4py.linalg.eig(
             self.A, self.A.apply_hermitian_transpose, N, N, lambda x: x
         )

@@ -53,7 +53,7 @@ plt.rcParams.update(
 
 # %% Parameters that aren't in the cache
 
-n_periods = 5         # in units of T (= 2*T_base) → 10 base-period cycles
+n_periods = 5  # in units of T (= 2*T_base) → 10 base-period cycles
 n_t = 2000
 rtol_rom = 1e-12
 atol_rom = 1e-12
@@ -82,7 +82,7 @@ conj_to_linear = bool(cache["conj_to_linear_dynamics"])
 
 c = float(cache["c"])
 n = int(cache["n"])
-T = float(cache["T"])          # = 2 * T_base
+T = float(cache["T"])  # = 2 * T_base
 T_base = float(cache["T_base"])
 nf = int(cache["nf"])
 nfb = int(cache["nfb"])
@@ -90,10 +90,10 @@ r = int(cache["r"])
 m = int(cache["m"])
 rho_domain = float(cache["rho_domain"])
 
-C_periodic = cache["C_periodic"]   # tiled over [0, 2T_base)
+C_periodic = cache["C_periodic"]  # tiled over [0, 2T_base)
 time_orbit = cache["time_orbit"]
 
-omega_2T = 2.0 * np.pi / T          # fundamental of the 2T SSM
+omega_2T = 2.0 * np.pi / T  # fundamental of the 2T SSM
 omega_base = 2.0 * np.pi / T_base
 
 print(
@@ -101,10 +101,7 @@ print(
     f"T=2*T_base={T:.4f}, nf={nf}, nfb={nfb}, r={r}, m={m}, "
     f"rho_domain={rho_domain:.4f}, n_terms={len(multiindices)}"
 )
-print(
-    f"  Master Floquet exponent(s) (real-valued in 2T basis): "
-    f"{Lams}"
-)
+print(f"  Master Floquet exponent(s) (real-valued in 2T basis): {Lams}")
 
 
 # %% Build the serial numpy-only ROM
@@ -130,7 +127,11 @@ rom = SpectralSubmanifoldROM(
 time_ext = np.append(time_orbit, T)
 C_ext = np.column_stack([C_periodic, C_periodic[:, 0]])
 c_star_interp = interp1d(
-    time_ext, C_ext, axis=1, kind="cubic", assume_sorted=True,
+    time_ext,
+    C_ext,
+    axis=1,
+    kind="cubic",
+    assume_sorted=True,
 )
 
 
@@ -159,8 +160,13 @@ s0 = s0_fraction * rho_domain * np.array([1.0], dtype=complex)
 print(f"\nROM vs Truth (on-manifold), t_end = {t_end:.3f}")
 print("  Integrating ROM ...")
 S = sp.integrate.solve_ivp(
-    rom.latent_space_dynamics, [0, t_end], s0,
-    method="RK45", t_eval=t_eval, rtol=rtol_rom, atol=atol_rom,
+    rom.latent_space_dynamics,
+    [0, t_end],
+    s0,
+    method="RK45",
+    t_eval=t_eval,
+    rtol=rtol_rom,
+    atol=atol_rom,
 ).y
 
 Vapp = np.zeros((n, n_t))
@@ -170,8 +176,13 @@ for i in range(n_t):
 v0 = rom.decode(0.0, s0)
 print("  Integrating truth ...")
 Vtruth = sp.integrate.solve_ivp(
-    perturbation_rhs, [0, t_end], v0,
-    method="RK45", t_eval=t_eval, rtol=rtol_truth, atol=atol_truth,
+    perturbation_rhs,
+    [0, t_end],
+    v0,
+    method="RK45",
+    t_eval=t_eval,
+    rtol=rtol_truth,
+    atol=atol_truth,
 ).y
 
 fig, axes = plt.subplots(n, 1, sharex=True, figsize=figsize)
@@ -180,7 +191,9 @@ for i in range(n):
     axes[i].plot(t_eval, Vapp[i], color=clr_rom, ls="--", lw=1.5, label="ROM")
     axes[i].set_ylabel(labels_v[i])
 axes[0].legend()
-axes[0].set_title(rf"2T SSM on-manifold (c={c}, $\rho={s0_fraction:.2f}\rho_{{\rm dom}}$)")
+axes[0].set_title(
+    rf"2T SSM on-manifold (c={c}, $\rho={s0_fraction:.2f}\rho_{{\rm dom}}$)"
+)
 axes[-1].set_xlabel(r"Time $t$")
 plt.tight_layout()
 savefig(fig, "rom_vs_truth_2T")
@@ -207,8 +220,13 @@ print(
 )
 print("  Integrating ROM ...")
 S_off = sp.integrate.solve_ivp(
-    rom.latent_space_dynamics, [0, t_end], s0_off,
-    method="RK45", t_eval=t_eval, rtol=rtol_rom, atol=atol_rom,
+    rom.latent_space_dynamics,
+    [0, t_end],
+    s0_off,
+    method="RK45",
+    t_eval=t_eval,
+    rtol=rtol_rom,
+    atol=atol_rom,
 ).y
 S_abs_max = np.max(np.abs(S_off))
 print(
@@ -216,8 +234,10 @@ print(
     f"(rho_domain = {rho_domain:.3f})"
 )
 if S_abs_max > rho_domain:
-    print("  ⚠ latent trajectory left the convergence domain — "
-          "polynomial truncation is unreliable here.")
+    print(
+        "  ⚠ latent trajectory left the convergence domain — "
+        "polynomial truncation is unreliable here."
+    )
 
 Vapp_off = np.zeros((n, n_t))
 for i in range(n_t):
@@ -225,14 +245,21 @@ for i in range(n_t):
 
 print("  Integrating truth ...")
 Vtruth_off = sp.integrate.solve_ivp(
-    perturbation_rhs, [0, t_end], x0_off,
-    method="RK45", t_eval=t_eval, rtol=rtol_truth, atol=atol_truth,
+    perturbation_rhs,
+    [0, t_end],
+    x0_off,
+    method="RK45",
+    t_eval=t_eval,
+    rtol=rtol_truth,
+    atol=atol_truth,
 ).y
 
 fig, axes = plt.subplots(n, 1, sharex=True, figsize=figsize)
 for i in range(n):
     axes[i].plot(t_eval, Vtruth_off[i], color=clr_truth, lw=1.5, label="Truth")
-    axes[i].plot(t_eval, Vapp_off[i], color=clr_rom, ls="--", lw=1.5, label="ROM")
+    axes[i].plot(
+        t_eval, Vapp_off[i], color=clr_rom, ls="--", lw=1.5, label="ROM"
+    )
     axes[i].set_ylabel(labels_v[i])
 axes[0].legend()
 axes[0].set_title(rf"2T SSM off-manifold (c={c})")
@@ -243,6 +270,7 @@ plt.show()
 
 
 # %% 3D phase portrait of the full state (orbit + perturbation)
+
 
 def orbit_at(t_arr):
     return c_star_interp(t_arr % T)
@@ -259,13 +287,35 @@ C_ref = c_star_interp(t_one_period)
 
 fig = plt.figure(figsize=(6, 5))
 ax = fig.add_subplot(111, projection="3d")
-ax.plot(C_ref[0], C_ref[1], C_ref[2], color="0.6", lw=1, ls="--",
-        label="periodic orbit (T)")
-ax.plot(X_truth[0], X_truth[1], X_truth[2],
-        color=clr_truth, lw=1.0, label="Truth (on)")
-ax.plot(X_rom[0], X_rom[1], X_rom[2],
-        color=clr_rom, lw=1.0, ls="--", label="ROM (on)")
-ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_zlabel("z")
+ax.plot(
+    C_ref[0],
+    C_ref[1],
+    C_ref[2],
+    color="0.6",
+    lw=1,
+    ls="--",
+    label="periodic orbit (T)",
+)
+ax.plot(
+    X_truth[0],
+    X_truth[1],
+    X_truth[2],
+    color=clr_truth,
+    lw=1.0,
+    label="Truth (on)",
+)
+ax.plot(
+    X_rom[0],
+    X_rom[1],
+    X_rom[2],
+    color=clr_rom,
+    lw=1.0,
+    ls="--",
+    label="ROM (on)",
+)
+ax.set_xlabel("x")
+ax.set_ylabel("y")
+ax.set_zlabel("z")
 ax.legend(fontsize=8)
 ax.set_title(f"Rössler 2T SSM — on-manifold (c={c})")
 plt.tight_layout()
@@ -274,13 +324,35 @@ plt.show()
 
 fig = plt.figure(figsize=(6, 5))
 ax = fig.add_subplot(111, projection="3d")
-ax.plot(C_ref[0], C_ref[1], C_ref[2], color="0.6", lw=1, ls="--",
-        label="periodic orbit (T)")
-ax.plot(X_truth_off[0], X_truth_off[1], X_truth_off[2],
-        color=clr_truth, lw=1.0, label="Truth (off)")
-ax.plot(X_rom_off[0], X_rom_off[1], X_rom_off[2],
-        color=clr_rom, lw=1.0, ls="--", label="ROM (off)")
-ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_zlabel("z")
+ax.plot(
+    C_ref[0],
+    C_ref[1],
+    C_ref[2],
+    color="0.6",
+    lw=1,
+    ls="--",
+    label="periodic orbit (T)",
+)
+ax.plot(
+    X_truth_off[0],
+    X_truth_off[1],
+    X_truth_off[2],
+    color=clr_truth,
+    lw=1.0,
+    label="Truth (off)",
+)
+ax.plot(
+    X_rom_off[0],
+    X_rom_off[1],
+    X_rom_off[2],
+    color=clr_rom,
+    lw=1.0,
+    ls="--",
+    label="ROM (off)",
+)
+ax.set_xlabel("x")
+ax.set_ylabel("y")
+ax.set_zlabel("z")
 ax.legend(fontsize=8)
 ax.set_title(f"Rössler 2T SSM — off-manifold (c={c})")
 plt.tight_layout()

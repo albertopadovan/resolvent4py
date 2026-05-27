@@ -46,7 +46,7 @@ comm = PETSc.COMM_WORLD
 data = np.load("data/periodic_orbit.npz")
 c = float(data["c"])
 T_base = float(data["T"])
-C_periodic_1T = data["C"][:, :-1]               # (3, n_orbit), T-periodic
+C_periodic_1T = data["C"][:, :-1]  # (3, n_orbit), T-periodic
 
 T = 2.0 * T_base
 C_periodic_2T = np.tile(C_periodic_1T, (1, 2))  # (3, 2*n_orbit)
@@ -67,7 +67,7 @@ res4py.petscprint(
 # ── Build the equation (period = 2T) ─────────────────────────────────────────
 eq = RosslerPeriodic(c=c, nf=nf, nfb=nfb, c_star=C_periodic, time=time_orbit)
 
-omega_base = 2.0 * np.pi / T_base    # T-periodic base-flow frequency
+omega_base = 2.0 * np.pi / T_base  # T-periodic base-flow frequency
 res4py.petscprint(comm, f"omega_2T   (eq.omega) = {eq.omega:.6f}")
 res4py.petscprint(comm, f"omega_base (= 2*eq.omega) = {omega_base:.6f}")
 res4py.petscprint(comm, f"HB state dim = {3 * (2 * nf + 1)}")
@@ -94,11 +94,13 @@ save(out_path, L, Phi, Psi, neutral_proj, eq)
 
 # ── Print and plot the Floquet multipliers ───────────────────────────────────
 if comm.getRank() == 0:
-    mults_2T = np.exp(L * T)             # 2T multipliers (T = 2*T_base)
-    mults_1T = np.exp(L * T_base)        # equivalent 1T multipliers
+    mults_2T = np.exp(L * T)  # 2T multipliers (T = 2*T_base)
+    mults_1T = np.exp(L * T_base)  # equivalent 1T multipliers
     order = np.argsort(-np.abs(mults_2T))
 
-    print(f"Floquet multipliers ({mults_2T.size} total, sorted by |μ_2T| desc.):")
+    print(
+        f"Floquet multipliers ({mults_2T.size} total, sorted by |μ_2T| desc.):"
+    )
     for i, k in enumerate(order):
         print(
             f"  [{i:3d}] λ = {L[k].real:+.6e} {L[k].imag:+.6e}j   "
@@ -109,11 +111,25 @@ if comm.getRank() == 0:
 
     theta = np.linspace(0, 2 * np.pi, 400)
     fig, ax = plt.subplots(figsize=(5.5, 5.5))
-    ax.plot(np.cos(theta), np.sin(theta), color="0.5", lw=1, ls="--",
-            label="unit circle")
-    ax.scatter(mults_2T.real, mults_2T.imag, s=30, c="#E85D04", marker="o",
-               edgecolors="black", linewidths=0.5, zorder=3,
-               label=r"$\mu_{2T} = e^{\lambda \cdot 2T_{\rm base}}$")
+    ax.plot(
+        np.cos(theta),
+        np.sin(theta),
+        color="0.5",
+        lw=1,
+        ls="--",
+        label="unit circle",
+    )
+    ax.scatter(
+        mults_2T.real,
+        mults_2T.imag,
+        s=30,
+        c="#E85D04",
+        marker="o",
+        edgecolors="black",
+        linewidths=0.5,
+        zorder=3,
+        label=r"$\mu_{2T} = e^{\lambda \cdot 2T_{\rm base}}$",
+    )
     ax.axhline(0, color="0.8", lw=0.5)
     ax.axvline(0, color="0.8", lw=0.5)
     ax.set_aspect("equal")
@@ -127,9 +143,13 @@ if comm.getRank() == 0:
 
     os.makedirs("results", exist_ok=True)
     fig.tight_layout()
-    fig.savefig("results/floquet_multipliers_2T.png", dpi=300, bbox_inches="tight")
+    fig.savefig(
+        "results/floquet_multipliers_2T.png", dpi=300, bbox_inches="tight"
+    )
     fig.savefig("results/floquet_multipliers_2T.pdf", bbox_inches="tight")
-    print("Saved Floquet-multiplier plot → results/floquet_multipliers_2T.{png,pdf}")
+    print(
+        "Saved Floquet-multiplier plot → results/floquet_multipliers_2T.{png,pdf}"
+    )
     plt.show()
 
 

@@ -21,6 +21,9 @@ def test_randomized_svd(comm, rectangular_random_matrix):
 
     # Check SVD triplet consistency: ||A v / sigma - u|| ≈ 0
     triplet_error = res4py.linalg.check_randomized_svd_convergence(
-        linop.apply, U, S, V,
+        linop.apply,
+        U,
+        S,
+        V,
     )
     assert np.linalg.norm(triplet_error) < 1e-10

@@ -82,9 +82,9 @@ def test_dense_matrix_write_read_roundtrip(comm, square_matrix_size):
     Y = res4py.read_dense_matrix(filepath, ((Nl, N), (Ncl, s)))
 
     Yseq = res4py.distributed_to_sequential_matrix(Y)
-    error = np.linalg.norm(
-        Yseq.getDenseArray() - Xpython
-    ) / np.linalg.norm(Xpython)
+    error = np.linalg.norm(Yseq.getDenseArray() - Xpython) / np.linalg.norm(
+        Xpython
+    )
 
     Yseq.destroy()
     Y.destroy()
@@ -108,9 +108,9 @@ def test_bv_write_read_roundtrip(comm, square_matrix_size):
     Ym = Y.getMat()
     Yseq = res4py.distributed_to_sequential_matrix(Ym)
     Y.restoreMat(Ym)
-    error = np.linalg.norm(
-        Yseq.getDenseArray() - Xpython
-    ) / np.linalg.norm(Xpython)
+    error = np.linalg.norm(Yseq.getDenseArray() - Xpython) / np.linalg.norm(
+        Xpython
+    )
 
     Yseq.destroy()
     Y.destroy()
@@ -175,12 +175,8 @@ def test_coo_matrix_write_read_roundtrip(comm, square_matrix_size):
     M = res4py.read_coo_matrix((frows, fcols, fvals), sizes)
 
     # Build python reference from the same COO data (gathered across ranks)
-    all_rows = np.concatenate(
-        comm.tompi4py().allgather(rows_arr.astype(int))
-    )
-    all_cols = np.concatenate(
-        comm.tompi4py().allgather(cols_arr.astype(int))
-    )
+    all_rows = np.concatenate(comm.tompi4py().allgather(rows_arr.astype(int)))
+    all_cols = np.concatenate(comm.tompi4py().allgather(cols_arr.astype(int)))
     all_vals = np.concatenate(comm.tompi4py().allgather(vals_arr))
     # Remove near-zeros (same as read_coo_matrix does)
     mask = np.abs(all_vals) > 1e-16
@@ -197,9 +193,7 @@ def test_coo_matrix_write_read_roundtrip(comm, square_matrix_size):
     M.mult(x, y)
     ys = res4py.distributed_to_sequential_vector(y)
     expected = Mpython.dot(xpython)
-    error = np.linalg.norm(ys.getArray() - expected) / np.linalg.norm(
-        expected
-    )
+    error = np.linalg.norm(ys.getArray() - expected) / np.linalg.norm(expected)
 
     ys.destroy()
     x.destroy()
@@ -273,9 +267,7 @@ def test_harmonic_balanced_vector_roundtrip(comm, square_matrix_size):
     )
 
     Vs = res4py.distributed_to_sequential_vector(Vec)
-    error = np.linalg.norm(Vs.getArray() - expected) / np.linalg.norm(
-        expected
-    )
+    error = np.linalg.norm(Vs.getArray() - expected) / np.linalg.norm(expected)
     Vs.destroy()
     Vec.destroy()
     assert error < 1e-14
@@ -298,13 +290,16 @@ def _write_coo_to_files(comm, tmpdir, name, A_python):
         vals = np.empty(0, dtype=np.complex128)
 
     rows_vec = PETSc.Vec().createWithArray(
-        rows.astype(np.complex128).copy(), comm=PETSc.COMM_WORLD,
+        rows.astype(np.complex128).copy(),
+        comm=PETSc.COMM_WORLD,
     )
     cols_vec = PETSc.Vec().createWithArray(
-        cols.astype(np.complex128).copy(), comm=PETSc.COMM_WORLD,
+        cols.astype(np.complex128).copy(),
+        comm=PETSc.COMM_WORLD,
     )
     vals_vec = PETSc.Vec().createWithArray(
-        vals.copy(), comm=PETSc.COMM_WORLD,
+        vals.copy(),
+        comm=PETSc.COMM_WORLD,
     )
 
     paths = (
@@ -345,7 +340,7 @@ def _build_block_toeplitz(A_blocks, nfp):
         for j in range(nb):
             k = i - j + nfb
             if 0 <= k < 2 * nfb + 1:
-                M[i * n:(i + 1) * n, j * m:(j + 1) * m] = A_blocks[k]
+                M[i * n : (i + 1) * n, j * m : (j + 1) * m] = A_blocks[k]
     return M
 
 
@@ -381,7 +376,7 @@ def test_read_hb_matrix_block_diagonal(comm, square_matrix_size):
     # On-diagonal blocks must equal A0; off-diagonal blocks must be zero.
     M_expected = np.zeros((full_n, full_n), dtype=complex)
     for b in range(nblocks):
-        M_expected[b * n:(b + 1) * n, b * n:(b + 1) * n] = A0
+        M_expected[b * n : (b + 1) * n, b * n : (b + 1) * n] = A0
 
     err = np.linalg.norm(Marr - M_expected) / np.linalg.norm(M_expected)
     assert err < 1e-12, f"block-diagonal mismatch, err = {err:.3e}"
@@ -391,7 +386,7 @@ def test_read_hb_matrix_block_diagonal(comm, square_matrix_size):
         for j in range(nblocks):
             if i == j:
                 continue
-            block_ij = Marr[i * n:(i + 1) * n, j * n:(j + 1) * n]
+            block_ij = Marr[i * n : (i + 1) * n, j * n : (j + 1) * n]
             assert np.max(np.abs(block_ij)) < 1e-14, (
                 f"off-diagonal block ({i},{j}) is not zero "
                 f"(max |.| = {np.max(np.abs(block_ij)):.3e})"
@@ -402,8 +397,8 @@ def test_read_hb_matrix_real_bflow_toeplitz(comm, square_matrix_size):
     r"""``real_bflow=True`` with ``[A_0, A_1, A_2]`` should produce the
     block-Toeplitz matrix whose ``A_{-k}`` blocks are ``conj(A_k)``."""
     n = 6
-    nfb = 2          # we supply A_0, A_1, A_2
-    nfp = 3          # 7 blocks; need nfp >= nfb
+    nfb = 2  # we supply A_0, A_1, A_2
+    nfp = 3  # 7 blocks; need nfp >= nfb
     nblocks = 2 * nfp + 1
     full_n = nblocks * n
     nl = res4py.compute_local_size(n)
@@ -412,8 +407,9 @@ def test_read_hb_matrix_real_bflow_toeplitz(comm, square_matrix_size):
 
     rng = np.random.default_rng(7)
     Ak_pos = [
-        (rng.standard_normal((n, n)) + 1j * rng.standard_normal((n, n))
-         ).astype(np.complex128)
+        (
+            rng.standard_normal((n, n)) + 1j * rng.standard_normal((n, n))
+        ).astype(np.complex128)
         for _ in range(nfb + 1)
     ]
     paths_lst = [
@@ -432,9 +428,7 @@ def test_read_hb_matrix_real_bflow_toeplitz(comm, square_matrix_size):
     M.destroy()
 
     # Expected: A_blocks ordered [conj(A_2), conj(A_1), A_0, A_1, A_2]
-    A_blocks = (
-        [Ak_pos[k].conj() for k in range(nfb, 0, -1)] + Ak_pos
-    )
+    A_blocks = [Ak_pos[k].conj() for k in range(nfb, 0, -1)] + Ak_pos
     M_expected = _build_block_toeplitz(A_blocks, nfp)
 
     err = np.linalg.norm(Marr - M_expected) / np.linalg.norm(M_expected)
@@ -445,8 +439,8 @@ def test_read_hb_matrix_two_sided_toeplitz(comm, square_matrix_size):
     r"""``real_bflow=False`` consumes the full two-sided list
     ``[A_{-nfb}, ..., A_0, ..., A_{nfb}]`` without imposing conjugacy."""
     n = 5
-    nfb = 1          # supply A_{-1}, A_0, A_1
-    nfp = 2          # 5 blocks
+    nfb = 1  # supply A_{-1}, A_0, A_1
+    nfp = 2  # 5 blocks
     nblocks = 2 * nfp + 1
     full_n = nblocks * n
     nl = res4py.compute_local_size(n)
@@ -455,8 +449,9 @@ def test_read_hb_matrix_two_sided_toeplitz(comm, square_matrix_size):
 
     rng = np.random.default_rng(11)
     A_blocks = [
-        (rng.standard_normal((n, n)) + 1j * rng.standard_normal((n, n))
-         ).astype(np.complex128)
+        (
+            rng.standard_normal((n, n)) + 1j * rng.standard_normal((n, n))
+        ).astype(np.complex128)
         for _ in range(2 * nfb + 1)
     ]
     paths_lst = [
@@ -485,8 +480,8 @@ def test_read_hb_matrix_too_few_blocks_raises(comm, square_matrix_size):
     import pytest
 
     n = 4
-    nfb = 3              # supply A_0..A_3 with real_bflow=True ⇒ nfb=3
-    nfp = 1              # but only 3 blocks
+    nfb = 3  # supply A_0..A_3 with real_bflow=True ⇒ nfb=3
+    nfp = 1  # but only 3 blocks
     nblocks = 2 * nfp + 1
     full_n = nblocks * n
     nl = res4py.compute_local_size(n)
@@ -495,8 +490,9 @@ def test_read_hb_matrix_too_few_blocks_raises(comm, square_matrix_size):
 
     rng = np.random.default_rng(99)
     Ak_pos = [
-        (rng.standard_normal((n, n)) + 1j * rng.standard_normal((n, n))
-         ).astype(np.complex128)
+        (
+            rng.standard_normal((n, n)) + 1j * rng.standard_normal((n, n))
+        ).astype(np.complex128)
         for _ in range(nfb + 1)
     ]
     paths_lst = [

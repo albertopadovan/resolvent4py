@@ -91,18 +91,18 @@ plt.rc("text.latex", preamble=r"\usepackage{amsmath}")
 # %% Parameters that aren't in the cache
 
 # ── ROM / full-system comparison ─────────────────────────────────────────────
-n_periods = 10      # number of periods over which to compare ROM vs truth
-n_t = 2500          # number of time-evaluation points
+n_periods = 10  # number of periods over which to compare ROM vs truth
+n_t = 2500  # number of time-evaluation points
 rtol_rom = 1e-12
 atol_rom = 1e-12
 rtol_truth = 1e-10
 atol_truth = 1e-10
-s0_fraction = 0.7   # on-manifold IC amplitude as fraction of rho_domain
-scaling_off = 0.7   # off-manifold IC: latent-component amplitude as fraction
-                    # of rho_domain (the off-manifold character comes from the
-                    # transverse part of x0_off, not from a large |s0_off| —
-                    # large |s0_off| pushes the truncated polynomial past the
-                    # cubic-balance point and the ROM transiently diverges).
+s0_fraction = 0.7  # on-manifold IC amplitude as fraction of rho_domain
+scaling_off = 0.7  # off-manifold IC: latent-component amplitude as fraction
+# of rho_domain (the off-manifold character comes from the
+# transverse part of x0_off, not from a large |s0_off| —
+# large |s0_off| pushes the truncated polynomial past the
+# cubic-balance point and the ROM transiently diverges).
 
 # ── Visualization ────────────────────────────────────────────────────────────
 dominant_modes = [1, 2, 3, 4, 5]
@@ -117,13 +117,13 @@ clr_rom = "#E85D04"
 # %% Load SSM cache
 
 cache = np.load("data/ssm_cache.npz")
-PS_hb = cache["PS_hb"]              # (n_terms, n_harmonics, n) complex
-W_hb = cache["W_hb"]                # (n_harmonics, n, r)       complex
-V_neut_hb = cache["V_neut_hb"]      # (n_harmonics, n, n_neut)  complex
-W_neut_hb = cache["W_neut_hb"]      # (n_harmonics, n, n_neut)  complex
+PS_hb = cache["PS_hb"]  # (n_terms, n_harmonics, n) complex
+W_hb = cache["W_hb"]  # (n_harmonics, n, r)       complex
+V_neut_hb = cache["V_neut_hb"]  # (n_harmonics, n, n_neut)  complex
+W_neut_hb = cache["W_neut_hb"]  # (n_harmonics, n, n_neut)  complex
 multiindices = cache["multiindices"]  # (n_terms, r)            int
-Lams = cache["Lams"]                # (r,)                      complex
-gs = cache["gs"]                    # (n_terms, r)              complex
+Lams = cache["Lams"]  # (r,)                      complex
+gs = cache["gs"]  # (n_terms, r)              complex
 conj_to_linear = bool(cache["conj_to_linear_dynamics"])
 
 nu = float(cache["nu"])
@@ -173,7 +173,11 @@ N_fn = partial(nonlinear_rhs, n_pts=n_pts)
 time_ext = np.append(time_orbit, T)
 C_ext = np.column_stack([C_periodic, C_periodic[:, 0]])
 c_star_interp = interp1d(
-    time_ext, C_ext, axis=1, kind="cubic", assume_sorted=True,
+    time_ext,
+    C_ext,
+    axis=1,
+    kind="cubic",
+    assume_sorted=True,
 )
 
 
@@ -189,16 +193,16 @@ def _evaluate_quadratic_term_numpy(q1, q2):
     def _to_physical(c):
         spec_u = np.zeros(n_pts, dtype=complex)
         spec_ux = np.zeros(n_pts, dtype=complex)
-        spec_u[1:n + 1] = -1j * half_N * c
-        spec_ux[1:n + 1] = half_N * j * c
-        spec_u[n_pts - n:n_pts] = 1j * half_N * c[::-1]
-        spec_ux[n_pts - n:n_pts] = half_N * j[::-1] * c[::-1]
+        spec_u[1 : n + 1] = -1j * half_N * c
+        spec_ux[1 : n + 1] = half_N * j * c
+        spec_u[n_pts - n : n_pts] = 1j * half_N * c[::-1]
+        spec_ux[n_pts - n : n_pts] = half_N * j[::-1] * c[::-1]
         return ifft(spec_u), ifft(spec_ux)
 
     u1, u1x = _to_physical(q1)
     u2, u2x = _to_physical(q2)
     B_spec = fft(-0.5 * (u1 * u2x + u2 * u1x))
-    result = 2j * B_spec[1:n + 1] / n_pts
+    result = 2j * B_spec[1 : n + 1] / n_pts
     if np.isrealobj(q1) and np.isrealobj(q2):
         return result.real
     return result
@@ -235,9 +239,9 @@ for i in range(n_phi):
 
 V1_surf = np.tile(V1_one, (1, n_periods))
 V2_surf = np.tile(V2_one, (1, n_periods))
-T_surf = np.concatenate(
-    [t_one_period + p * T for p in range(n_periods)]
-)[None, :] * np.ones((n_phi, 1))
+T_surf = np.concatenate([t_one_period + p * T for p in range(n_periods)])[
+    None, :
+] * np.ones((n_phi, 1))
 
 
 os.makedirs(res_path, exist_ok=True)
@@ -250,8 +254,13 @@ s0 = s0_fraction * rho_domain * np.array([1.0], dtype=complex)
 print(f"\nROM vs Truth (on-manifold), t_end = {t_end:.3f}")
 print("  Integrating ROM ...")
 S = sp.integrate.solve_ivp(
-    rom.latent_space_dynamics, [0, t_end], s0,
-    method="RK45", t_eval=t_eval, rtol=rtol_rom, atol=atol_rom,
+    rom.latent_space_dynamics,
+    [0, t_end],
+    s0,
+    method="RK45",
+    t_eval=t_eval,
+    rtol=rtol_rom,
+    atol=atol_rom,
 ).y
 
 Vapp = np.zeros((n, n_t))
@@ -261,8 +270,13 @@ for i in range(n_t):
 v0 = rom.decode(0.0, s0)
 print("  Integrating truth ...")
 Vtruth = sp.integrate.solve_ivp(
-    perturbation_rhs, [0, t_end], v0,
-    method="Radau", t_eval=t_eval, rtol=rtol_truth, atol=atol_truth,
+    perturbation_rhs,
+    [0, t_end],
+    v0,
+    method="Radau",
+    t_eval=t_eval,
+    rtol=rtol_truth,
+    atol=atol_truth,
 ).y
 
 
@@ -321,8 +335,13 @@ print(
 )
 print("  Integrating ROM ...")
 S_off = sp.integrate.solve_ivp(
-    rom.latent_space_dynamics, [0, t_end], s0_off,
-    method="RK45", t_eval=t_eval, rtol=rtol_rom, atol=atol_rom,
+    rom.latent_space_dynamics,
+    [0, t_end],
+    s0_off,
+    method="RK45",
+    t_eval=t_eval,
+    rtol=rtol_rom,
+    atol=atol_rom,
 ).y
 S_abs_max = np.max(np.abs(S_off))
 print(
@@ -330,8 +349,10 @@ print(
     f"(rho_domain = {rho_domain:.3f})"
 )
 if S_abs_max > rho_domain:
-    print("  ⚠ latent trajectory left the convergence domain — "
-          "polynomial truncation is unreliable here.")
+    print(
+        "  ⚠ latent trajectory left the convergence domain — "
+        "polynomial truncation is unreliable here."
+    )
 
 Vapp_off = np.zeros((n, n_t))
 for i in range(n_t):
@@ -339,8 +360,13 @@ for i in range(n_t):
 
 print("  Integrating truth ...")
 Vtruth_off = sp.integrate.solve_ivp(
-    perturbation_rhs, [0, t_end], x0_off,
-    method="Radau", t_eval=t_eval, rtol=rtol_truth, atol=atol_truth,
+    perturbation_rhs,
+    [0, t_end],
+    x0_off,
+    method="Radau",
+    t_eval=t_eval,
+    rtol=rtol_truth,
+    atol=atol_truth,
 ).y
 
 
@@ -370,7 +396,9 @@ Vtruth_off = sp.integrate.solve_ivp(
 fig, ax = plt.subplots(len(dominant_modes), 1, sharex=True, figsize=figsize)
 for i, idx in enumerate(dominant_idcs):
     ax[i].plot(t_eval, Vtruth_off[idx], color=clr_truth, lw=1.5, label="Truth")
-    ax[i].plot(t_eval, Vapp_off[idx], color=clr_rom, ls="--", lw=1.5, label="ROM")
+    ax[i].plot(
+        t_eval, Vapp_off[idx], color=clr_rom, ls="--", lw=1.5, label="ROM"
+    )
     ax[i].set_ylabel(rf"$v_{{{dominant_modes[i]}}}$")
 ax[0].legend()
 ax[-1].set_xlabel(r"Time $t$")

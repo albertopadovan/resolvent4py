@@ -176,9 +176,9 @@ def test_bv_roll_columns(comm, square_matrix_size):
     Yms = res4py.distributed_to_sequential_matrix(Ym)
     Y.restoreMat(Ym)
     expected = np.roll(Xpython, roll_amount, axis=-1)
-    error = np.linalg.norm(
-        Yms.getDenseArray() - expected
-    ) / np.linalg.norm(expected)
+    error = np.linalg.norm(Yms.getDenseArray() - expected) / np.linalg.norm(
+        expected
+    )
     Yms.destroy()
     X.destroy()
     Y.destroy()
@@ -238,6 +238,7 @@ def test_reshape_bv_into_vector_preallocated(comm):
     expected = bv_np.T.reshape(-1)
 
     from petsc4py import PETSc
+
     vec = PETSc.Vec().create(comm=comm)
     vec.setSizes((res4py.compute_local_size(N), N))
     vec.setUp()

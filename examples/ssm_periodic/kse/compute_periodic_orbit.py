@@ -26,24 +26,24 @@ import matplotlib.pyplot as plt
 # ── PDE / spatial discretization ────────────────────────────────────────────
 # nu = 0.0313     # past the Hopf bifurcation → periodic orbit
 nu = 0.0595
-n = 64          # number of Fourier sine modes
-n_pts = 4 * n   # physical-space grid points for dealiasing
+n = 64  # number of Fourier sine modes
+n_pts = 4 * n  # physical-space grid points for dealiasing
 
 # ── Time stepping ───────────────────────────────────────────────────────────
-dt = 2e-4                # time step (tightened 5x for orbit accuracy)
-T_transient = 1000.0     # integration time to wash out transients
-T_detect = 200.0         # window for period detection after transient
-save_every_detect = 1    # save every step during detection phase
+dt = 2e-4  # time step (tightened 5x for orbit accuracy)
+T_transient = 1000.0  # integration time to wash out transients
+T_detect = 200.0  # window for period detection after transient
+save_every_detect = 1  # save every step during detection phase
 
 # ── Periodicity detection ───────────────────────────────────────────────────
-poincare_mode = 0        # index of the sine mode used for the Poincaré section
-n_crossings_skip = 8     # skip the first few crossings (residual transient)
-n_crossings_avg = 32     # average this many consecutive periods for T estimate
-period_rtol = 1e-5       # relative tolerance: all averaged periods must agree
+poincare_mode = 0  # index of the sine mode used for the Poincaré section
+n_crossings_skip = 8  # skip the first few crossings (residual transient)
+n_crossings_avg = 32  # average this many consecutive periods for T estimate
+period_rtol = 1e-5  # relative tolerance: all averaged periods must agree
 
 # ── Newton refinement of the period ─────────────────────────────────────────
-newton_iters = 10        # Newton steps for period-by-shooting refinement
-newton_tol = 1e-12       # residual tolerance on the Poincaré section
+newton_iters = 10  # Newton steps for period-by-shooting refinement
+newton_tol = 1e-12  # residual tolerance on the Poincaré section
 
 
 # %% Setup
@@ -58,8 +58,10 @@ rng = np.random.default_rng(42)
 c = 1e-3 * rng.standard_normal(n)
 
 n_transient = int(T_transient / dt)
-print(f"Phase 1: integrating {n_transient} steps (T={T_transient}) "
-      f"to wash out transients ...")
+print(
+    f"Phase 1: integrating {n_transient} steps (T={T_transient}) "
+    f"to wash out transients ..."
+)
 
 for _ in range(n_transient):
     c = imex_step(c, lam, N_fn, dt)
@@ -84,8 +86,8 @@ crossing_times: list[float] = []
 # fit through three samples (steps ``i-2, i-1, i``) when a sign change is
 # detected between steps ``i-1`` and ``i``.  Quadratic fit gives an error
 # ``O(dt^3)`` in the crossing time versus ``O(dt^2)`` for linear interp.
-val_m2 = c[poincare_mode] - section_level   # step i-2
-val_m1 = val_m2                             # step i-1 (init)
+val_m2 = c[poincare_mode] - section_level  # step i-2
+val_m1 = val_m2  # step i-1 (init)
 
 # Also keep the state at step i-1 so we can launch Newton refinement from a
 # clean initial-condition / crossing pair.
@@ -117,7 +119,9 @@ for step in range(1, n_detect + 1):
             u1 = (-b + sqrt_d) / (2.0 * a)
             u2 = (-b - sqrt_d) / (2.0 * a)
             # Pick the root in [-1, 1] that corresponds to an upward crossing
-            candidates = [u for u in (u1, u2) if -1.0 - 1e-9 <= u <= 1.0 + 1e-9]
+            candidates = [
+                u for u in (u1, u2) if -1.0 - 1e-9 <= u <= 1.0 + 1e-9
+            ]
             u_cross = min(candidates, key=abs) if candidates else 0.0
         t_cross = (step - 1 + u_cross) * dt
         crossing_times.append(t_cross)
@@ -153,8 +157,8 @@ if n_full >= 1 and spread_single > period_rtol:
         sub_periods[: 2 * n_full : 2] + sub_periods[1 : 2 * n_full : 2]
     )
     spread_full = (
-        (full_periods.max() - full_periods.min()) / full_periods.mean()
-    )
+        full_periods.max() - full_periods.min()
+    ) / full_periods.mean()
     if spread_full < 0.5 * spread_single:
         print(
             "  Symmetric attractor detected (Poincaré section hit twice "
@@ -175,8 +179,10 @@ print(f"  mean period T = {T_mean:.8f}")
 print(f"  relative spread = {T_spread:.2e}")
 
 if T_spread > period_rtol:
-    print(f"  WARNING: spread {T_spread:.2e} > tolerance {period_rtol:.2e}. "
-          f"The orbit may not be well converged.")
+    print(
+        f"  WARNING: spread {T_spread:.2e} > tolerance {period_rtol:.2e}. "
+        f"The orbit may not be well converged."
+    )
 
 
 # %% Phase 2.5 – Newton-shooting refinement of the period
@@ -216,14 +222,18 @@ for it in range(newton_iters):
     c_T = integrate_to_T(c0_newton, T_newton)
     res = c_T[poincare_mode] - section_val
     # r'(T) = (d c / d t)[mode] evaluated at t = T
-    dres_dT = lam[poincare_mode] * c_T[poincare_mode] + N_fn(c_T)[poincare_mode]
+    dres_dT = (
+        lam[poincare_mode] * c_T[poincare_mode] + N_fn(c_T)[poincare_mode]
+    )
     if abs(dres_dT) < 1e-14:
         print(f"  iter {it}: derivative ~0 — stopping")
         break
     dT = -res / dres_dT
     T_newton = T_newton + dT
-    print(f"  iter {it}: T = {T_newton:.12f},  |res| = {abs(res):.3e},  "
-          f"dT = {dT:+.3e}")
+    print(
+        f"  iter {it}: T = {T_newton:.12f},  |res| = {abs(res):.3e},  "
+        f"dT = {dT:+.3e}"
+    )
     if abs(res) < newton_tol:
         break
 
@@ -234,8 +244,10 @@ T_orbit = T_newton
 n_orbit = int(np.round(T_orbit / dt))
 dt_orbit = T_orbit / n_orbit  # adjusted dt to land exactly on T_orbit
 
-print(f"\nPhase 3: recording one orbit (T = {T_orbit:.10f}, "
-      f"{n_orbit} steps, dt_orbit = {dt_orbit:.6e}) ...")
+print(
+    f"\nPhase 3: recording one orbit (T = {T_orbit:.10f}, "
+    f"{n_orbit} steps, dt_orbit = {dt_orbit:.6e}) ..."
+)
 
 # Start from the Newton-refined crossing state so the saved orbit closes
 # to the Newton residual tolerance.

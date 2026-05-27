@@ -22,21 +22,21 @@ from rossler_rhs import rossler_rhs
 
 
 # ── Parameters ──────────────────────────────────────────────────────────────
-c = 5.3                  # bifurcation parameter (paper Sec. IV)
+c = 5.3  # bifurcation parameter (paper Sec. IV)
 
-t_transient = 10000.0     # transient integration time
-t_detect = 400.0         # window for Poincaré-crossing detection
+t_transient = 10000.0  # transient integration time
+t_detect = 400.0  # window for Poincaré-crossing detection
 rtol = 1e-12
 atol = 1e-12
 
-n_crossings_skip = 4     # skip residual transient
-n_crossings_avg = 32     # average this many consecutive periods
+n_crossings_skip = 4  # skip residual transient
+n_crossings_avg = 32  # average this many consecutive periods
 period_rtol = 1e-6
 
 newton_iters = 20
 newton_tol = 1e-12
 
-n_orbit = 512            # samples per period in the saved orbit
+n_orbit = 512  # samples per period in the saved orbit
 
 
 # %% Phase 1 – Transient integration to lock onto the attractor
@@ -46,8 +46,13 @@ q0 = np.array([1.0, 0.0, 0.0]) + 1e-2 * rng.standard_normal(3)
 
 print(f"Phase 1: integrating to t = {t_transient} to wash out transients ...")
 sol = sp.integrate.solve_ivp(
-    rossler_rhs, [0.0, t_transient], q0,
-    args=(c,), method="DOP853", rtol=rtol, atol=atol,
+    rossler_rhs,
+    [0.0, t_transient],
+    q0,
+    args=(c,),
+    method="DOP853",
+    rtol=rtol,
+    atol=atol,
 )
 q = sol.y[:, -1]
 print(f"  done.  |q| = {np.linalg.norm(q):.6e}")
@@ -66,9 +71,15 @@ crossing_event.terminal = False
 crossing_event.direction = 1  # upward only
 
 sol = sp.integrate.solve_ivp(
-    rossler_rhs, [0.0, t_detect], q,
-    args=(c,), method="DOP853", rtol=rtol, atol=atol,
-    events=crossing_event, dense_output=True,
+    rossler_rhs,
+    [0.0, t_detect],
+    q,
+    args=(c,),
+    method="DOP853",
+    rtol=rtol,
+    atol=atol,
+    events=crossing_event,
+    dense_output=True,
 )
 crossing_times = sol.t_events[0]
 crossing_states = sol.y_events[0]
@@ -98,8 +109,13 @@ print(f"\nPhase 2.5: Newton-shoot refinement ...")
 
 def integrate_to(q0_local, T_target):
     s = sp.integrate.solve_ivp(
-        rossler_rhs, [0.0, T_target], q0_local,
-        args=(c,), method="DOP853", rtol=rtol, atol=atol,
+        rossler_rhs,
+        [0.0, T_target],
+        q0_local,
+        args=(c,),
+        method="DOP853",
+        rtol=rtol,
+        atol=atol,
     )
     return s.y[:, -1]
 
@@ -132,11 +148,16 @@ print(
 
 t_orbit = np.linspace(0.0, T_orbit, n_orbit + 1)
 sol = sp.integrate.solve_ivp(
-    rossler_rhs, [0.0, T_orbit], q_start,
-    args=(c,), method="DOP853", rtol=rtol, atol=atol,
+    rossler_rhs,
+    [0.0, T_orbit],
+    q_start,
+    args=(c,),
+    method="DOP853",
+    rtol=rtol,
+    atol=atol,
     t_eval=t_orbit,
 )
-C_orbit = sol.y                       # shape (3, n_orbit + 1)
+C_orbit = sol.y  # shape (3, n_orbit + 1)
 
 closure = np.linalg.norm(C_orbit[:, -1] - C_orbit[:, 0])
 print(f"  orbit closure error: {closure:.3e}")
@@ -177,7 +198,9 @@ fig = plt.figure(figsize=(6, 5))
 ax = fig.add_subplot(111, projection="3d")
 ax.plot(C_orbit[0], C_orbit[1], C_orbit[2], "k", lw=1)
 ax.scatter(*C_orbit.mean(axis=1), color="C3", s=40, label="temporal mean")
-ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_zlabel("z")
+ax.set_xlabel("x")
+ax.set_ylabel("y")
+ax.set_zlabel("z")
 ax.legend()
 plt.tight_layout()
 plt.show()

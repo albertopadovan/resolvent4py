@@ -77,9 +77,7 @@ def test_projection_idempotency_vectors(comm, square_matrix_size):
     V, Vpython = pytest_utils.generate_random_bv(comm, (N, r))
 
     for compl in [False, True]:
-        linop = res4py.linear_operators.ProjectionLinearOperator(
-            U, V, compl
-        )
+        linop = res4py.linear_operators.ProjectionLinearOperator(U, V, compl)
         x, _ = pytest_utils.generate_random_vector(comm, N)
         Px = linop.apply(x)
         PPx = linop.apply(Px)
@@ -106,9 +104,7 @@ def test_projection_idempotency_bvs(comm, square_matrix_size):
     V, Vpython = pytest_utils.generate_random_bv(comm, (N, r))
 
     for compl in [False, True]:
-        linop = res4py.linear_operators.ProjectionLinearOperator(
-            U, V, compl
-        )
+        linop = res4py.linear_operators.ProjectionLinearOperator(U, V, compl)
         X, _ = pytest_utils.generate_random_bv(comm, (N, 7))
         PX = linop.apply_mat(X)
         PPX = linop.apply_mat(PX)

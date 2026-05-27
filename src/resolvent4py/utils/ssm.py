@@ -40,7 +40,9 @@ def plot_convergence_radius(
 
     ax.plot(orders, log_sums, "o", label="Coefficient sums")
     ax.plot(
-        orders, slope * orders + intercept, "r--",
+        orders,
+        slope * orders + intercept,
+        "r--",
         label=rf"Fit: slope={slope:.3f}, $R\approx${R_estimate:.3f}",
     )
     ax.set_xlabel("Polynomial order $k$")
@@ -52,7 +54,9 @@ def plot_convergence_radius(
 
 
 def proper_radius(
-    manifold_tol: float, intercept: float, m: int,
+    manifold_tol: float,
+    intercept: float,
+    m: int,
 ) -> Tuple[float, float]:
     r"""
     Compute the fraction :math:`p` of the convergence radius at which
@@ -90,5 +94,5 @@ def proper_radius(
             break
 
     assert 0 < p <= 1.0
-    est_error = 10**intercept * p**(m + 1) / (1 - p)
+    est_error = 10**intercept * p ** (m + 1) / (1 - p)
     return p, est_error

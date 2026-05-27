@@ -82,7 +82,7 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
         n_time = len(time)
         if n_time < 2 * nf + 1:
             raise ValueError(
-                f"len(time) = {n_time} < 2*nf+1 = {2*nf+1}. "
+                f"len(time) = {n_time} < 2*nf+1 = {2 * nf + 1}. "
                 f"Time sampling does not satisfy Nyquist for nf={nf}."
             )
         if c_star.shape != (n, n_time):
@@ -102,7 +102,10 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
         omega = 2 * np.pi / T_period
 
         super().__init__(
-            comm, "KuramotoSivashinskyPeriodic", state_dim, 2,
+            comm,
+            "KuramotoSivashinskyPeriodic",
+            state_dim,
+            2,
         )
 
         self.n = n
@@ -121,7 +124,7 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
         # (IFFT → per-t → FFT) and self.A would disagree by the energy
         # in the discarded harmonics of c*.
         rfft_c = np.fft.rfft(c_star, axis=1)
-        rfft_c[:, nfb + 1:] = 0
+        rfft_c[:, nfb + 1 :] = 0
         self.c_star_trunc = np.fft.irfft(rfft_c, n=n_time, axis=1)
 
         self.omega = omega
@@ -150,7 +153,9 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
     # -----------------------------------------------------------------
 
     def temporal_fft(
-        self, X: np.ndarray, nf_out: int,
+        self,
+        X: np.ndarray,
+        nf_out: int,
     ) -> np.ndarray:
         r"""
         Forward FFT along the last axis: time-domain → Fourier coefficients.
@@ -164,14 +169,16 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
         """
         n_time = X.shape[-1]
         Xhat_pos = np.fft.rfft(X, axis=-1) / n_time  # harmonics 0..n_time//2
-        Xhat_pos = Xhat_pos[..., : nf_out + 1]       # keep 0..nf_out
+        Xhat_pos = Xhat_pos[..., : nf_out + 1]  # keep 0..nf_out
 
         # Build full two-sided spectrum: -nf_out, ..., -1, 0, 1, ..., nf_out
         Xhat_neg = np.conj(Xhat_pos[..., 1:][..., ::-1])
         return np.concatenate([Xhat_neg, Xhat_pos], axis=-1)
 
     def temporal_ifft(
-        self, Xhat: np.ndarray, t_eval: np.ndarray,
+        self,
+        Xhat: np.ndarray,
+        t_eval: np.ndarray,
     ) -> np.ndarray:
         r"""
         Inverse FFT: Fourier coefficients → time-domain samples.
@@ -218,7 +225,8 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
                 e_j = np.zeros(n)
                 e_j[j] = 1.0
                 A_ti[:, j] += 2.0 * self._evaluate_quadratic_term_numpy(
-                    e_j, c_ti,
+                    e_j,
+                    c_ti,
                 )
             As[:, ti] = A_ti.ravel()
 
@@ -257,7 +265,9 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
             ):
                 vec = PETSc.Vec().createWithArray(
                     np.asarray(array, dtype=dtype),
-                    len(array), None, comm=PETSc.COMM_SELF,
+                    len(array),
+                    None,
+                    comm=PETSc.COMM_SELF,
                 )
                 res4py.write_to_file(fname, vec)
                 vec.destroy()
@@ -275,18 +285,22 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
         full_sizes = (hb_state_dim, hb_state_dim)
 
         A_hb = res4py.read_harmonic_balanced_matrix(
-            filenames_lst, real_bflow=True,
-            block_sizes=block_sizes, full_sizes=full_sizes,
+            filenames_lst,
+            real_bflow=True,
+            block_sizes=block_sizes,
+            full_sizes=full_sizes,
         )
 
         # Assemble the harmonic resolvent generator: L_HB = -D_omega + A_HB
         L_hb = res4py.assemble_harmonic_resolvent_generator(
-            A_hb, self.pertb_freqs,
+            A_hb,
+            self.pertb_freqs,
         )
         A_hb.destroy()
 
         self.A = res4py.linear_operators.MatrixLinearOperator(
-            L_hb, nblocks=n_harmonics,
+            L_hb,
+            nblocks=n_harmonics,
         )
 
         shutil.rmtree(tmp) if comm.getRank() == 0 else None
@@ -296,7 +310,9 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
     # -----------------------------------------------------------------
 
     def _evaluate_quadratic_term_numpy(
-        self, q1: np.ndarray, q2: np.ndarray,
+        self,
+        q1: np.ndarray,
+        q2: np.ndarray,
     ) -> np.ndarray:
         r"""
         Evaluate :math:`B(q_1, q_2)` in pure numpy for a single
@@ -310,16 +326,16 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
         def _to_physical(c):
             spec_u = np.zeros(n_pts, dtype=complex)
             spec_ux = np.zeros(n_pts, dtype=complex)
-            spec_u[1:n+1] = -1j * half_N * c
-            spec_ux[1:n+1] = half_N * j * c
-            spec_u[n_pts-n:n_pts] = 1j * half_N * c[::-1]
-            spec_ux[n_pts-n:n_pts] = half_N * j[::-1] * c[::-1]
+            spec_u[1 : n + 1] = -1j * half_N * c
+            spec_ux[1 : n + 1] = half_N * j * c
+            spec_u[n_pts - n : n_pts] = 1j * half_N * c[::-1]
+            spec_ux[n_pts - n : n_pts] = half_N * j[::-1] * c[::-1]
             return ifft(spec_u), ifft(spec_ux)
 
         u1, u1x = _to_physical(q1)
         u2, u2x = _to_physical(q2)
         B_spec = fft(-0.5 * (u1 * u2x + u2 * u1x))
-        result = 2j * B_spec[1:n+1] / n_pts
+        result = 2j * B_spec[1 : n + 1] / n_pts
         if np.isrealobj(q1) and np.isrealobj(q2):
             return result.real
         return result
@@ -353,12 +369,14 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
         q_arr = q_seq.getArray().copy()
 
         Aq = self._lam * q_arr + 2.0 * self._evaluate_quadratic_term_numpy(
-            c_t, q_arr,
+            c_t,
+            q_arr,
         )
 
         y_seq = PETSc.Vec().createWithArray(
             np.asarray(Aq, dtype=np.complex128),
-            len(Aq), comm=PETSc.COMM_SELF,
+            len(Aq),
+            comm=PETSc.COMM_SELF,
         )
         y = q.duplicate() if y is None else y
         y = res4py.sequential_to_distributed_vector(y_seq, y)
@@ -381,11 +399,13 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
         q1_seq = res4py.distributed_to_sequential_vector(q1)
         q2_seq = res4py.distributed_to_sequential_vector(q2)
         result = self._evaluate_quadratic_term_numpy(
-            q1_seq.getArray(), q2_seq.getArray(),
+            q1_seq.getArray(),
+            q2_seq.getArray(),
         )
         y_seq = PETSc.Vec().createWithArray(
             np.asarray(result, dtype=np.complex128),
-            len(result), comm=PETSc.COMM_SELF,
+            len(result),
+            comm=PETSc.COMM_SELF,
         )
         y = q1.duplicate() if y is None else y
         y = res4py.sequential_to_distributed_vector(y_seq, y)
@@ -394,7 +414,9 @@ class KuramotoSivashinskyPeriodic(DifferentialEquation):
         return y
 
     def solve_linear_system(
-        self, s: complex, b: PETSc.Vec,
+        self,
+        s: complex,
+        b: PETSc.Vec,
         x: Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
         r"""

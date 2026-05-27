@@ -24,6 +24,7 @@ def _decode_to_numpy(ssm: "SpectralSubmanifold", s) -> np.ndarray:
 
 # ---- Manifold surface -------------------------------------------------------
 
+
 def plot_manifold_3d(
     ssm: "SpectralSubmanifold",
     rho_max: float = 0.4,
@@ -69,16 +70,20 @@ def plot_manifold_3d(
         if ax is None:
             ax = plt.figure().add_subplot(111, projection="3d")
         ax.plot_surface(
-            X, Y, Z,
-            rstride=1, cstride=1,
+            X,
+            Y,
+            Z,
+            rstride=1,
+            cstride=1,
             cmap=surface_cmap or cm.plasma,
-            linewidth=0, antialiased=False, alpha=surface_alpha,
+            linewidth=0,
+            antialiased=False,
+            alpha=surface_alpha,
         )
         ax.set_xlabel(r"$x_1$")
         ax.set_ylabel(r"$x_2$")
         ax.set_zlabel(r"$x_3$")
     return ax
-
 
 
 def plot_rom_vs_truth_3d(

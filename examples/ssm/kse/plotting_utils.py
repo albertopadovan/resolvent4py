@@ -21,7 +21,9 @@ def _decode_to_numpy(ssm: "SpectralSubmanifold", s) -> np.ndarray:
 
 
 def _eigenspace_basis_3d(
-    W: SLEPc.BV, Lams: np.ndarray, tol: float = 1e-8,
+    W: SLEPc.BV,
+    Lams: np.ndarray,
+    tol: float = 1e-8,
 ) -> Tuple[np.ndarray, List[str]]:
     r"""
     Build a 3-column real projection basis from the most unstable
@@ -63,7 +65,7 @@ def _eigenspace_basis_3d(
 
         if abs(Lams[i].imag) < tol:
             directions.append(w_np.real)
-            labels.append(rf"$\mathrm{{Re}}(w_{{{i+1}}})$")
+            labels.append(rf"$\mathrm{{Re}}(w_{{{i + 1}}})$")
         else:
             # Mark conjugate partner
             for j in range(i + 1, n_eigs):
@@ -73,11 +75,11 @@ def _eigenspace_basis_3d(
             if len(directions) + 2 <= 3:
                 directions.append(w_np.real)
                 directions.append(w_np.imag)
-                labels.append(rf"$\mathrm{{Re}}(w_{{{i+1}}})$")
-                labels.append(rf"$\mathrm{{Im}}(w_{{{i+1}}})$")
+                labels.append(rf"$\mathrm{{Re}}(w_{{{i + 1}}})$")
+                labels.append(rf"$\mathrm{{Im}}(w_{{{i + 1}}})$")
             else:
                 directions.append(w_np.real)
-                labels.append(rf"$\mathrm{{Re}}(w_{{{i+1}}})$")
+                labels.append(rf"$\mathrm{{Re}}(w_{{{i + 1}}})$")
 
     assert len(directions) >= 3, (
         "Could not collect 3 independent projection directions."
@@ -87,7 +89,8 @@ def _eigenspace_basis_3d(
 
 
 def project_to_3d(
-    B: np.ndarray, v: np.ndarray,
+    B: np.ndarray,
+    v: np.ndarray,
 ) -> np.ndarray:
     r"""
     Project a complex vector onto the real 3-column basis ``B``.
@@ -159,10 +162,15 @@ def plot_manifold_3d(
     if ssm.diff_eq.get_comm().getRank() == 0:
         ax = plt.figure().add_subplot(111, projection="3d")
         ax.plot_surface(
-            X, Y, Z,
-            rstride=1, cstride=1,
+            X,
+            Y,
+            Z,
+            rstride=1,
+            cstride=1,
             cmap=surface_cmap or cm.plasma,
-            linewidth=0, antialiased=False, alpha=surface_alpha,
+            linewidth=0,
+            antialiased=False,
+            alpha=surface_alpha,
         )
         ax.set_xlabel(labels[0])
         ax.set_ylabel(labels[1])

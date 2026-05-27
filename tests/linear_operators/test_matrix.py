@@ -95,8 +95,12 @@ def test_rectangular_matrix_on_vectors(comm, rectangular_random_matrix):
     x, xpython = pytest_utils.generate_random_vector(comm, Nr)
     y = linop.create_right_vector()
     error_aht = pytest_utils.compute_error_vector(
-        comm, linop.apply_hermitian_transpose, x, y,
-        Apython.conj().T.dot, xpython,
+        comm,
+        linop.apply_hermitian_transpose,
+        x,
+        y,
+        Apython.conj().T.dot,
+        xpython,
     )
     x.destroy()
     y.destroy()
@@ -126,8 +130,12 @@ def test_rectangular_matrix_on_bvs(comm, rectangular_random_matrix):
     X, Xpython = pytest_utils.generate_random_bv(comm, (Nr, s))
     Y = linop.create_right_bv(s)
     error_aht = pytest_utils.compute_error_bv(
-        comm, linop.apply_hermitian_transpose_mat, X, Y,
-        Apython.conj().T.dot, Xpython,
+        comm,
+        linop.apply_hermitian_transpose_mat,
+        X,
+        Y,
+        Apython.conj().T.dot,
+        Xpython,
     )
     X.destroy()
     Y.destroy()

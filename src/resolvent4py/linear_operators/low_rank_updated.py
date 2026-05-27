@@ -206,9 +206,7 @@ class LowRankUpdatedLinearOperator(LinearOperator):
 
     def apply_hermitian_transpose_mat(self, X, Y=None, Z=None):
         if Z is None:
-            Z = self._get_intermediate_bv_hermitian_transpose(
-                X.getSizes()[-1]
-            )
+            Z = self._get_intermediate_bv_hermitian_transpose(X.getSizes()[-1])
         Z = self.A.apply_hermitian_transpose_mat(X, Z)
         Y = self.L.apply_hermitian_transpose_mat(X, Y)
         bv_add(1.0, Y, Z)
@@ -239,9 +237,7 @@ class LowRankUpdatedLinearOperator(LinearOperator):
 
     def solve_hermitian_transpose_mat(self, X, Y=None, Z=None):
         if Z is None:
-            Z = self._get_intermediate_bv_hermitian_transpose(
-                X.getSizes()[-1]
-            )
+            Z = self._get_intermediate_bv_hermitian_transpose(X.getSizes()[-1])
         Z = self.A.solve_hermitian_transpose_mat(X, Z)
         Y = self.W.apply_hermitian_transpose_mat(X, Y)
         Y.scale(-1.0)

@@ -15,7 +15,9 @@ def test_generate_random_sparse_matrix_sizes(comm, square_matrix_size):
     A.destroy()
 
 
-def test_generate_random_sparse_matrix_rectangular(comm, rectangular_matrix_size):
+def test_generate_random_sparse_matrix_rectangular(
+    comm, rectangular_matrix_size
+):
     r"""Test random sparse matrix generation with rectangular sizes"""
     Nr, Nc = rectangular_matrix_size
     Nrl = res4py.compute_local_size(Nr)

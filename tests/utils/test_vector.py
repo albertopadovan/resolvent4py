@@ -158,6 +158,7 @@ def test_reshape_harmonic_balanced_vector_into_bv_preallocated(comm):
     vec, arr = pytest_utils.generate_random_vector(comm, N)
 
     from slepc4py import SLEPc
+
     bv = SLEPc.BV().create(comm=comm)
     bv.setSizes((compute_local_size(n), n), nblocks)
     bv.setType("mat")
@@ -220,7 +221,7 @@ def test_embed_into_2T_vec_half_integer_freqs_with_cc(comm):
     n = 4
     omega = 1.0
     freqsT = omega * np.array(
-        [-5/2, -3/2, -1/2, 1/2, 3/2, 5/2, 7/2]
+        [-5 / 2, -3 / 2, -1 / 2, 1 / 2, 3 / 2, 5 / 2, 7 / 2]
     )
     freqs2T = (omega / 2.0) * np.arange(-10, 11, dtype=float)
 
@@ -229,11 +230,17 @@ def test_embed_into_2T_vec_half_integer_freqs_with_cc(comm):
     NT = n * nblocksT
 
     vecT, vecT_arr = pytest_utils.generate_random_vector(
-        comm, NT, complex=True,
+        comm,
+        NT,
+        complex=True,
     )
 
     vec2T = res4py.embed_into_2T_vec(
-        freqsT, vecT, freqs2T, vec2T=None, enforce_cc=True,
+        freqsT,
+        vecT,
+        freqs2T,
+        vec2T=None,
+        enforce_cc=True,
     )
 
     # 1. CC holds at the 2T level
@@ -284,8 +291,7 @@ def test_embed_into_2T_vec_half_integer_freqs_with_cc(comm):
         else:
             err = np.linalg.norm(block)
             assert err < tol, (
-                f"vec2T[block at f2T={f2T}] should vanish; "
-                f"|·| = {err:.2e}"
+                f"vec2T[block at f2T={f2T}] should vanish; |·| = {err:.2e}"
             )
 
     vecT.destroy()
