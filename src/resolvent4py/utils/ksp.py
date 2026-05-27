@@ -143,17 +143,23 @@ def create_gmres_bjacobi_solver(
 
     comm = A.getComm()
     nprocs = comm.getSize()
-    if nblocks % nprocs != 0 and comm.getRank() == 0:
+    # Block-Jacobi is exact when blocks and ranks align in EITHER direction:
+    #   (a) nblocks % nprocs == 0  → each rank owns nblocks/nprocs full blocks
+    #   (b) nprocs  % nblocks == 0 → each block sits on a sub-comm of size
+    #                                nprocs/nblocks ranks (PETSc subcomms).
+    # Only warn when neither divides the other.
+    mis_aligned = (nblocks % nprocs != 0) and (nprocs % nblocks != 0)
+    if mis_aligned and comm.getRank() == 0:
         print("\n")
         warnings.warn(
-            f"create_gmres_bjacobi_solver: nblocks={nblocks} is not a "
-            f"multiple of comm.size={nprocs}.  PETSc's block-Jacobi "
-            f"requires each MPI rank to own a whole number of blocks; "
-            f"otherwise some bjacobi block straddles a rank boundary "
-            f"and the preconditioner is no longer block-exact (so a "
-            f"matrix that is genuinely block diagonal will not converge "
-            f"in one iteration).  Use ``nblocks = k * comm.size`` for "
-            f"some integer ``k >= 1``.",
+            f"create_gmres_bjacobi_solver: nblocks={nblocks} and "
+            f"comm.size={nprocs} are not aligned (neither divides the "
+            f"other).  For a block-exact preconditioner you need either "
+            f"nblocks = k * nprocs (one rank per block group) OR "
+            f"nprocs = k * nblocks (one block per rank sub-comm).  "
+            f"Otherwise some bjacobi block straddles a rank boundary "
+            f"and a matrix that is genuinely block-diagonal will not "
+            f"converge in one iteration.",
             UserWarning,
             stacklevel=2,
         )
