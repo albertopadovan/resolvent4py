@@ -8,7 +8,7 @@ from resolvent4py.utils.comms import (
 )
 from resolvent4py.utils.matrix import (
     convert_coo_to_csr,
-    extract_block_diagonal,
+    extract_block_banded,
 )
 from .. import pytest_utils
 
@@ -157,9 +157,9 @@ def _numpy_to_petsc(comm, A_np):
     return M
 
 
-def test_extract_block_diagonal(comm):
-    r"""Test that extract_block_diagonal extracts the correct diagonal blocks
-    from a random block-structured matrix."""
+def test_extract_block_banded_diagonal(comm):
+    r"""extract_block_banded with n_off_diags=0 extracts the correct
+    diagonal blocks from a random block-structured matrix."""
     n = 4
     nblocks = 5
     nN = n * nblocks
@@ -169,7 +169,7 @@ def test_extract_block_diagonal(comm):
     A_np = comm.tompi4py().bcast(A_np, root=0)
 
     A_petsc = _numpy_to_petsc(comm, A_np)
-    B_petsc = extract_block_diagonal(A_petsc, nblocks)
+    B_petsc = extract_block_banded(A_petsc, nblocks, 0)
 
     # Build expected block-diagonal in numpy
     B_expected = np.zeros_like(A_np)
@@ -193,44 +193,100 @@ def test_extract_block_diagonal(comm):
     y.destroy()
     A_petsc.destroy()
     B_petsc.destroy()
-    assert error < 1e-10, f"extract_block_diagonal error: {error:.2e}"
+    assert error < 1e-10, f"extract_block_banded(.,0) error: {error:.2e}"
 
 
-def test_extract_block_diagonal_of_block_diagonal_is_identity_map(comm):
-    r"""Extracting the block-diagonal of an already block-diagonal matrix
-    should return the same matrix."""
+def test_extract_block_banded_bandwidths(comm):
+    r"""extract_block_banded with n_off_diags=k keeps exactly the blocks
+    (i, j) with |i - j| <= k (tridiagonal for k=1, pentadiagonal for
+    k=2, etc.)."""
     n = 3
-    nblocks = 4
+    nblocks = 6
     nN = n * nblocks
 
-    rng = np.random.default_rng(99)
-    B_np = np.zeros((nN, nN), dtype=np.complex128)
-    for k in range(nblocks):
-        block = rng.standard_normal((n, n)) + 1j * rng.standard_normal((n, n))
-        B_np[k * n : (k + 1) * n, k * n : (k + 1) * n] = block
-    B_np = comm.tompi4py().bcast(B_np, root=0)
+    rng = np.random.default_rng(7)
+    A_np = rng.standard_normal((nN, nN)) + 1j * rng.standard_normal((nN, nN))
+    A_np = comm.tompi4py().bcast(A_np, root=0)
+    A_petsc = _numpy_to_petsc(comm, A_np)
 
-    B_petsc = _numpy_to_petsc(comm, B_np)
-    B2_petsc = extract_block_diagonal(B_petsc, nblocks)
+    for n_off_diags in (1, 2, 3):
+        B_petsc = extract_block_banded(A_petsc, nblocks, n_off_diags)
 
-    # Verify: B2 x == B x for random x
-    x, x_np = pytest_utils.generate_random_vector(comm, nN)
-    y1 = x.duplicate()
-    y2 = x.duplicate()
-    B_petsc.mult(x, y1)
-    B2_petsc.mult(x, y2)
+        # Expected: keep blocks (i, j) with |i - j| <= n_off_diags
+        B_expected = np.zeros_like(A_np)
+        for i in range(nblocks):
+            for j in range(nblocks):
+                if abs(i - j) <= n_off_diags:
+                    B_expected[
+                        i * n : (i + 1) * n, j * n : (j + 1) * n
+                    ] = A_np[i * n : (i + 1) * n, j * n : (j + 1) * n]
 
-    y1_seq = res4py.distributed_to_sequential_vector(y1)
-    y2_seq = res4py.distributed_to_sequential_vector(y2)
-    error = np.linalg.norm(
-        y1_seq.getArray() - y2_seq.getArray()
-    ) / np.linalg.norm(y1_seq.getArray())
+        x, x_np = pytest_utils.generate_random_vector(comm, nN)
+        y = x.duplicate()
+        B_petsc.mult(x, y)
+        y_seq = res4py.distributed_to_sequential_vector(y)
+        y_expected = B_expected @ x_np
+        error = np.linalg.norm(
+            y_seq.getArray() - y_expected
+        ) / np.linalg.norm(y_expected)
 
-    y1_seq.destroy()
-    y2_seq.destroy()
-    x.destroy()
-    y1.destroy()
-    y2.destroy()
-    B_petsc.destroy()
-    B2_petsc.destroy()
-    assert error < 1e-10, f"block-diagonal idempotency error: {error:.2e}"
+        y_seq.destroy()
+        x.destroy()
+        y.destroy()
+        B_petsc.destroy()
+        assert error < 1e-10, (
+            f"extract_block_banded(.,{n_off_diags}) error: {error:.2e}"
+        )
+
+    A_petsc.destroy()
+
+
+def test_extract_block_banded_of_block_banded_is_identity_map(comm):
+    r"""Extracting the block-banded part (n_off_diags=k) of a matrix that
+    is already block-banded with bandwidth k should return the same
+    matrix.  Covers block-diagonal (k=0), block-tridiagonal (k=1) and
+    block-pentadiagonal (k=2)."""
+    n = 3
+    nblocks = 6
+    nN = n * nblocks
+
+    for n_off_diags in (0, 1, 2):
+        rng = np.random.default_rng(99 + n_off_diags)
+        # Build a matrix that is already block-banded with bandwidth k.
+        B_np = np.zeros((nN, nN), dtype=np.complex128)
+        for i in range(nblocks):
+            for j in range(nblocks):
+                if abs(i - j) <= n_off_diags:
+                    block = rng.standard_normal((n, n)) + 1j * rng.standard_normal(
+                        (n, n)
+                    )
+                    B_np[i * n : (i + 1) * n, j * n : (j + 1) * n] = block
+        B_np = comm.tompi4py().bcast(B_np, root=0)
+
+        B_petsc = _numpy_to_petsc(comm, B_np)
+        B2_petsc = extract_block_banded(B_petsc, nblocks, n_off_diags)
+
+        # Verify: B2 x == B x for random x
+        x, _ = pytest_utils.generate_random_vector(comm, nN)
+        y1 = x.duplicate()
+        y2 = x.duplicate()
+        B_petsc.mult(x, y1)
+        B2_petsc.mult(x, y2)
+
+        y1_seq = res4py.distributed_to_sequential_vector(y1)
+        y2_seq = res4py.distributed_to_sequential_vector(y2)
+        error = np.linalg.norm(
+            y1_seq.getArray() - y2_seq.getArray()
+        ) / np.linalg.norm(y1_seq.getArray())
+
+        y1_seq.destroy()
+        y2_seq.destroy()
+        x.destroy()
+        y1.destroy()
+        y2.destroy()
+        B_petsc.destroy()
+        B2_petsc.destroy()
+        assert error < 1e-10, (
+            f"block-banded idempotency error (n_off_diags={n_off_diags}): "
+            f"{error:.2e}"
+        )

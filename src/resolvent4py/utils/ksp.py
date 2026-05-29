@@ -4,6 +4,7 @@ __all__ = [
     "create_gmres_bjacobi_solver",
     "check_gmres_bjacobi_solver",
     "create_gmres_epslu_solver",
+    "create_gmres_block_banded_solver",
 ]
 
 import typing
@@ -278,6 +279,80 @@ def create_gmres_epslu_solver(
     pc.setUp()
     ksp.setUp()
     return ksp
+
+
+def create_gmres_block_banded_solver(
+    A: PETSc.Mat,
+    nblocks: int,
+    n_off_diags: int = 1,
+    rtol: typing.Optional[float] = 1e-10,
+    atol: typing.Optional[float] = 1e-10,
+    monitor: typing.Optional[bool] = False,
+    icntl: typing.Optional[typing.Dict[int, int]] = None,
+    cntl: typing.Optional[typing.Dict[int, float]] = None,
+) -> PETSc.KSP:
+    r"""
+    Create a GMRES solver for :math:`A x = b` whose left preconditioner
+    is the MUMPS LU factorization of the *block-banded* part of
+    :math:`A`.  With ``n_off_diags = 1`` (the default) the preconditioner
+    is the block-tridiagonal part of :math:`A`; ``n_off_diags = 0`` gives
+    the block-diagonal and ``n_off_diags = 2`` the block-pentadiagonal
+    part, etc.
+
+    The band matrix
+    :math:`A_b =`
+    :func:`~resolvent4py.utils.matrix.extract_block_banded`
+    ``(A, nblocks, n_off_diags)`` is assembled, MUMPS-factorized, and
+    used via ``ksp.setOperators(A, A_b)`` so the outer Krylov iteration
+    is on :math:`A` while the preconditioner is built from :math:`A_b`.
+    This is useful when :math:`A` has a dominant near-diagonal block
+    structure (e.g. a harmonic-balanced operator whose base flow couples
+    only a few neighbouring Fourier blocks): the band captures most of
+    the operator at a fraction of the factorization cost of the full
+    :math:`A`.
+
+    :param A: PETSc matrix iterated on by GMRES (the "true" operator).
+        Must be block-structured with ``nblocks`` blocks per dimension.
+    :type A: PETSc.Mat
+    :param nblocks: number of blocks along each dimension of :math:`A`.
+    :type nblocks: int
+    :param n_off_diags: number of block off-diagonals to keep on each
+        side of the main block-diagonal when forming the preconditioner
+        (default 1, i.e. block-tridiagonal).
+    :type n_off_diags: int
+    :param rtol: relative tolerance for GMRES
+    :type rtol: Optional[float], default :math:`10^{-10}`
+    :param atol: absolute tolerance for GMRES
+    :type atol: Optional[float], default :math:`10^{-10}`
+    :param monitor: :code:`True` to monitor convergence and print residual
+        history to terminal. :code:`False` otherwise
+    :type monitor: Optional[bool], default :code:`False`
+    :param icntl: optional dict mapping MUMPS ICNTL indices to integer
+        values for the LU of the band matrix.  See
+        :func:`.create_mumps_solver` for common knobs.
+    :type icntl: Optional[Dict[int, int]]
+    :param cntl: optional dict mapping MUMPS CNTL indices to float values
+        for the LU of the band matrix.
+    :type cntl: Optional[Dict[int, float]]
+
+    :return ksp: PETSc KSP solver
+    :rtype ksp: PETSc.KSP
+    """
+    from .matrix import extract_block_banded
+
+    # The band matrix is reference-counted by PETSc once handed to
+    # ksp.setOperators inside create_gmres_epslu_solver, so it stays
+    # alive with the KSP even after this local handle goes out of scope.
+    Aband = extract_block_banded(A, nblocks, n_off_diags)
+    return create_gmres_epslu_solver(
+        A,
+        Aband,
+        rtol=rtol,
+        atol=atol,
+        monitor=monitor,
+        icntl=icntl,
+        cntl=cntl,
+    )
 
 
 def check_gmres_bjacobi_solver(A: PETSc.Mat, ksp: PETSc.KSP) -> None:

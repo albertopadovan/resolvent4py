@@ -181,3 +181,120 @@ def test_gmres_bjacobi_solver_custom_tolerances(comm):
     Apetsc.destroy()
     # Tighter tolerance should give smaller (or equal) residual
     assert residuals[1] <= residuals[0] + 1e-15
+
+
+def _build_block_banded_petsc(comm, nblocks, n, n_off_diags, seed):
+    r"""Assemble a complex block-banded matrix (bandwidth ``n_off_diags``)
+    with a diagonal shift for invertibility; return the PETSc AIJ matrix.
+    Blocks ``(i, j)`` with ``|i - j| <= n_off_diags`` are filled with
+    random values; everything else is zero."""
+    full_n = nblocks * n
+    full_nl = res4py.compute_local_size(full_n)
+
+    rng = np.random.default_rng(seed)
+    M_np = np.zeros((full_n, full_n), dtype=np.complex128)
+    for i in range(nblocks):
+        for j in range(nblocks):
+            if abs(i - j) <= n_off_diags:
+                M_np[i * n : (i + 1) * n, j * n : (j + 1) * n] = rng.standard_normal(
+                    (n, n)
+                ) + 1j * rng.standard_normal((n, n))
+    M_np += full_n * np.eye(full_n)  # diagonal shift → well-conditioned
+    M_np = comm.tompi4py().bcast(M_np, root=0)
+
+    M_coo = sp.sparse.coo_matrix(M_np)
+    if comm.getRank() == 0:
+        rows = np.asarray(M_coo.row, dtype=PETSc.IntType)
+        cols = np.asarray(M_coo.col, dtype=PETSc.IntType)
+        vals = np.asarray(M_coo.data, dtype=PETSc.ScalarType)
+    else:
+        rows = np.empty(0, dtype=PETSc.IntType)
+        cols = np.empty(0, dtype=PETSc.IntType)
+        vals = np.empty(0, dtype=PETSc.ScalarType)
+
+    sizes = ((full_nl, full_n), (full_nl, full_n))
+    rows_ptr, cols_csr, vals_csr = res4py.convert_coo_to_csr(
+        [rows, cols, vals], sizes
+    )
+    M = PETSc.Mat().createAIJ(sizes, comm=PETSc.COMM_WORLD)
+    M.setPreallocationCSR((rows_ptr, cols_csr))
+    M.setValuesCSR(rows_ptr, cols_csr, vals_csr, True)
+    M.assemble(False)
+    return M
+
+
+def test_gmres_block_tridiagonal_one_iter(comm):
+    r"""If A is block-tridiagonal and the preconditioner keeps the
+    block-tridiagonal band (n_off_diags=1), then the band matrix equals A
+    exactly, so the MUMPS-LU preconditioner is A^{-1} and GMRES converges
+    in a single Krylov iteration."""
+    nblocks = 6
+    n = 4
+
+    A = _build_block_banded_petsc(comm, nblocks, n, n_off_diags=1, seed=11)
+
+    ksp = res4py.create_gmres_block_banded_solver(
+        A, nblocks, n_off_diags=1, rtol=1e-12, atol=1e-12
+    )
+
+    b = res4py.generate_random_petsc_vector(A.getSizes()[0])
+    x = b.duplicate()
+    ksp.solve(b, x)
+    n_iters = ksp.getIterationNumber()
+
+    r = b.duplicate()
+    A.mult(x, r)
+    r.aypx(-1.0, b)
+    residual = r.norm() / b.norm()
+
+    r.destroy()
+    b.destroy()
+    x.destroy()
+    ksp.destroy()
+    A.destroy()
+
+    assert n_iters == 1, (
+        f"Expected GMRES to converge in 1 iteration when the preconditioner "
+        f"band equals A, got {n_iters}"
+    )
+    assert residual < 1e-10, f"residual = {residual:.3e}"
+
+
+def test_gmres_block_pentadiagonal_tridiagonal_pc(comm):
+    r"""A is block-pentadiagonal (n_off_diags=2) but the preconditioner
+    keeps only the block-tridiagonal band (n_off_diags=1).  The PC is then
+    an approximation of A, so GMRES needs more than one iteration, yet it
+    must still converge to the requested tolerance."""
+    nblocks = 6
+    n = 4
+
+    A = _build_block_banded_petsc(comm, nblocks, n, n_off_diags=2, seed=23)
+
+    ksp = res4py.create_gmres_block_banded_solver(
+        A, nblocks, n_off_diags=1, rtol=1e-12, atol=1e-12
+    )
+
+    b = res4py.generate_random_petsc_vector(A.getSizes()[0])
+    x = b.duplicate()
+    ksp.solve(b, x)
+    n_iters = ksp.getIterationNumber()
+    reason = ksp.getConvergedReason()
+
+    r = b.duplicate()
+    A.mult(x, r)
+    r.aypx(-1.0, b)
+    residual = r.norm() / b.norm()
+
+    r.destroy()
+    b.destroy()
+    x.destroy()
+    ksp.destroy()
+    A.destroy()
+
+    assert reason > 0, f"GMRES did not converge; ConvergedReason = {reason}"
+    assert n_iters > 1, (
+        f"Expected more than 1 iteration with an approximate "
+        f"(tridiagonal) preconditioner on a pentadiagonal matrix, "
+        f"got {n_iters}"
+    )
+    assert residual < 1e-10, f"residual = {residual:.3e}"

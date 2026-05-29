@@ -6,7 +6,7 @@ __all__ = [
     "convert_coo_to_csr",
     "assemble_harmonic_resolvent_generator",
     "extract_matrix_block",
-    "extract_block_diagonal",
+    "extract_block_banded",
     "assemble_matrix_from_coo",
 ]
 
@@ -394,30 +394,48 @@ def extract_matrix_block(
     return block
 
 
-def extract_block_diagonal(Mat: PETSc.Mat, nblocks: int) -> PETSc.Mat:
+def extract_block_banded(
+    Mat: PETSc.Mat, nblocks: int, n_off_diags: int = 0
+) -> PETSc.Mat:
     r"""
-    Extract the block-diagonal of a block-structured :math:`nN \times nN`
-    PETSc matrix and assemble it as a new :math:`nN \times nN` sparse
-    block-diagonal matrix.
+    Extract the block-banded part of a block-structured
+    :math:`nN \times nN` PETSc matrix and assemble it as a new
+    :math:`nN \times nN` sparse matrix.  Every block :math:`(i, j)`
+    with :math:`|i - j| \le k` is retained, where
+    :math:`k = ` ``n_off_diags``:
+
+    * ``n_off_diags = 0`` → block-diagonal,
+    * ``n_off_diags = 1`` → block-tridiagonal,
+    * ``n_off_diags = 2`` → block-pentadiagonal, etc.
 
     Uses the identity
 
     .. math::
 
-        B = \sum_{k=0}^{n_{\mathrm{blocks}}-1} E_k \, A \, E_k
+        B = \sum_{|i - j| \le k} E_i \, A \, E_j,
 
     where :math:`E_k` is the :math:`nN \times nN` block projector with
-    :math:`I_N` in the :math:`(k, k)` block position and zeros elsewhere.
+    :math:`I_N` in the :math:`(k, k)` block position and zeros
+    elsewhere, so that :math:`E_i A E_j` isolates the :math:`(i, j)`
+    block of :math:`A` in place.
 
     :param Mat: assembled :math:`nN \times nN` PETSc sparse matrix
     :type Mat: PETSc.Mat
     :param nblocks: number of blocks along each dimension
     :type nblocks: int
+    :param n_off_diags: number of block off-diagonals to keep on each
+        side of the main block-diagonal (default 0, i.e. block-diagonal)
+    :type n_off_diags: int
 
-    :return: the block-diagonal :math:`nN \times nN` PETSc sparse matrix
+    :return: the block-banded :math:`nN \times nN` PETSc sparse matrix
     :rtype: PETSc.Mat
     """
     from .comms import compute_local_size
+
+    if n_off_diags < 0:
+        raise ValueError(
+            f"n_off_diags must be >= 0; got {n_off_diags}."
+        )
 
     comm = Mat.getComm()
     size = Mat.getSizes()[0]
@@ -426,25 +444,42 @@ def extract_block_diagonal(Mat: PETSc.Mat, nblocks: int) -> PETSc.Mat:
     Nl = compute_local_size(nN)
 
     mat_sizes = ((Nl, nN), (Nl, nN))
-    B = None
+
+    # Build the block projectors E_0, ..., E_{nblocks-1} once and reuse
+    # them across the diagonal and off-diagonal accumulations.
+    Es = []
     for k in range(nblocks):
         rows_coo, cols_coo, vals_coo = None, None, None
         if comm.getRank() == 0:
             rows_coo = np.arange(k * N, (k + 1) * N, dtype=PETSc.IntType)
             cols_coo = rows_coo.copy()
             vals_coo = np.ones(N, dtype=PETSc.ScalarType)
-        Ek = assemble_matrix_from_coo(
-            comm, [rows_coo, cols_coo, vals_coo], mat_sizes
+        Es.append(
+            assemble_matrix_from_coo(
+                comm, [rows_coo, cols_coo, vals_coo], mat_sizes
+            )
         )
-        tmp = Mat.matMult(Ek)
-        EkAEk = Ek.matMult(tmp)
-        tmp.destroy()
-        Ek.destroy()
 
+    # (row-block, col-block) pairs within the requested bandwidth
+    pairs = [
+        (i, j)
+        for i in range(nblocks)
+        for j in range(nblocks)
+        if abs(i - j) <= n_off_diags
+    ]
+
+    B = None
+    for (i, j) in pairs:
+        tmp = Mat.matMult(Es[j])      # Mat @ E_j  → keeps col-block j
+        blk = Es[i].matMult(tmp)      # E_i @ Mat @ E_j  → block (i, j)
+        tmp.destroy()
         if B is None:
-            B = EkAEk
+            B = blk
         else:
-            B.axpy(1.0, EkAEk)
-            EkAEk.destroy()
+            B.axpy(1.0, blk)
+            blk.destroy()
+
+    for Ek in Es:
+        Ek.destroy()
 
     return B
