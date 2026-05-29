@@ -153,6 +153,7 @@ class LinearOperator(metaclass=abc.ABCMeta):
         """
         sizes = self.get_dimensions()[-1]
         x = generate_random_petsc_vector(sizes)
+        x.scale(1.0 / x.norm())
         Lx = self.apply(x)
         Lxai = Lx.getArray().imag
         norm = np.sqrt(
@@ -183,6 +184,7 @@ class LinearOperator(metaclass=abc.ABCMeta):
         """
         x = generate_random_petsc_vector(self.get_dimensions()[-1])
         enforce_complex_conjugacy(x, self.get_nblocks())
+        x.scale(1.0 / x.norm())
         cc_x = check_complex_conjugacy(x, self.get_nblocks())
         if cc_x == False:
             raise ValueError(
