@@ -190,6 +190,18 @@ def create_gmres_bjacobi_solver(
     pc.setUp()
     ksp.setUp()
 
+    # Apply sub_icntl / sub_cntl on each bjacobi sub-block's MUMPS factor
+    # matrix AFTER pc.setUp() has materialized the sub-KSPs.  We tried the
+    # canonical PETSc options-DB route via
+    # "sub_pc_factor_mat_mumps_icntl_N=v" set before pc.setFromOptions(),
+    # but PETSc 3.24's bjacobi→sub-LU→MUMPS chain does NOT pull those keys
+    # (verified: PETSc reports them as "Option left ... source: code" at
+    # end-of-run).  This direct setMumpsIcntl path works via PETSc-MUMPS's
+    # lazy re-factor mechanism: the new ICNTLs take effect on the next
+    # ksp.solve, costing one extra sub-block factorization cycle per call.
+    # Cheap relative to the GMRES iteration count.  Common knob for this
+    # path: sub_icntl={24: 1} for null-pivot detection at near-spectrum
+    # real shifts (the k=0 saddle sub-block of (sM-T) is singular).
     if sub_icntl or sub_cntl:
         sub_ksps = pc.getBJacobiSubKSP()
         for sk in sub_ksps:

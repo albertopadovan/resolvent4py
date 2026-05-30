@@ -118,6 +118,33 @@ class ProductLinearOperator(LinearOperator):
             linops[0].get_comm(), "ProductLinearOperator", dims, nblocks
         )
 
+    def check_if_real_valued(self: "ProductLinearOperator") -> bool:
+        r"""
+        Real-valuedness is preserved under composition: if every
+        :math:`L_i` maps real vectors to real vectors, so does any
+        composition (using ``apply``, ``solve``, ``apply_hermitian_transpose``,
+        or ``solve_hermitian_transpose``).  Overriding the base-class check
+        avoids triggering an expensive ``self.apply`` (which for chains
+        containing a ``solve`` action would fire a full Krylov solve on a
+        random RHS at construction time).
+        """
+        return all(op.get_real_flag() for op in self.linops)
+
+    def check_if_complex_conjugate_structure(
+        self: "ProductLinearOperator",
+    ) -> bool:
+        r"""
+        Complex-conjugate (HB) block structure is preserved under composition
+        with the same reasoning as :meth:`check_if_real_valued`: if every
+        constituent preserves CC structure, so does any composition.  Avoids
+        the expensive ``self.apply`` the base class would otherwise run.
+        Returns ``False`` if any constituent has unknown CC status
+        (``get_block_cc_flag()`` is ``None``, i.e. that constituent was
+        constructed without a block count).
+        """
+        flags = [op.get_block_cc_flag() for op in self.linops]
+        return all(f is True for f in flags)
+
     def create_intermediate_vectors(self: "ProductLinearOperator") -> None:
         self.intermediate_vecs = []
         for j in range(self.nlops - 1):

@@ -430,8 +430,6 @@ def extract_block_banded(
     :return: the block-banded :math:`nN \times nN` PETSc sparse matrix
     :rtype: PETSc.Mat
     """
-    from .comms import compute_local_size
-
     if n_off_diags < 0:
         raise ValueError(
             f"n_off_diags must be >= 0; got {n_off_diags}."
@@ -441,7 +439,10 @@ def extract_block_banded(
     size = Mat.getSizes()[0]
     nN = size[-1]
     N = nN // nblocks
-    Nl = compute_local_size(nN)
+    # Use Mat's own local row count so the Es projectors share its parallel
+    # layout — necessary because Mat.matMult requires the operands to have
+    # matching local row/col partitions (block-aligned, default, etc.).
+    Nl = size[0]
 
     mat_sizes = ((Nl, nN), (Nl, nN))
 
@@ -481,5 +482,17 @@ def extract_block_banded(
 
     for Ek in Es:
         Ek.destroy()
+
+    # Drop explicit zeros from the CSR: each E_i @ Mat @ E_j triple product
+    # can leave structurally-allocated entries that happen to be numerically
+    # zero (and the axpy union preserves them), and downstream consumers like
+    # MUMPS' distributed-input ingestion choke on the resulting padded j[]
+    # arrays.  IGNORE_ZERO_ENTRIES + a re-assemble compress the pattern.
+    B.assemble()
+    B.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
+    try:
+        B.eliminateZeros()
+    except AttributeError:
+        pass
 
     return B

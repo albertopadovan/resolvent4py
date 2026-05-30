@@ -409,8 +409,8 @@ class SpectralSubmanifold:
             pj = self.diff_eq.solve_linear_system(shift, rhs)
 
             if not conj:
-                tol_conj = 1e-4
-                proj = W.dotVec(pj)
+                tol_conj = 1e-2
+                proj = W.dotVec(pj) * scaling
                 error_conj = np.linalg.norm(proj)
                 if error_conj >= tol_conj:
                     raise ValueError(
