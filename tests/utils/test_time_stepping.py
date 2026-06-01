@@ -80,7 +80,7 @@ def test_time_stepping_forced(comm, square_matrix_size):
             sol_python = np.fliplr(sol_python) if adjoint else sol_python
             sol_petsc = res4py.solve_ivp(
                 vpetsc,
-                action,
+                linop,
                 0,
                 T,
                 nsteps,

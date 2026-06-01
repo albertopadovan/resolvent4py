@@ -198,6 +198,41 @@ class LinearOperator(metaclass=abc.ABCMeta):
         Lx.destroy()
         return result
 
+    def set_evaluation_time(self, time: float) -> None:
+        r"""
+        Propagate ``time`` to any time-dependent child operators.
+
+        The default implementation walks every attribute of ``self``
+        and, for any attribute that is itself a :class:`LinearOperator`
+        (or a list / tuple containing :class:`LinearOperator`
+        instances), invokes :meth:`set_evaluation_time` on it.  This
+        way a composite operator
+        (:class:`ShiftAndScaleLinearOperator`,
+        :class:`ProductLinearOperator`,
+        :class:`LowRankUpdatedLinearOperator`,
+        :class:`ProjectionLinearOperator`, …) built on top of a
+        :class:`TimePeriodicMatrixLinearOperator` automatically gains
+        the same time-setter without any per-subclass boilerplate.
+
+        Subclasses whose own state depends on time (notably
+        :class:`TimePeriodicMatrixLinearOperator`) override this to
+        update their own attribute and should then call
+        ``super().set_evaluation_time(time)`` to keep nested
+        time-dependent operators in sync.
+
+        :param time: time instant :math:`t` to propagate
+        :type time: float
+        """
+        for attr in vars(self).values():
+            if attr is self:
+                continue
+            if isinstance(attr, LinearOperator):
+                attr.set_evaluation_time(time)
+            elif isinstance(attr, (list, tuple)):
+                for item in attr:
+                    if isinstance(item, LinearOperator):
+                        item.set_evaluation_time(time)
+
     # Methods that must be implemented by subclasses
     @abc.abstractmethod
     def apply(

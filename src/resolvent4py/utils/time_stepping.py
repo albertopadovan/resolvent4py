@@ -1,4 +1,5 @@
 import typing
+import warnings
 import numpy as np
 from petsc4py import PETSc
 from slepc4py import SLEPc
@@ -206,7 +207,7 @@ def create_time_and_frequency_arrays(
         internal consistency check.
     """
     T = 2 * np.pi / omega
-    tstore = np.linspace(0, T, num=2 * (n_omegas + 2), endpoint=False)
+    tstore = np.linspace(0, T, num=2 * (n_omegas + 4), endpoint=False)
     dt_store = tstore[1] - tstore[0]
     dt = dt_store / round(dt_store / dt)
     nsteps = round(T / dt)
@@ -223,7 +224,7 @@ def create_time_and_frequency_arrays(
 
 def solve_ivp(
     v: PETSc.Vec,
-    action: typing.Callable[[PETSc.Vec, PETSc.Vec], PETSc.Vec],
+    L: "LinearOperator",
     t0: float,
     tf: float,
     nsteps: int,
@@ -234,18 +235,18 @@ def solve_ivp(
     periodic_forcing: typing.Optional[typing.Tuple[SLEPc.BV, np.array]] = None,
 ) -> typing.Union[PETSc.Vec, SLEPc.BV]:
     r"""
-    Integrate a linear (time-invariant) system of equations of the form
+    Integrate a (possibly time-dependent) linear system of the form
 
     .. math::
 
-        \frac{d}{dt}x(t) = A x(t) + f(t),\quad x(0) = v,
+        \frac{d}{dt}x(t) = L(t)\, x(t) + f(t),\quad x(0) = v,
 
     from :math:`t = t_0` to :math:`t = t_f`.
-    If the flag `adjoint` is :code:`True`, we solve
+    If the flag ``adjoint`` is :code:`True`, we solve
 
     .. math::
 
-        -\frac{d}{dt}x(t) = A x(t) + f(t),\quad x(t_f) = v,\, t\in [t_0, t_f],
+        -\frac{d}{dt}x(t) = L(t)\, x(t) + f(t),\quad x(t_f) = v,\, t\in [t_0, t_f],
 
     backward in time from :math:`t = t_f` to :math:`t = t_0`.
     In both cases, the forcing function :math:`f(t)` is periodic and given by
@@ -254,11 +255,19 @@ def solve_ivp(
 
         f(t) = f(t + T) = \sum_{k=-r}^r f_k e^{ik\omega t},\quad \omega = 2\pi/T.
 
+    At every RK stage the time ``t`` is forwarded to the operator via
+    :meth:`LinearOperator.set_evaluation_time`, so any time-dependent
+    operator (e.g. one built around a
+    :class:`TimePeriodicMatrixLinearOperator`) is automatically kept in
+    sync with the integrator.  For time-invariant operators, that call
+    is a no-op walk over child attributes.
+
     :param v: initial condition
     :type v: PETSc.Vec
-    :param action: callable that defines the action of the linear operator
-        A on a vector. One of `A.apply` or `A.apply_hermitian_transpose`.
-    :type action: Callable[[PETSc.Vec, PETSc.Vec], PETSc.Vec]
+    :param L: linear operator :math:`L(t)`.  Its forward or
+        Hermitian-transpose action is selected internally based on
+        ``adjoint``.
+    :type L: LinearOperator
     :param t0: initial time
     :type t0: float
     :param tf: final time
@@ -290,6 +299,8 @@ def solve_ivp(
     :type periodic_forcing: Optional[Union[Tuple[SLEPc.BV, np.array], None]],
         default is None
     """
+    action = L.apply_hermitian_transpose if adjoint else L.apply
+
     dt = (tf - t0) / (nsteps - 1)
     time = dt * np.arange(0, nsteps, 1) + t0
     time_f_eval = np.flipud(time) if adjoint else time
@@ -315,12 +326,14 @@ def solve_ivp(
         f = None
 
         def evaluate_dynamics(x, y, t, f=None):
+            L.set_evaluation_time(t)
             return action(x, y)
     else:
         FHat, omegas = periodic_forcing
         f = v.duplicate()
 
         def evaluate_dynamics(x, y, t, f):
+            L.set_evaluation_time(t)
             f = ifft(FHat, f, omegas, t)
             y = action(x, y)
             y.axpy(1.0, f)
@@ -407,7 +420,7 @@ def compute_post_transient_solution(
     L: "LinearOperator",
     B: "LinearOperator",
     C: "LinearOperator",
-    Laction: typing.Callable,
+    adjoint: bool,
     tsim: np.array,
     nsave: int,
     nperiods: int,
@@ -422,12 +435,12 @@ def compute_post_transient_solution(
 ):
     r"""
     Compute the post-transient (periodic steady-state) output of the
-    forced linear time-invariant system
+    forced linear system
 
     .. math::
 
-        \frac{d}{dt} x(t) = L\, x(t) + B\, f(t),
-        \qquad y(t) = C\, x(t),
+        \frac{d}{dt} x(t) = L(t)\, x(t) + B(t)\, f(t),
+        \qquad y(t) = C(t)\, x(t),
 
     where the forcing is periodic of period :math:`T = 2\pi / \omega`,
 
@@ -435,40 +448,62 @@ def compute_post_transient_solution(
 
         f(t) = \sum_{k} \hat{f}_k\, e^{i \omega_k t}.
 
-    The state-space forcing modes :math:`B \hat{f}_k` are precomputed
-    once via :meth:`LinearOperator.apply_mat`, then the system is
-    integrated over successive periods :math:`[0, T]` with
-    :func:`solve_ivp`, using ``x`` as the initial condition at the
-    start of each period and the final state of the previous period
-    as the next initial condition.  After every period the
-    *periodicity error*
+    Each of :math:`L(t)`, :math:`B(t)`, :math:`C(t)` may be
+    time-invariant or :math:`T`-periodic.  Time updates are forwarded
+    to every operator via :meth:`LinearOperator.set_evaluation_time`:
+    :func:`solve_ivp` advances ``L``'s time at every RK stage; this
+    routine advances ``B``'s time while pre-computing the
+    state-space forcing and advances ``C``'s time when projecting
+    snapshots and the periodicity-check endpoints.  For an operator
+    with no internal time dependence the call is a no-op walk over
+    child attributes — see
+    :class:`~resolvent4py.linear_operators.TimePeriodicMatrixLinearOperator`
+    for the canonical implementation that does use the time.
+
+    The Fourier coefficients of :math:`g(t) = B(t) f(t)` are
+    pre-computed once by sampling :math:`g` on the FFT save grid and
+    forward-transforming.  This reproduces :math:`B \hat{f}_k`
+    column-by-column when :math:`B` is time-invariant (the
+    IFFT/FFT pair is exact on the matching grid) and gives the proper
+    convolution coefficients otherwise.  The system is then integrated
+    over successive periods :math:`[0, T]` with :func:`solve_ivp`,
+    using ``x`` as the initial condition at the start of each period
+    and the final state of the previous period as the next initial
+    condition.  After every period the *periodicity error*
 
     .. math::
 
-        \varepsilon_k = \frac{\|C\,x(0) - C\,x(T)\|}{\|C\,x(T)\|}
+        \varepsilon_k = \frac{\|C(0)\,x(0) - C(0)\,x(T)\|}
+                              {\|C(0)\,x(T)\|}
 
-    is monitored; the iteration stops once
-    :math:`\varepsilon_k < \mathrm{tol}` or after ``nperiods``
-    periods.  At convergence, the trajectory snapshots in ``X`` are
-    projected through :math:`C` and Fourier-transformed into
+    is monitored (with :math:`C` clocked to :math:`t = 0`, which equals
+    :math:`C(T)` by periodicity); the iteration stops once
+    :math:`\varepsilon_k < \mathrm{tol}` or after ``nperiods`` periods.
+    At convergence, the trajectory snapshots in ``X`` are projected
+    column-wise through :math:`C(t_i)` and Fourier-transformed into
     ``Yhat``.
 
-    If ``Laction`` is :meth:`L.apply_hermitian_transpose <
-    LinearOperator.apply_hermitian_transpose>` rather than
-    :meth:`L.apply`, the adjoint system is integrated backward in time
-    instead — :func:`solve_ivp` handles the flip internally and the
-    snapshot ordering is corrected.
+    If ``adjoint`` is ``True`` the adjoint system
+    :math:`-\dot{x} = L^*(t)\, x + B(t)\, f(t)` is integrated backward
+    in time instead — :func:`solve_ivp` handles the flip internally
+    and the snapshot ordering is corrected.
 
-    :param L: state operator :math:`L`
+    :param L: state operator :math:`L(t)`.  Time-invariant or
+        :math:`T`-periodic; if time-periodic it must override
+        :meth:`LinearOperator.set_evaluation_time` to update its
+        internal time (composite operators inherit the propagation
+        from the base class).
     :type L: LinearOperator
-    :param B: input operator :math:`B`
+    :param B: input operator :math:`B(t)`.  Time-invariant or
+        :math:`T`-periodic (same conventions as ``L``).
     :type B: LinearOperator
-    :param C: output operator :math:`C`
+    :param C: output operator :math:`C(t)`.  Time-invariant or
+        :math:`T`-periodic (same conventions as ``L``).
     :type C: LinearOperator
-    :param Laction: callable that applies :math:`L` (or its
-        Hermitian transpose) to a vector.  One of ``L.apply`` or
-        ``L.apply_hermitian_transpose``.
-    :type Laction: Callable
+    :param adjoint: if ``False``, integrate the forward system using
+        ``L.apply``; if ``True``, integrate the adjoint backward in
+        time using ``L.apply_hermitian_transpose``.
+    :type adjoint: bool
     :param tsim: simulation time grid for one period (typically the
         ``tsim`` returned by
         :func:`create_time_and_frequency_arrays`)
@@ -508,15 +543,48 @@ def compute_post_transient_solution(
         coefficients of the post-transient output :math:`y(t)`
     :rtype: SLEPc.BV
     """
-    BFhat = B.apply_mat(Fhat)
+    comm = L.get_comm()
+
+    # ── Pre-compute Fourier coefficients of g(t) = B(t) f(t) ───────────
+    # by sampling g on the FFT save grid and forward-transforming.  This
+    # path works for both time-invariant and time-periodic B: when B is
+    # time-invariant it reproduces ``B.apply_mat(Fhat)`` (the IFFT/FFT
+    # round-trip is exact on the matching grid); when B is time-periodic
+    # it produces the correct convolution coefficients.  Time updates
+    # are forwarded to B via :meth:`set_evaluation_time` — a cheap
+    # attribute-walk no-op when B has no internal time dependence.
+    save_times = tsim[::nsave][:-1]
+    state_sizes = X.getSizes()[0]
+    f_buf = Fhat.createVec()
+    g_buf = PETSc.Vec().create(comm=comm)
+    g_buf.setSizes(state_sizes)
+    g_buf.setUp()
+    g_time = SLEPc.BV().create(comm=comm)
+    g_time.setSizes(state_sizes, len(save_times))
+    g_time.setType("mat")
+    for i, t_i in enumerate(save_times):
+        f_buf = ifft(Fhat, f_buf, omegas, t_i)
+        B.set_evaluation_time(t_i)
+        g_buf = B.apply(f_buf, g_buf)
+        g_col = g_time.getColumn(i)
+        g_buf.copy(g_col)
+        g_time.restoreColumn(i, g_col)
+    g_time.setActiveColumns(0, len(save_times))
+    BFhat = SLEPc.BV().create(comm=comm)
+    BFhat.setSizes(state_sizes, len(omegas))
+    BFhat.setType("mat")
+    BFhat = fft(g_time, BFhat, L.get_real_flag())
+    g_time.destroy()
+    f_buf.destroy()
+    g_buf.destroy()
+
     y0 = C.create_right_vector()
     yk = y0.duplicate()
-    adjoint = False if Laction == L.apply else True
     idx = 0 if adjoint else X.getSizes()[-1] - 1
     for k in range(nperiods):
         X = solve_ivp(
             x,
-            Laction,
+            L,
             0.0,
             tsim[-1],
             len(tsim),
@@ -526,6 +594,8 @@ def compute_post_transient_solution(
             X,
             (BFhat, omegas),
         )
+        # By periodicity C(t=0) == C(t=T); evaluate both endpoints at 0.
+        C.set_evaluation_time(0.0)
         y0 = C.apply_hermitian_transpose(x, y0)
         xk = X.getColumn(idx)
         yk = C.apply_hermitian_transpose(xk, yk)
@@ -541,12 +611,33 @@ def compute_post_transient_solution(
             petscprint(PETSc.COMM_WORLD, str)
         if error < tol:
             break
+    else:
+        if comm.getRank() == 0:
+            warnings.warn(
+                f"compute_post_transient_solution: did not converge after "
+                f"{nperiods} periods.  Final periodicity error = "
+                f"{error:.3e}, tol = {tol:.3e}.  Increase ``nperiods`` "
+                f"or relax ``tol``.",
+                UserWarning,
+                stacklevel=2,
+            )
 
-    Y = C.apply_hermitian_transpose_mat(X)
+    # ── Apply C^H column-by-column to support time-varying C ───────────
+    Y = SLEPc.BV().create(comm=comm)
+    Y.setSizes(y0.getSizes(), X.getSizes()[-1])
+    Y.setType("mat")
+    snapshot_times = tsim[::nsave]
+    for i, t_i in enumerate(snapshot_times):
+        C.set_evaluation_time(t_i)
+        x_col = X.getColumn(i)
+        y_col = Y.getColumn(i)
+        y_col = C.apply_hermitian_transpose(x_col, y_col)
+        Y.restoreColumn(i, y_col)
+        X.restoreColumn(i, x_col)
     Y.setActiveColumns(0, X.getSizes()[-1] - 1)
     Yhat = fft(Y, Yhat, L.get_real_flag())
 
-    objects = [Y, BFhat, y0, yk, xk]
+    objects = [Y, BFhat, y0, yk]
     for obj in objects:
         obj.destroy()
     return Yhat

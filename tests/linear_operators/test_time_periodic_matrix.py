@@ -251,3 +251,73 @@ def test_set_evaluation_time(comm):
     y.destroy()
     op.destroy()
     assert max(errors) < 1e-10, f"max error across times = {max(errors):.2e}"
+
+
+# ── adjoint identity: <v, L w> = <L* v, w> ─────────────────────────────────
+
+
+def test_adjoint_identity(comm):
+    r"""Verify the adjoint identity
+
+    .. math::
+
+        \langle v, L w\rangle \;=\; \langle L^* v, w\rangle,
+        \qquad \langle a, b\rangle = a^H b,
+
+    for every combination of:
+
+    * ``L`` real (one-sided ``freqs``) and ``L`` complex (two-sided),
+    * ``v`` real and ``v`` complex,
+    * ``w`` real and ``w`` complex,
+
+    i.e. all 8 cases.  This exercises both the ``_real_A`` fast path
+    (real input) and the explicit ``(k, -k)`` pair construction
+    (complex input) on both :meth:`apply` and
+    :meth:`apply_hermitian_transpose`.
+    """
+    N = 8
+    t = 0.7
+
+    L_configs = [
+        ("real_A",    _make_real_A_coeffs(N, seed=131)),
+        ("complex_A", _make_complex_A_coeffs(N, seed=137)),
+    ]
+
+    errors = {}
+    for L_label, (Alst_np, freqs) in L_configs:
+        op = _build_op(comm, Alst_np, freqs, t)
+        for v_complex in (False, True):
+            for w_complex in (False, True):
+                v, _ = pytest_utils.generate_random_vector(
+                    comm, N, complex=v_complex
+                )
+                w, _ = pytest_utils.generate_random_vector(
+                    comm, N, complex=w_complex
+                )
+
+                Lw = op.apply(w)
+                Lhv = op.apply_hermitian_transpose(v)
+
+                # PETSc convention: x.dot(y) = y^H · x.
+                # So <v, Lw> = v^H · (Lw) = Lw.dot(v)
+                # and <L^H v, w> = (L^H v)^H · w = w.dot(Lhv).
+                lhs = Lw.dot(v)
+                rhs = w.dot(Lhv)
+
+                scale = max(abs(lhs), 1e-300)
+                err = abs(lhs - rhs) / scale
+                errors[(L_label, v_complex, w_complex)] = err
+
+                v.destroy()
+                w.destroy()
+                Lw.destroy()
+                Lhv.destroy()
+        op.destroy()
+
+    max_err = max(errors.values())
+    msg = "\n".join(
+        f"  {key}: rel error = {val:.2e}" for key, val in errors.items()
+    )
+    assert max_err < 1e-14, (
+        f"max adjoint-identity rel error = {max_err:.2e}\n{msg}"
+    )

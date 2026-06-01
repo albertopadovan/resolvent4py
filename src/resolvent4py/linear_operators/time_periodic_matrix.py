@@ -104,7 +104,8 @@ class TimePeriodicMatrixLinearOperator(LinearOperator):
         return bv
 
     def set_evaluation_time(self, time: float) -> None:
-        r"""Overwrite :code:`self.time`"""
+        r"""Overwrite :code:`self.time`, used by subsequent ``apply*``
+        calls to compute the exponential weights :math:`e^{i\omega_k t}`."""
         self.time = time
 
     def apply(self, x, y=None):

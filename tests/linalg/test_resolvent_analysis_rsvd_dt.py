@@ -52,7 +52,6 @@ def test_post_transient_response(comm, square_matrix_size):
             )
             sizes = Apetsc.getSizes()[0]
             L = res4py.linear_operators.MatrixLinearOperator(Apetsc)
-            Laction = L.apply_hermitian_transpose if adjoint else L.apply
 
             # Generate frequency vector
             tsim, nsave, omegas = res4py.create_time_and_frequency_arrays(
@@ -79,7 +78,7 @@ def test_post_transient_response(comm, square_matrix_size):
                 L,
                 B,
                 C,
-                Laction,
+                adjoint,
                 tsim,
                 nsave,
                 n_periods,
