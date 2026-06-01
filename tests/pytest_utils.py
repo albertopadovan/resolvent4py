@@ -59,6 +59,32 @@ def generate_random_bv(comm, size, complex=True):
     return X, Xpython
 
 
+def numpy_to_petsc(comm, A_np):
+    r"""Convert a dense numpy matrix (known identically on every rank)
+    into a distributed PETSc AIJ matrix.  Handles both square and
+    rectangular inputs.  Used by tests that need to materialise a
+    deterministic, hand-built reference matrix as a PETSc operator."""
+    Nr, Nc = A_np.shape
+    rows_coo, cols_coo, vals_coo = None, None, None
+    if comm.getRank() == 0:
+        r, c = np.nonzero(A_np)
+        rows_coo = np.asarray(r, dtype=PETSc.IntType)
+        cols_coo = np.asarray(c, dtype=PETSc.IntType)
+        vals_coo = np.asarray(A_np[r, c], dtype=PETSc.ScalarType)
+    rows = res4py.scatter_array_from_root_to_all(rows_coo)
+    cols = res4py.scatter_array_from_root_to_all(cols_coo)
+    vals = res4py.scatter_array_from_root_to_all(vals_coo)
+    Nrl = res4py.compute_local_size(Nr)
+    Ncl = res4py.compute_local_size(Nc)
+    sizes = ((Nrl, Nr), (Ncl, Nc))
+    rp, cs, vs = res4py.convert_coo_to_csr([rows, cols, vals], sizes)
+    M = PETSc.Mat().createAIJ(sizes, comm=comm)
+    M.setPreallocationCSR((rp, cs))
+    M.setValuesCSR(rp, cs, vs, True)
+    M.assemble()
+    return M
+
+
 def generate_random_vector(comm, N, complex=True):
     r"""Create random vector of size N"""
     Nl = res4py.compute_local_size(N)

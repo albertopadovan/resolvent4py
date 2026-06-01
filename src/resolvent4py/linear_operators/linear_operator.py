@@ -152,7 +152,7 @@ class LinearOperator(metaclass=abc.ABCMeta):
         :rtype: bool
         """
         sizes = self.get_dimensions()[-1]
-        x = generate_random_petsc_vector(sizes)
+        x = generate_random_petsc_vector(sizes, complex=False)
         x.scale(1.0 / x.norm())
         Lx = self.apply(x)
         Lxai = Lx.getArray().imag
@@ -182,7 +182,7 @@ class LinearOperator(metaclass=abc.ABCMeta):
             structure, :code:`False` otherwise.
         :rtype: bool
         """
-        x = generate_random_petsc_vector(self.get_dimensions()[-1])
+        x = generate_random_petsc_vector(self.get_dimensions()[-1], complex=True)
         enforce_complex_conjugacy(x, self.get_nblocks())
         x.scale(1.0 / x.norm())
         cc_x = check_complex_conjugacy(x, self.get_nblocks())

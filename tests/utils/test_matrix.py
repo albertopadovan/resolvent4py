@@ -2,14 +2,7 @@ import numpy as np
 import scipy as sp
 import resolvent4py as res4py
 from petsc4py import PETSc
-from resolvent4py.utils.comms import (
-    scatter_array_from_root_to_all,
-    compute_local_size,
-)
-from resolvent4py.utils.matrix import (
-    convert_coo_to_csr,
-    extract_block_banded,
-)
+from resolvent4py.utils.matrix import extract_block_banded
 from .. import pytest_utils
 
 
@@ -134,29 +127,6 @@ def test_assemble_harmonic_resolvent_generator(comm, square_matrix_size):
     assert error < 1e-10
 
 
-def _numpy_to_petsc(comm, A_np):
-    """Convert a dense numpy matrix (known on all ranks) to a distributed
-    PETSc AIJ matrix."""
-    N = A_np.shape[0]
-    rows_coo, cols_coo, vals_coo = None, None, None
-    if comm.getRank() == 0:
-        r, c = np.nonzero(A_np)
-        rows_coo = np.asarray(r, dtype=PETSc.IntType)
-        cols_coo = np.asarray(c, dtype=PETSc.IntType)
-        vals_coo = np.asarray(A_np[r, c], dtype=PETSc.ScalarType)
-    rows = scatter_array_from_root_to_all(rows_coo)
-    cols = scatter_array_from_root_to_all(cols_coo)
-    vals = scatter_array_from_root_to_all(vals_coo)
-    Nl = compute_local_size(N)
-    sizes = ((Nl, N), (Nl, N))
-    rp, cs, vs = convert_coo_to_csr([rows, cols, vals], sizes)
-    M = PETSc.Mat().createAIJ(sizes, comm=comm)
-    M.setPreallocationCSR((rp, cs))
-    M.setValuesCSR(rp, cs, vs, True)
-    M.assemble()
-    return M
-
-
 def test_extract_block_banded_diagonal(comm):
     r"""extract_block_banded with n_off_diags=0 extracts the correct
     diagonal blocks from a random block-structured matrix."""
@@ -168,7 +138,7 @@ def test_extract_block_banded_diagonal(comm):
     A_np = rng.standard_normal((nN, nN)) + 1j * rng.standard_normal((nN, nN))
     A_np = comm.tompi4py().bcast(A_np, root=0)
 
-    A_petsc = _numpy_to_petsc(comm, A_np)
+    A_petsc = pytest_utils.numpy_to_petsc(comm, A_np)
     B_petsc = extract_block_banded(A_petsc, nblocks, 0)
 
     # Build expected block-diagonal in numpy
@@ -207,7 +177,7 @@ def test_extract_block_banded_bandwidths(comm):
     rng = np.random.default_rng(7)
     A_np = rng.standard_normal((nN, nN)) + 1j * rng.standard_normal((nN, nN))
     A_np = comm.tompi4py().bcast(A_np, root=0)
-    A_petsc = _numpy_to_petsc(comm, A_np)
+    A_petsc = pytest_utils.numpy_to_petsc(comm, A_np)
 
     for n_off_diags in (1, 2, 3):
         B_petsc = extract_block_banded(A_petsc, nblocks, n_off_diags)
@@ -263,7 +233,7 @@ def test_extract_block_banded_of_block_banded_is_identity_map(comm):
                     B_np[i * n : (i + 1) * n, j * n : (j + 1) * n] = block
         B_np = comm.tompi4py().bcast(B_np, root=0)
 
-        B_petsc = _numpy_to_petsc(comm, B_np)
+        B_petsc = pytest_utils.numpy_to_petsc(comm, B_np)
         B2_petsc = extract_block_banded(B_petsc, nblocks, n_off_diags)
 
         # Verify: B2 x == B x for random x
