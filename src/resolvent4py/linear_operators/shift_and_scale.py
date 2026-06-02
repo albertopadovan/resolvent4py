@@ -44,6 +44,23 @@ class ShiftAndScaleLinearOperator(LinearOperator):
             comm, "ShiftAndScaleLinearOperator", dimensions, A.get_nblocks()
         )
 
+    def check_if_real_valued(self) -> bool:
+        r"""Real iff :math:`A` is real **and** both shift and scale are
+        real-valued scalars; otherwise the linear combination
+        :math:`\alpha I + \beta A` maps real inputs to a complex
+        output."""
+        scalars_real = (
+            np.imag(self.alpha) == 0.0 and np.imag(self.beta) == 0.0
+        )
+        return bool(self.A.get_real_flag() and scalars_real)
+
+    def check_if_complex_conjugate_structure(self) -> bool:
+        r"""Inherit the block-conjugate-symmetry flag from :math:`A` —
+        :math:`\alpha I + \beta A` preserves whatever cc structure
+        :math:`A` has (both :math:`I` and :math:`A` are diagonal /
+        block-Toeplitz in the same basis)."""
+        return self.A.get_block_cc_flag()
+
     def apply(self, x, y=None):
         y = x.duplicate() if y == None else y
         y = self.A.apply(x, y)

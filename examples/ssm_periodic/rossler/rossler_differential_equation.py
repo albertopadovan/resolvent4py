@@ -16,9 +16,12 @@ import numpy as np
 import scipy as sp
 
 from petsc4py import PETSc
+from slepc4py import SLEPc
 import resolvent4py as res4py
 
 from resolvent4py.spectral_submanifold import DifferentialEquation
+from resolvent4py.utils.vector import reshape_harmonic_balanced_vector_into_bv
+from resolvent4py.utils.bv import reshape_bv_into_harmonic_balanced_vector
 from rossler_rhs import (
     linear_matrix,
     quadratic_bilinear,
@@ -48,6 +51,12 @@ class RosslerPeriodic(DifferentialEquation):
         nfb: int,
         c_star: np.ndarray,
         time: np.ndarray,
+        use_time_stepping: bool = False,
+        ts_dt: Optional[float] = None,
+        ts_nperiods: int = 200,
+        ts_tol: float = 1e-8,
+        ts_method: str = "RK3",
+        ts_verbose: int = 0,
     ) -> None:
         comm = PETSc.COMM_WORLD
 
@@ -91,7 +100,16 @@ class RosslerPeriodic(DifferentialEquation):
 
         self.pertb_freqs = self.omega * np.arange(-nf, nf + 1)
 
+        self.use_time_stepping = use_time_stepping
+        self._ts_dt = ts_dt
+        self._ts_nperiods = ts_nperiods
+        self._ts_tol = ts_tol
+        self._ts_method = ts_method
+        self._ts_verbose = ts_verbose
+
         self._build_harmonic_balanced_operator()
+        if self.use_time_stepping:
+            self._build_time_stepping_machinery()
 
     # -----------------------------------------------------------------
     # HB matrix assembly
@@ -116,6 +134,10 @@ class RosslerPeriodic(DifferentialEquation):
 
         Ashat = np.fft.rfft(As, axis=-1) / n_time
         Ashat = Ashat[:, : self.nfb + 1]
+        # Keep the truncated one-sided Fourier coefficients in numpy
+        # form so the time-stepping path can rebuild A(t) as a
+        # TimePeriodicMatrixLinearOperator with identical truncation.
+        self._Ashat = Ashat.copy()
 
         tmp = "tmp_hb/"
         os.makedirs(tmp, exist_ok=True)
@@ -238,6 +260,8 @@ class RosslerPeriodic(DifferentialEquation):
         b: PETSc.Vec,
         x: Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
+        if self.use_time_stepping:
+            return self._solve_linear_system_time_stepping(s, b, x)
         M = self.A.A.copy()
         M.scale(-1.0)
         size = M.getSizes()[0]
@@ -250,3 +274,132 @@ class RosslerPeriodic(DifferentialEquation):
         x = Lop.solve(b, x)
         Lop.destroy()
         return x
+
+    # -----------------------------------------------------------------
+    # Time-stepping path: solve (s I - L_HB) x = b by integrating
+    # dq/dt = (A(t) - s I) q + b(t) to its periodic steady state and
+    # FFTing the response.  Mathematically equivalent to the algebraic
+    # solve above (modulo RK truncation + post-transient tail), but
+    # avoids the full HB-matrix factorisation.
+    # -----------------------------------------------------------------
+
+    def _numpy_to_petsc_aij(self, M_np: np.ndarray) -> PETSc.Mat:
+        r"""Materialise a small numpy matrix (replicated on every rank)
+        as a distributed PETSc AIJ matrix.  Uses the same
+        scatter+COO-to-CSR pipeline as :func:`pytest_utils.numpy_to_petsc`
+        so this works for an arbitrary number of MPI ranks."""
+        comm = self.get_comm()
+        Nr, Nc = M_np.shape
+        rows_coo, cols_coo, vals_coo = None, None, None
+        if comm.getRank() == 0:
+            r, c = np.nonzero(M_np)
+            rows_coo = np.asarray(r, dtype=PETSc.IntType)
+            cols_coo = np.asarray(c, dtype=PETSc.IntType)
+            vals_coo = np.asarray(M_np[r, c], dtype=PETSc.ScalarType)
+        rows = res4py.scatter_array_from_root_to_all(rows_coo)
+        cols = res4py.scatter_array_from_root_to_all(cols_coo)
+        vals = res4py.scatter_array_from_root_to_all(vals_coo)
+        Nrl = res4py.compute_local_size(Nr)
+        Ncl = res4py.compute_local_size(Nc)
+        sizes = ((Nrl, Nr), (Ncl, Nc))
+        rp, cs, vs = res4py.convert_coo_to_csr([rows, cols, vals], sizes)
+        M = PETSc.Mat().createAIJ(sizes, comm=comm)
+        M.setPreallocationCSR((rp, cs))
+        M.setValuesCSR(rp, cs, vs, True)
+        M.assemble()
+        return M
+
+    def _build_time_stepping_machinery(self) -> None:
+        r"""Assemble the time-periodic :class:`TimePeriodicMatrixLinearOperator`
+        for :math:`A(t)` from the same truncated one-sided Fourier
+        coefficients used to build the HB matrix, plus the time/save
+        grids that :func:`compute_post_transient_solution` consumes."""
+        comm = self.get_comm()
+        n = self.n
+
+        # Time-periodic A(t) operator from one-sided Fourier coeffs.
+        A_petsc_lst, A_op_lst = [], []
+        for k in range(self.nfb + 1):
+            A_k_np = self._Ashat[:, k].reshape((n, n))
+            A_k_petsc = self._numpy_to_petsc_aij(A_k_np)
+            A_petsc_lst.append(A_k_petsc)
+            A_op_lst.append(
+                res4py.linear_operators.MatrixLinearOperator(A_k_petsc)
+            )
+        one_sided_freqs = self.omega * np.arange(
+            self.nfb + 1, dtype=float
+        )
+        self._A_t_petsc_lst = A_petsc_lst
+        self._A_t_op = res4py.linear_operators.TimePeriodicMatrixLinearOperator(
+            A_op_lst, one_sided_freqs, time=0.0
+        )
+
+        # Time and save grids for one period.  ``n_omegas = nf`` so the
+        # save grid carries all 2*nf + 1 harmonics of the perturbation.
+        dt = self.T_period / 200.0 if self._ts_dt is None else self._ts_dt
+        self._ts_tsim, self._ts_nsave, _ = (
+            res4py.create_time_and_frequency_arrays(
+                dt, self.omega, self.nf, real=False
+            )
+        )
+        # Use HB-ordered perturbation frequencies (the BV columns of the
+        # HB long vector are HB-ordered, so omegas must match).
+        self._ts_omegas = self.pertb_freqs.copy()
+
+        # Pre-allocate reusable scratch BVs for solve_linear_system.
+        state_dim = (res4py.compute_local_size(n), n)
+        nblocks = 2 * self.nf + 1
+        self._ts_F_BV = SLEPc.BV().create(comm=comm)
+        self._ts_F_BV.setSizes(state_dim, nblocks)
+        self._ts_F_BV.setType("mat")
+        self._ts_Y_BV = self._ts_F_BV.duplicate()
+        self._ts_X_BV = SLEPc.BV().create(comm=comm)
+        self._ts_X_BV.setSizes(
+            state_dim, len(self._ts_tsim[:: self._ts_nsave])
+        )
+        self._ts_X_BV.setType("mat")
+        self._ts_x_init = self._ts_F_BV.createVec()
+
+        # Identity B = C = I for the input/output maps.
+        self._ts_Id_mat = res4py.create_AIJ_identity(
+            comm, (state_dim, state_dim)
+        )
+        self._ts_Idop = res4py.linear_operators.MatrixLinearOperator(
+            self._ts_Id_mat
+        )
+
+    def _solve_linear_system_time_stepping(
+        self, s: complex, b: PETSc.Vec, x: Optional[PETSc.Vec]
+    ) -> PETSc.Vec:
+        r"""Integrate :math:`\dot{q} = (A(t) - s I)\, q + b(t)` to
+        periodic steady state and return the FFT of the response.
+        Equivalent to solving :math:`(s I - L_{\rm HB})\, x = b` in HB
+        form."""
+        shifted = res4py.linear_operators.ShiftAndScaleLinearOperator(
+            self._A_t_op, alpha=-s, beta=1.0
+        )
+        reshape_harmonic_balanced_vector_into_bv(
+            b, 2 * self.nf + 1, self._ts_F_BV
+        )
+        self._ts_x_init.zeroEntries()
+
+        self._ts_Y_BV = res4py.compute_post_transient_solution(
+            shifted,
+            self._ts_Idop,
+            self._ts_Idop,
+            False,
+            self._ts_tsim,
+            self._ts_nsave,
+            self._ts_nperiods,
+            self._ts_omegas,
+            self._ts_x_init,
+            self._ts_F_BV,
+            self._ts_Y_BV,
+            self._ts_X_BV,
+            tol=self._ts_tol,
+            time_stpper=self._ts_method,
+            harmonic_balancing_ordering=True,
+            verbose=self._ts_verbose,
+        )
+
+        return reshape_bv_into_harmonic_balanced_vector(self._ts_Y_BV, x)

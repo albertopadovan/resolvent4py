@@ -431,6 +431,10 @@ def compute_post_transient_solution(
     X: SLEPc.BV,
     tol: typing.Optional[float] = 1e-3,
     time_stpper: typing.Optional[str] = "RK2",
+    harmonic_balancing_ordering: typing.Optional[bool] = False,
+    method: typing.Optional[str] = "donothing",
+    gmres_rtol: typing.Optional[float] = 1e-8,
+    gmres_max_it: typing.Optional[int] = 200,
     verbose: typing.Optional[int] = 0,
 ):
     r"""
@@ -530,13 +534,53 @@ def compute_post_transient_solution(
         :math:`x(t_i)` for :math:`t_i \in \text{tsim}[::n_{\text{save}}]`
     :type X: SLEPc.BV
     :param tol: convergence tolerance on the relative periodicity
-        error :math:`\varepsilon_k`
+        error :math:`\varepsilon_k` for the ``'donothing'`` method;
+        ignored when ``method='gmres'``
     :type tol: Optional[float], default ``1e-3``
     :param time_stpper: time integrator passed to :func:`solve_ivp`
         (e.g. ``"RK2"`` or ``"RK3"``)
     :type time_stpper: Optional[str], default ``"RK2"``
-    :param verbose: if greater than 1, prints the periodicity error
-        at the end of every period
+    :param harmonic_balancing_ordering: passed to the output FFT.
+        ``False`` (default) gives numpy-FFT column order
+        ``[0, 1, …, m, -m, …, -1]``; ``True`` gives the
+        :class:`~resolvent4py.spectral_submanifold.PeriodicDifferentialEquation`
+        convention ``[-m, …, -1, 0, 1, …, m]``.  Only relevant when
+        ``omegas`` is two-sided.
+    :type harmonic_balancing_ordering: Optional[bool], default ``False``
+    :param method: how to enforce :math:`T`-periodicity of the steady
+        state.
+
+        - ``'donothing'``: integrate one period at a time, reseed
+          with :math:`x(T)`, stop once
+          :math:`\|C(0)(x(0) - x(T))\| / \|C(0)\, x(T)\| < \mathrm{tol}`
+          or after ``nperiods`` periods.  Cheap per call but requires
+          the *shifted* Floquet spectrum to lie strictly in the left
+          half-plane (i.e.\ the time-stepping is stable).  Diverges
+          if any direction has :math:`\mathrm{Re}(\lambda) \geq 0`.
+
+        - ``'gmres'``: solve the linear BVP
+          :math:`(I - \Phi(T, 0))\, x(0) = \int_0^T \Phi(T, \tau)\,
+          (B f)(\tau)\, d\tau` via GMRES on a PETSc shell whose
+          ``mult`` is one homogeneous shot of :func:`solve_ivp` per
+          iteration.  ``Φ`` is the monodromy of the homogeneous
+          shifted ODE.  Works for **any** shift where
+          :math:`I - \Phi(T, 0)` is non-singular — including shifts
+          in the unstable half-plane where ``'donothing'`` would
+          diverge.  Costs one extra time integration (the snapshot
+          fill after the GMRES solve), plus one integration per GMRES
+          iteration.  Fails only at resonance:
+          :math:`s \in \mathrm{spec}(L_{\rm HB})`.
+    :type method: Optional[str], default ``'donothing'``
+    :param gmres_rtol: relative residual tolerance for the GMRES
+        solve; only used when ``method='gmres'``
+    :type gmres_rtol: Optional[float], default ``1e-8``
+    :param gmres_max_it: GMRES iteration cap; only used when
+        ``method='gmres'``
+    :type gmres_max_it: Optional[int], default ``200``
+    :param verbose: ``0`` is silent; ``1`` prints a one-line GMRES
+        convergence summary (only for ``'gmres'``); ``> 1`` also
+        prints per-iteration residual (``'gmres'``) or per-period
+        periodicity error (``'donothing'``)
     :type verbose: Optional[int], default ``0``
 
     :return: the input ``Yhat`` BV, filled with the Fourier
@@ -544,6 +588,14 @@ def compute_post_transient_solution(
     :rtype: SLEPc.BV
     """
     comm = L.get_comm()
+    # The FFT format is dictated by ``omegas``: a non-negative spectrum
+    # implies a real time-domain signal (use rfft), a two-sided spectrum
+    # implies a complex signal (use full fft).  ``harmonic_balancing_ordering``
+    # additionally selects whether the two-sided output columns are
+    # numpy-ordered ``[0, …, m, -m, …, -1]`` or HB-ordered
+    # ``[-m, …, -1, 0, …, m]`` — the latter matches the
+    # :class:`PeriodicDifferentialEquation` convention.
+    real_signal = np.min(omegas) == 0.0
 
     # ── Pre-compute Fourier coefficients of g(t) = B(t) f(t) ───────────
     # by sampling g on the FFT save grid and forward-transforming.  This
@@ -573,54 +625,148 @@ def compute_post_transient_solution(
     BFhat = SLEPc.BV().create(comm=comm)
     BFhat.setSizes(state_sizes, len(omegas))
     BFhat.setType("mat")
-    BFhat = fft(g_time, BFhat, L.get_real_flag())
+    BFhat = fft(g_time, BFhat, real_signal, harmonic_balancing_ordering)
     g_time.destroy()
     f_buf.destroy()
     g_buf.destroy()
 
     y0 = C.create_right_vector()
     yk = y0.duplicate()
-    idx = 0 if adjoint else X.getSizes()[-1] - 1
-    for k in range(nperiods):
-        X = solve_ivp(
-            x,
-            L,
-            0.0,
-            tsim[-1],
-            len(tsim),
-            time_stpper,
-            nsave,
-            adjoint,
-            X,
-            (BFhat, omegas),
-        )
-        # By periodicity C(t=0) == C(t=T); evaluate both endpoints at 0.
-        C.set_evaluation_time(0.0)
-        y0 = C.apply_hermitian_transpose(x, y0)
-        xk = X.getColumn(idx)
-        yk = C.apply_hermitian_transpose(xk, yk)
-        xk.copy(x)
-        X.restoreColumn(idx, xk)
-        y0.axpy(-1.0, yk)
-        error = y0.norm() / yk.norm()
-        if verbose > 1:
-            str = (
-                f"Deviation from periodicity at period {k + 1}/{nperiods} "
-                f"= {error}"
+
+    if method == "donothing":
+        # ── Post-transient iteration ────────────────────────────────────
+        # Integrate one period at a time, reseed with the final state,
+        # and stop once the periodicity error
+        # ‖C(0)(x(0) − x(T))‖ / ‖C(0) x(T)‖ falls below ``tol``.
+        # Requires the shifted system to be stable; for shifts whose
+        # real part lands inside the Floquet spectrum, use
+        # ``method='gmres'`` instead.
+        idx = 0 if adjoint else X.getSizes()[-1] - 1
+        for k in range(nperiods):
+            X = solve_ivp(
+                x,
+                L,
+                0.0,
+                tsim[-1],
+                len(tsim),
+                time_stpper,
+                nsave,
+                adjoint,
+                X,
+                (BFhat, omegas),
             )
-            petscprint(PETSc.COMM_WORLD, str)
-        if error < tol:
-            break
-    else:
-        if comm.getRank() == 0:
+            # By periodicity C(t=0) == C(t=T); evaluate both endpoints at 0.
+            C.set_evaluation_time(0.0)
+            y0 = C.apply_hermitian_transpose(x, y0)
+            xk = X.getColumn(idx)
+            yk = C.apply_hermitian_transpose(xk, yk)
+            xk.copy(x)
+            X.restoreColumn(idx, xk)
+            y0.axpy(-1.0, yk)
+            error = y0.norm() / yk.norm()
+            if verbose > 1:
+                str = (
+                    f"Deviation from periodicity at period {k + 1}/{nperiods} "
+                    f"= {error}"
+                )
+                petscprint(PETSc.COMM_WORLD, str)
+            if error < tol:
+                break
+        else:
+            if comm.getRank() == 0:
+                warnings.warn(
+                    f"compute_post_transient_solution: did not converge after "
+                    f"{nperiods} periods.  Final periodicity error = "
+                    f"{error:.3e}, tol = {tol:.3e}.  Increase ``nperiods`` "
+                    f"or relax ``tol``.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
+    elif method == "gmres":
+        # ── Shoot-and-solve via GMRES ──────────────────────────────────
+        # The T-periodic steady state satisfies
+        #     (I − Φ(T, 0)) x(0) = ∫_0^T Φ(T, τ) (B f)(τ) dτ
+        # where Φ is the monodromy of the homogeneous shifted ODE.
+        # The RHS is one solve_ivp shot from zero IC; (I − Φ) is wrapped
+        # as a PETSc shell whose mult is one homogeneous shot per
+        # GMRES iteration.  Works for any shift where I − Φ is
+        # invertible — including shifts in the unstable half-plane
+        # where the iteration path diverges.
+        x.zeroEntries()
+        rhs = solve_ivp(
+            x, L, 0.0, tsim[-1], len(tsim), time_stpper,
+            m=-1, adjoint=adjoint, X=None,
+            periodic_forcing=(BFhat, omegas),
+        )
+
+        class _IminusPhiShell:
+            r"""``mult: y = x − Φ_eff(T, 0) x`` where Φ_eff is the
+            forward or adjoint propagator depending on
+            ``adjoint``."""
+            def mult(self_, _M, x_in, y_out):
+                sol = solve_ivp(
+                    x_in, L, 0.0, tsim[-1], len(tsim), time_stpper,
+                    m=-1, adjoint=adjoint, X=None,
+                    periodic_forcing=None,
+                )
+                sol.aypx(-1.0, x_in)   # sol = x_in − Φ_eff x_in
+                sol.copy(y_out)
+                sol.destroy()
+
+        shell = PETSc.Mat().create(comm)
+        shell.setSizes(L.get_dimensions())
+        shell.setType("python")
+        shell.setPythonContext(_IminusPhiShell())
+        shell.setUp()
+
+        ksp = PETSc.KSP().create(comm=comm)
+        ksp.setOperators(shell)
+        ksp.setType("gmres")
+        ksp.getPC().setType("none")
+        ksp.setTolerances(rtol=gmres_rtol, max_it=gmres_max_it)
+        if verbose > 1:
+            def _mon(_ksp, it, rn):
+                petscprint(
+                    comm,
+                    f"GMRES iter {it}: |r| = {rn:.3e}",
+                )
+            ksp.setMonitor(_mon)
+        ksp.solve(rhs, x)
+        if verbose > 0:
+            reason = ksp.getConvergedReason()
+            iters = ksp.getIterationNumber()
+            petscprint(
+                comm,
+                f"compute_post_transient_solution[gmres]: "
+                f"{iters} iters, reason={reason}",
+            )
+        if comm.getRank() == 0 and ksp.getConvergedReason() <= 0:
             warnings.warn(
-                f"compute_post_transient_solution: did not converge after "
-                f"{nperiods} periods.  Final periodicity error = "
-                f"{error:.3e}, tol = {tol:.3e}.  Increase ``nperiods`` "
-                f"or relax ``tol``.",
+                f"compute_post_transient_solution[gmres]: GMRES failed "
+                f"to converge (reason = {ksp.getConvergedReason()}, "
+                f"{ksp.getIterationNumber()} iters).  Either I − Φ(T,0) "
+                f"is singular (resonance: s on the spectrum of L_HB) "
+                f"or ``gmres_max_it`` is too small.",
                 UserWarning,
                 stacklevel=2,
             )
+        rhs.destroy()
+        ksp.destroy()
+        shell.destroy()
+
+        # One more integration from the periodic IC ``x`` to fill ``X``
+        # with snapshots for the FFT below.
+        X = solve_ivp(
+            x, L, 0.0, tsim[-1], len(tsim), time_stpper,
+            nsave, adjoint, X, (BFhat, omegas),
+        )
+
+    else:
+        raise ValueError(
+            f"compute_post_transient_solution: unknown method "
+            f"{method!r}.  Expected 'donothing' or 'gmres'."
+        )
 
     # ── Apply C^H column-by-column to support time-varying C ───────────
     Y = SLEPc.BV().create(comm=comm)
@@ -635,7 +781,7 @@ def compute_post_transient_solution(
         Y.restoreColumn(i, y_col)
         X.restoreColumn(i, x_col)
     Y.setActiveColumns(0, X.getSizes()[-1] - 1)
-    Yhat = fft(Y, Yhat, L.get_real_flag())
+    Yhat = fft(Y, Yhat, real_signal, harmonic_balancing_ordering)
 
     objects = [Y, BFhat, y0, yk]
     for obj in objects:
