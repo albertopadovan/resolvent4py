@@ -431,11 +431,11 @@ def compute_post_transient_solution(
     X: SLEPc.BV,
     tol: typing.Optional[float] = 1e-3,
     time_stpper: typing.Optional[str] = "RK2",
+    verbose: typing.Optional[int] = 0,
     harmonic_balancing_ordering: typing.Optional[bool] = False,
     method: typing.Optional[str] = "donothing",
     gmres_rtol: typing.Optional[float] = 1e-8,
     gmres_max_it: typing.Optional[int] = 200,
-    verbose: typing.Optional[int] = 0,
 ):
     r"""
     Compute the post-transient (periodic steady-state) output of the
@@ -540,6 +540,11 @@ def compute_post_transient_solution(
     :param time_stpper: time integrator passed to :func:`solve_ivp`
         (e.g. ``"RK2"`` or ``"RK3"``)
     :type time_stpper: Optional[str], default ``"RK2"``
+    :param verbose: ``0`` is silent; ``1`` prints a one-line GMRES
+        convergence summary (only for ``'gmres'``); ``> 1`` also
+        prints per-iteration residual (``'gmres'``) or per-period
+        periodicity error (``'donothing'``)
+    :type verbose: Optional[int], default ``0``
     :param harmonic_balancing_ordering: passed to the output FFT.
         ``False`` (default) gives numpy-FFT column order
         ``[0, 1, …, m, -m, …, -1]``; ``True`` gives the
@@ -577,11 +582,6 @@ def compute_post_transient_solution(
     :param gmres_max_it: GMRES iteration cap; only used when
         ``method='gmres'``
     :type gmres_max_it: Optional[int], default ``200``
-    :param verbose: ``0`` is silent; ``1`` prints a one-line GMRES
-        convergence summary (only for ``'gmres'``); ``> 1`` also
-        prints per-iteration residual (``'gmres'``) or per-period
-        periodicity error (``'donothing'``)
-    :type verbose: Optional[int], default ``0``
 
     :return: the input ``Yhat`` BV, filled with the Fourier
         coefficients of the post-transient output :math:`y(t)`

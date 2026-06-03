@@ -35,7 +35,7 @@ equation. This script demonstrates the following:
 - Resolvent analysis in the frequency domain using
   :func:`~resolvent4py.linalg.randomized_svd.randomized_svd`
 
-.. GENERATED FROM PYTHON SOURCE LINES 20-113
+.. GENERATED FROM PYTHON SOURCE LINES 20-112
 
 .. code-block:: Python
 
@@ -55,7 +55,6 @@ equation. This script demonstrates the following:
             "font.family": "serif",
             "font.sans-serif": ["Computer Modern"],
             "font.size": 18,
-            "text.usetex": True,
         }
     )
 

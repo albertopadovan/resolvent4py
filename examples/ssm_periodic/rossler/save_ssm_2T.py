@@ -24,7 +24,7 @@ from resolvent4py.spectral_submanifold import SpectralSubmanifold
 nf = 100
 nfb = 70
 r = 1
-m = 15
+m = 30
 ssm_scaling = 0.01
 manifold_tol = 1e-2
 
@@ -72,6 +72,8 @@ eq = RosslerPeriodic(
     c_star=C_periodic,
     time=time_orbit,
     periodic_diffeq=periodic_diffeq,
+    use_time_stepping=True,
+    ts_verbose=1,
 )
 
 eq.L, eq.Phi, eq.Psi, eq._neutral_proj = load_eigendecomp(

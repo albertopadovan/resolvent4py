@@ -91,30 +91,67 @@ Top-level entry points:
   matMults (`Ir^H · Mat · Ic`).
 - `extract_block_diagonal(Mat, nblocks)` zeros out off-diagonal
   blocks via `Σ_k E_k · A · E_k`.
+- `extract_block_banded(Mat, nblocks, n_off_diags=0)` generalizes
+  to a band: sums `Σ_{|i−j| ≤ n_off_diags} E_i · A · E_j`. Useful
+  for block-tridiagonal preconditioners on harmonic-balanced matrices.
 
 ### Time stepping (`time_stepping.py`)
 
-`solve_ivp(v, action, t0, tf, nsteps, method, m, adjoint,
-periodic_forcing)` is a custom RK2/RK3 that:
+`solve_ivp(v, L, t0, tf, nsteps, method, m, adjoint,
+X, periodic_forcing)` is a custom RK2/RK3 that:
 
-- Integrates `dx/dt = action(x) + f(t)` (or backward in time when
-  `adjoint=True`).
+- Integrates `dx/dt = L(t) x + f(t)` (or backward in time when
+  `adjoint=True`, using `L.apply_hermitian_transpose`). **`L` is a
+  `LinearOperator`, not a raw callable.** At every RK stage,
+  `solve_ivp` calls `L.set_evaluation_time(t)` so any time-periodic
+  inner operator (`TimePeriodicMatrixLinearOperator`, plus anything
+  composed on top of one) is automatically kept in sync.
 - Accepts a periodic forcing as `(F_hat, omegas)` Fourier modes;
   uses `ifft` internally per step.
 - Saves every `m` steps into a SLEPc.BV `X` (or returns just the
   final-time vec when `m = -1`).
 
-`compute_post_transient_solution` repeatedly time-steps a full
-period and breaks early when the relative deviation between
-consecutive periods drops below `tol` — that's the workhorse for
-RSVD-dt resolvent analysis.
+`compute_post_transient_solution(L, B, C, adjoint, tsim, nsave,
+nperiods, omegas, x, Fhat, Yhat, X, ..., method='donothing', ...)`
+computes the `T`-periodic steady state of `dx/dt = L(t) x + B(t)
+f(t), y = C(t) x` for the user-supplied operators. All of `L`,
+`B`, `C` may be time-varying (the routine threads
+`set_evaluation_time(t_i)` through `B`'s pre-FFT sampling and `C`'s
+per-snapshot projection). Two strategies via the `method` flag:
+
+- `method='donothing'` (default, backward-compat): post-transient
+  iteration. Cheap per call but requires the *shifted* Floquet
+  spectrum to be strictly stable; diverges otherwise.
+- `method='gmres'`: shoot-and-solve. Wraps `(I − Φ(T, 0))` as a
+  PETSc shell (one homogeneous `solve_ivp` shot per `mult`), GMRES-
+  solves `(I − Φ) x(0) = ∫₀ᵀ Φ(T, τ) (B f)(τ) dτ`, then integrates
+  one more period from `x(0)` to fill `X`. Works for **any** shift
+  where `I − Φ(T, 0)` is non-singular — including SSM-style shifts
+  whose `s` lands inside the Floquet spectrum of `L_HB` (where
+  `'donothing'` would diverge). Costs one extra integration up
+  front plus one per GMRES iter.
+
+Output FFT format follows `omegas`:
+`np.min(omegas) == 0` ⇒ rfft (one-sided real signal); two-sided
+omegas ⇒ full fft. Pass `harmonic_balancing_ordering=True` to
+permute the two-sided output into `[-m, …, -1, 0, 1, …, m]` (the
+`PeriodicDifferentialEquation` convention) instead of numpy's
+`[0, 1, …, m, -m, …, -1]`.
+
+`create_time_and_frequency_arrays(dt, omega, n_omegas, real)`
+builds the matching `(tsim, nsave, omegas)` triple. The save grid
+has `2·(n_omegas + 4)` samples per period — `+4` is a dealiasing
+buffer for products of bandlimited signals (the `B(t) f(t)` and
+`C(t) x(t)` convolutions). If `B(t)`/`C(t)` carry more than ~4
+harmonics each, bump `n_omegas` accordingly.
 
 ### Vector utilities (`vector.py`)
 
-- `enforce_complex_conjugacy` / `check_complex_conjugacy` operate on
-  vectors with block structure `[v_-m, ..., v_-1, v_0, v_1, ..., v_m]`
-  (so `v_-i = conj(v_i)`). `nblocks` must be odd; `v_0` is forced
-  real.
+- `enforce_complex_conjugacy(vec, nblocks)` / `check_complex_conjugacy`
+  operate on vectors with block structure
+  `[v_-m, ..., v_-1, v_0, v_1, ..., v_m]` (so `v_-i = conj(v_i)`).
+  `nblocks` must be odd; `v_0` is forced real. **The communicator
+  is inferred from `vec.getComm()`** — there is no `comm` parameter.
 - `reshape_harmonic_balanced_vector_into_bv` and its inverse in
   [bv.py](../../../src/resolvent4py/utils/bv.py)
   (`reshape_bv_into_harmonic_balanced_vector`) switch between the

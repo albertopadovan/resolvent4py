@@ -57,13 +57,11 @@ class SpectralSubmanifoldROM:
     - ``W``  has shape ``(n_harmonics, n, r)``.
     - ``omega`` is required (fundamental angular frequency
       :math:`\omega = 2\pi/T`).
-    - Let
-      :math:`E(t) = (e^{i k \omega t})_{k=-n_f}^{n_f}` be the IFFT
-      weights.  Then
-        decoder:  :math:`x(t) = \mathrm{Re}\,[ E(t) \cdot
-                  (\sum_\alpha s^\alpha P_\alpha) ]`,
-        encoder:  :math:`s = W_\text{phys}(t)^H x` with
-                  :math:`W_\text{phys}(t) = E(t) \cdot W`.
+    - Let :math:`E(t) = (e^{i k \omega t})_{k=-n_f}^{n_f}` be the
+      IFFT weights.  Then the decoder is
+      :math:`x(t) = \mathrm{Re}[E(t) \cdot (\sum_\alpha s^\alpha P_\alpha)]`
+      and the encoder is :math:`s = W_\mathrm{phys}(t)^H x` with
+      :math:`W_\mathrm{phys}(t) = E(t) \cdot W`.
     """
 
     def __init__(

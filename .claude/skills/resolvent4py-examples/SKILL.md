@@ -1,6 +1,6 @@
 ---
 name: resolvent4py-examples
-description: Worked examples that demonstrate the full resolvent4py API end-to-end — CGL (eigendecomposition, RSVD, RSVD-dt, balanced truncation), toy_model (harmonic resolvent), and SSM (autonomous + time-periodic, on a 3D Hopf normal form and the Kuramoto-Sivashinsky PDE). Use when the user wants a runnable starting point, asks "how do I set up X end-to-end", or needs the canonical recipe for a particular analysis.
+description: Worked examples that demonstrate the full resolvent4py API end-to-end — CGL (eigendecomposition, RSVD, RSVD-dt, balanced truncation), toy_model (harmonic resolvent), autonomous SSMs (Hopf3D + KSE), and time-periodic SSMs (KSE, Rössler period-doubling — including a time-stepping shoot-and-solve path for SSM-style shifts). Use when the user wants a runnable starting point, asks "how do I set up X end-to-end", or needs the canonical recipe for a particular analysis.
 ---
 
 # `examples/`
@@ -35,7 +35,9 @@ examples/
 │   └── kse/         (Kuramoto–Sivashinsky, 64 sine modes)
 │
 └── ssm_periodic/               # SSMs of time-periodic systems
-    └── kse/        (KSE on a Hopf-born limit cycle, harmonic-balanced)
+    ├── kse/        (KSE on a Hopf-born limit cycle, harmonic-balanced)
+    └── rossler/    (Rössler period-doubling SSM, with both algebraic
+                     and time-stepping/GMRES solve_linear_system paths)
 ```
 
 ## How to run them (canonical recipe)
@@ -136,6 +138,52 @@ This is the template for **PDE-discretization SSMs**: anything
 that needs FFT for the nonlinear evaluation and a non-trivial
 spectral-Galerkin Jacobian.
 
+### `ssm_periodic/rossler/` — SSM of the period-doubling Rössler orbit
+
+The canonical *small* time-periodic SSM (3-state ODE, fast to iterate).
+Two parallel pipelines, mirroring the `ssm/` subdirectories:
+
+1. **Algebraic** (default, identical to `kse/` workflow):
+   - [save_eigendecomp.py](../../../examples/ssm_periodic/rossler/save_eigendecomp.py) /
+     [save_eigendecomp_2T.py](../../../examples/ssm_periodic/rossler/save_eigendecomp_2T.py) —
+     compute the Floquet eigendecomposition (1T and 2T-doubled, respectively).
+   - [save_ssm.py](../../../examples/ssm_periodic/rossler/save_ssm.py) /
+     [save_ssm_2T.py](../../../examples/ssm_periodic/rossler/save_ssm_2T.py) —
+     build the SSM and cache to npz.
+   - `solve_linear_system` factors `s I − L_HB` with MUMPS — robust to
+     any shift, but pays the full HB LU.
+
+2. **Time-stepping with GMRES shoot-and-solve** (`use_time_stepping=True`
+   on `RosslerPeriodic`):
+   - Replaces the algebraic MUMPS solve with
+     `compute_post_transient_solution(method='gmres', ...)` on
+     `A(t) − s I` (built as a `ShiftAndScale` over a
+     `TimePeriodicMatrixLinearOperator`).
+   - Works for SSM-style shifts where `Re(s)` lands inside the Floquet
+     spectrum and the iteration path (`method='donothing'`) would
+     diverge. Costs scale with GMRES iterations (typically `O(N_state)`
+     because the BVP is on the state-space, not the HB space).
+   - Sanity checks:
+     [demonstrate_shoot_and_solve.py](../../../examples/ssm_periodic/rossler/demonstrate_shoot_and_solve.py)
+     drives the library `method='gmres'` path directly and compares to
+     the algebraic baseline on stable + SSM-style shifts.
+     [demonstrate_time_stepping_solve.py](../../../examples/ssm_periodic/rossler/demonstrate_time_stepping_solve.py)
+     does the same comparison going through
+     `eq.solve_linear_system` (the user-facing API).
+
+[rossler_differential_equation.py](../../../examples/ssm_periodic/rossler/rossler_differential_equation.py)
+hosts both paths; constructor flag `use_time_stepping=False` (default)
+gives the algebraic version, `True` switches to GMRES. Additional
+constructor kwargs `ts_dt` (default `T/200`), `gmres_rtol` (default
+`1e-8`), `gmres_max_it` (default `200`), `ts_method` (default `"RK3"`),
+`ts_verbose`.
+
+**When time-stepping wins for SSM:** never on the 1T basis (master
+mode is at `i·ω/2`, shifts are pure imaginary), but in the **2T basis**
+(`save_ssm_2T.py`) the master Floquet exponent collapses to a real
+value `≈ −3·10⁻³`, all SSM shifts `s_k = k·λ_master` are real
+negative, and GMRES converges in ~3 iterations per monomial.
+
 ### `ssm_periodic/kse/` — SSM of a time-periodic KSE
 
 The most ambitious example: KSE past its Hopf bifurcation
@@ -172,8 +220,9 @@ the complete SSM solver, `solve_ivp` with periodic forcing.
 | "How do I do harmonic resolvent / Floquet?" | `toy_model/demonstrate_harmonic_resolvent.py` — all four pieces in one script |
 | "How do I subclass `DifferentialEquation`?" | `ssm/toy_model/toy_model_differential_equation.py` (3-state, hand-coded) |
 | "How do I do SSMs for a PDE?" | `ssm/kse/kse_differential_equation.py` (FFT-based quadratic term) |
-| "How do I do SSMs of a periodic system?" | `ssm_periodic/kse/demonstrate_ssm.py` |
-| "How do I compose `MatrixExponential` + `ShiftAndScale` + `PetscPythonLinearOperator`?" | `cgl/run_post_transient_approaches.py` |
+| "How do I do SSMs of a periodic system?" | `ssm_periodic/kse/demonstrate_ssm.py` (PDE) or `ssm_periodic/rossler/save_ssm_2T.py` (small ODE, period-doubling) |
+| "How do I drive `solve_linear_system` via time-stepping (GMRES shoot-and-solve)?" | `ssm_periodic/rossler/demonstrate_shoot_and_solve.py` and `demonstrate_time_stepping_solve.py` |
+| "How do I compose `Propagator` + `ShiftAndScale` + `PetscPythonLinearOperator`?" | `cgl/run_post_transient_approaches.py` (one period as `Φ`) **or** the `'gmres'` branch of `compute_post_transient_solution` (one period as `I − Φ`) |
 
 ## Common pitfalls
 

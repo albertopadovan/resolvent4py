@@ -29,7 +29,7 @@ This script demonstrates the following:
 - Eigendecomposition using
   :func:`~resolvent4py.linalg.eigendecomposition.eig`
 
-.. GENERATED FROM PYTHON SOURCE LINES 14-104
+.. GENERATED FROM PYTHON SOURCE LINES 14-103
 
 .. code-block:: Python
 
@@ -48,7 +48,6 @@ This script demonstrates the following:
             "font.family": "serif",
             "font.sans-serif": ["Computer Modern"],
             "font.size": 18,
-            "text.usetex": True,
         }
     )
 

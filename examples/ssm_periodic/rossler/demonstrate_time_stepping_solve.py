@@ -38,8 +38,7 @@ nf = 20
 nfb = 10
 shift = 0.1     # Re(s) > 0 → shifted Floquet system is stable
 ts_dt = 1e-2           # let RosslerPeriodic pick T/200
-ts_nperiods = 200
-ts_tol = 1e-10
+gmres_rtol = 1e-10
 
 
 # ── Load Rössler periodic orbit ─────────────────────────────────────────────
@@ -66,8 +65,7 @@ eq_ts = RosslerPeriodic(
     c=c, nf=nf, nfb=nfb, c_star=C_periodic, time=time_orbit,
     use_time_stepping=True,
     ts_dt=ts_dt,
-    ts_nperiods=ts_nperiods,
-    ts_tol=ts_tol,
+    gmres_rtol=gmres_rtol,
     ts_verbose=1,
 )
 

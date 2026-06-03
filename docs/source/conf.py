@@ -45,7 +45,10 @@ sphinx_gallery_conf = {
         "auto_examples/cgl",
     ],  # Where to output the HTML
     "filename_pattern": r"^.*\.py$",  # Include all .py files
-    "ignore_pattern": r"generate_matrices\.py|toy_model\.py|cgl\.py",
+    "ignore_pattern": (
+        r"generate_matrices\.py|toy_model\.py|cgl\.py"
+        r"|run_post_transient_approaches\.py"
+    ),
     "plot_gallery": False,
 }
 

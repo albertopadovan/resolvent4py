@@ -15,6 +15,7 @@ against numpy / scipy reference computations.
 | [test_eigendecomposition.py](../../../tests/linalg/test_eigendecomposition.py) | `linalg/eigendecomposition.py` | Shift-invert Arnoldi convergence vs scipy.linalg.eig; biorthogonalization (`W*V = I`, `W*AV = diag(λ)`) |
 | [test_randomized_svd.py](../../../tests/linalg/test_randomized_svd.py) | `linalg/randomized_svd.py` | Singular values and triplet residuals vs scipy.linalg.svd |
 | [test_resolvent_analysis_rsvd_dt.py](../../../tests/linalg/test_resolvent_analysis_rsvd_dt.py) | `linalg/resolvent_analysis_time_stepping.py` | Post-transient response (`compute_post_transient_solution`) and the full RSVD-dt SVD |
+| [test_harmonic_resolvent_time_vs_freq.py](../../../tests/linalg/test_harmonic_resolvent_time_vs_freq.py) | `compute_post_transient_solution` ↔ algebraic harmonic resolvent | Cross-checks time-domain post-transient integration against the HB solve `(iΩ − A_HB)⁻¹ F̂` for a real T-periodic `A(t)`. Four tests: forward / adjoint × `B = C = I` / time-periodic `B(t), C(t)`. Tolerances `1e-4` on the well-resolved range (`n_compare = 10` interior modes when `n_omegas = n_pert = 24`). |
 
 ## Patterns specific to this directory
 

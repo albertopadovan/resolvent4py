@@ -39,11 +39,11 @@ help the user build, extend, debug, and test it.
 
 | Skill | Covers |
 |---|---|
-| [resolvent4py-linear-operators](../skills/resolvent4py-linear-operators/SKILL.md) | The `LinearOperator` ABC and 8 concrete subclasses: `Matrix`, `LowRank`, `LowRankUpdated`, `MatrixExponential`, `PetscPython`, `Product`, `Projection`, `ShiftAndScale`. |
+| [resolvent4py-linear-operators](../skills/resolvent4py-linear-operators/SKILL.md) | The `LinearOperator` ABC (with recursive `set_evaluation_time`) and 9 concrete subclasses: `Matrix`, `LowRank`, `LowRankUpdated`, `Propagator`, `TimePeriodicMatrix`, `PetscPython`, `Product`, `Projection`, `ShiftAndScale`. |
 | [resolvent4py-linalg](../skills/resolvent4py-linalg/SKILL.md) | Iterative solvers: Arnoldi/`eig`, randomized SVD, RSVD-dt time-stepping resolvent SVD. |
 | [resolvent4py-model-reduction](../skills/resolvent4py-model-reduction/SKILL.md) | Frequency-domain balanced truncation: `compute_gramian_factors` → `compute_balanced_projection` → `assemble_reduced_order_tensors`. |
 | [resolvent4py-spectral-submanifold](../skills/resolvent4py-spectral-submanifold/SKILL.md) | `DifferentialEquation` ABC + `SpectralSubmanifold` polynomial expansion. |
-| [resolvent4py-utils](../skills/resolvent4py-utils/SKILL.md) | All cross-cutting helpers: `bv.py`, `comms.py`, `errors.py`, `io.py`, `ksp.py`, `matrix.py`, `miscellaneous.py`, `random.py`, `ssm.py`, `time_stepping.py`, `vector.py`. |
+| [resolvent4py-utils](../skills/resolvent4py-utils/SKILL.md) | All cross-cutting helpers: `bv.py`, `comms.py`, `errors.py`, `io.py`, `ksp.py`, `matrix.py`, `miscellaneous.py`, `random.py`, `ssm.py`, `time_stepping.py` (with `compute_post_transient_solution` `'donothing'` / `'gmres'` paths), `vector.py`. |
 
 ### Examples — `examples/`
 
@@ -71,8 +71,9 @@ them:
    `mpi4py` are loaded through environment modules controlled by
    the user. Test execution must go through the user's wrapper
    scripts.
-2. **`enforce_complex_conjugacy` requires `nblocks` to be odd.**
-   `nblocks = 2 * nfp + 1`, never `2 * nfp`.
+2. **`enforce_complex_conjugacy` requires `nblocks` to be odd** and
+   infers the communicator from `vec.getComm()` — there is **no
+   `comm` parameter**. `nblocks = 2 * nfp + 1`, never `2 * nfp`.
 3. **`PCBJACOBI(nblocks)` requires block-aligned distribution.** Use
    `compute_local_size_block_aligned(n, N)`, **not**
    `compute_local_size(n*nblocks)`. PETSc snaps sub-block boundaries
@@ -83,9 +84,26 @@ them:
    left-to-right), even though `__init__` calls `linops.reverse()`.
 5. **`r` from `compute_balanced_projection` is silently clipped** to
    `svd.getConverged()`. Always check the returned `S_` shape.
-6. **`MatrixExponentialLinearOperator` and `PetscPythonLinearOperator`
+6. **`PropagatorLinearOperator` and `PetscPythonLinearOperator`
    do not implement `solve`.** Wrap with `ShiftAndScale` or invert
    externally if you need it.
+7. **`compute_post_transient_solution` has two strategies via
+   `method=`**: `'donothing'` (default — post-transient iteration,
+   diverges when the shifted Floquet spectrum touches the right
+   half-plane) and `'gmres'` (shoot-and-solve, works for any shift
+   where `I − Φ(T, 0)` is invertible). Pick `'gmres'` for SSM-style
+   shifts that land inside the spectrum of `L_HB`.
+8. **Time-periodic operators need `set_evaluation_time(t)` before
+   each `apply`.** The base class provides a default that recurses
+   through child operators, so composites built on top of a
+   `TimePeriodicMatrixLinearOperator` get propagation for free.
+   `solve_ivp` and `compute_post_transient_solution` call this for
+   you at every RK stage; if you call `apply` directly, the time
+   is whatever was last set (default `0.0`).
+9. **`solve_ivp(v, L, ...)` takes a `LinearOperator`, not a raw
+   action callable.** It selects `apply` vs `apply_hermitian_transpose`
+   based on `adjoint=` and threads `set_evaluation_time` through `L`
+   at every stage.
 
 ## Workflow patterns
 
@@ -106,10 +124,13 @@ references depending on what they need:
 | "How do I drive balanced truncation?" | [`examples/cgl/demonstrate_balanced_truncation.py`](../../examples/cgl/demonstrate_balanced_truncation.py); reference: [`tests/model_reduction/test_balanced_truncation.py`](../../tests/model_reduction/test_balanced_truncation.py) |
 | "How do I do harmonic resolvent / Floquet?" | [`examples/toy_model/demonstrate_harmonic_resolvent.py`](../../examples/toy_model/demonstrate_harmonic_resolvent.py) — assembles `T`, defines projectors, computes SVD + Floquet exponents in one script. |
 | "How do I assemble a harmonic-balanced matrix from disk?" | Reader: [`examples/toy_model/demonstrate_harmonic_resolvent.py`](../../examples/toy_model/demonstrate_harmonic_resolvent.py). Writer: [`examples/toy_model/generate_matrices.py`](../../examples/toy_model/generate_matrices.py). Three-mode behaviour: [`tests/utils/test_io.py`](../../tests/utils/test_io.py). |
-| "How do I time-step with periodic forcing?" | [`tests/utils/test_time_stepping.py`](../../tests/utils/test_time_stepping.py) (against scipy reference) |
+| "How do I time-step a time-periodic linear system with periodic forcing?" | [`tests/utils/test_time_stepping.py`](../../tests/utils/test_time_stepping.py) (LTI/LTP × forward/adjoint) and [`tests/linear_operators/test_propagator.py`](../../tests/linear_operators/test_propagator.py) (Φ propagator). |
+| "How do I build A(t) as a `LinearOperator`?" | [`tests/linear_operators/test_time_periodic_matrix.py`](../../tests/linear_operators/test_time_periodic_matrix.py) for the API; [`examples/ssm_periodic/rossler/rossler_differential_equation.py`](../../examples/ssm_periodic/rossler/rossler_differential_equation.py) for an end-to-end usage that pairs `TimePeriodicMatrixLinearOperator` with `compute_post_transient_solution(method='gmres')`. |
+| "How do I check a harmonic-resolvent assembly against time stepping?" | [`tests/linalg/test_harmonic_resolvent_time_vs_freq.py`](../../tests/linalg/test_harmonic_resolvent_time_vs_freq.py) — solves `(iΩ − A_HB) x̂ = f̂` two ways and compares per-mode. |
 | "How do I subclass `DifferentialEquation` for an SSM?" | [`examples/ssm/toy_model/toy_model_differential_equation.py`](../../examples/ssm/toy_model/toy_model_differential_equation.py) (hand-coded 3D); for PDEs: [`examples/ssm/kse/kse_differential_equation.py`](../../examples/ssm/kse/kse_differential_equation.py) |
-| "How do I do an SSM of a periodic system?" | [`examples/ssm_periodic/kse/`](../../examples/ssm_periodic/kse/) — full pipeline including periodic-orbit detection. |
-| "How do I compose `MatrixExponential` + `ShiftAndScale` + `PetscPythonLinearOperator`?" | [`examples/cgl/run_post_transient_approaches.py`](../../examples/cgl/run_post_transient_approaches.py) |
+| "How do I do an SSM of a periodic system?" | [`examples/ssm_periodic/kse/`](../../examples/ssm_periodic/kse/) (PDE) or [`examples/ssm_periodic/rossler/`](../../examples/ssm_periodic/rossler/) (small ODE with both algebraic + GMRES time-stepping paths). |
+| "How do I `solve_linear_system` for SSM shifts that the post-transient iteration can't reach?" | [`examples/ssm_periodic/rossler/demonstrate_shoot_and_solve.py`](../../examples/ssm_periodic/rossler/demonstrate_shoot_and_solve.py) — the GMRES shoot-and-solve approach via `compute_post_transient_solution(method='gmres')`. |
+| "How do I compose `Propagator` + `ShiftAndScale` + `PetscPythonLinearOperator`?" | [`examples/cgl/run_post_transient_approaches.py`](../../examples/cgl/run_post_transient_approaches.py) (manual wiring) or [`utils/time_stepping.py`](../../src/resolvent4py/utils/time_stepping.py) `compute_post_transient_solution(method='gmres')` branch (library version). |
 
 When the user asks why something is structured a particular way,
 check the docstrings in the relevant source file — many are
@@ -119,10 +140,17 @@ Martini 2021, Farghadan 2025, Dergham 2011).
 ## When to recommend extending vs. wrapping
 
 - **Extending** (subclass `LinearOperator`) is rarely needed. The
-  existing 8 subclasses + composition via `Product`,
-  `ShiftAndScale`, `LowRankUpdated`, `Projection` cover almost
-  everything.
+  existing 9 subclasses + composition via `Product`,
+  `ShiftAndScale`, `LowRankUpdated`, `Projection`, `Propagator`
+  (one-period propagator of a time-periodic op) cover almost
+  everything. For time-periodic A(t), prefer
+  `TimePeriodicMatrixLinearOperator` with explicit Fourier
+  coefficients over a custom subclass.
 - **Wrapping**: if the user has an unusual operator (e.g. a
   matrix-free black box), wrap it as a subclass implementing
   `apply` and `apply_mat` only. Then everything in `linalg` and
-  `model_reduction` works on it.
+  `model_reduction` works on it. If the operator depends on time,
+  also override `set_evaluation_time(t)` and (for cheapness) the
+  `check_if_real_valued` / `check_if_complex_conjugate_structure`
+  probes — see `PropagatorLinearOperator` and
+  `ShiftAndScaleLinearOperator` for the pattern.

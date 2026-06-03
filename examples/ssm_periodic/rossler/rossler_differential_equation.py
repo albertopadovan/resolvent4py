@@ -53,9 +53,9 @@ class RosslerPeriodic(DifferentialEquation):
         time: np.ndarray,
         use_time_stepping: bool = False,
         ts_dt: Optional[float] = None,
-        ts_nperiods: int = 200,
-        ts_tol: float = 1e-8,
         ts_method: str = "RK3",
+        gmres_rtol: float = 1e-8,
+        gmres_max_it: int = 200,
         ts_verbose: int = 0,
     ) -> None:
         comm = PETSc.COMM_WORLD
@@ -102,9 +102,9 @@ class RosslerPeriodic(DifferentialEquation):
 
         self.use_time_stepping = use_time_stepping
         self._ts_dt = ts_dt
-        self._ts_nperiods = ts_nperiods
-        self._ts_tol = ts_tol
         self._ts_method = ts_method
+        self._gmres_rtol = gmres_rtol
+        self._gmres_max_it = gmres_max_it
         self._ts_verbose = ts_verbose
 
         self._build_harmonic_balanced_operator()
@@ -371,10 +371,15 @@ class RosslerPeriodic(DifferentialEquation):
     def _solve_linear_system_time_stepping(
         self, s: complex, b: PETSc.Vec, x: Optional[PETSc.Vec]
     ) -> PETSc.Vec:
-        r"""Integrate :math:`\dot{q} = (A(t) - s I)\, q + b(t)` to
-        periodic steady state and return the FFT of the response.
-        Equivalent to solving :math:`(s I - L_{\rm HB})\, x = b` in HB
-        form."""
+        r"""Solve :math:`(s I - L_{\rm HB})\, x = b` by shooting once
+        over the period and using GMRES to enforce :math:`x(T) = x(0)`
+        on the shifted ODE :math:`\dot{q} = (A(t) - s I)\, q + b(t)`.
+
+        Backed by :func:`compute_post_transient_solution` with
+        ``method='gmres'``: post-transient iteration would diverge for
+        SSM-style shifts in the unstable half-plane of
+        :math:`L_{\rm HB}`, but the GMRES branch only requires
+        :math:`I - \Phi(T, 0)` to be non-singular."""
         shifted = res4py.linear_operators.ShiftAndScaleLinearOperator(
             self._A_t_op, alpha=-s, beta=1.0
         )
@@ -390,16 +395,18 @@ class RosslerPeriodic(DifferentialEquation):
             False,
             self._ts_tsim,
             self._ts_nsave,
-            self._ts_nperiods,
+            0,                          # nperiods unused for 'gmres'
             self._ts_omegas,
             self._ts_x_init,
             self._ts_F_BV,
             self._ts_Y_BV,
             self._ts_X_BV,
-            tol=self._ts_tol,
             time_stpper=self._ts_method,
-            harmonic_balancing_ordering=True,
             verbose=self._ts_verbose,
+            harmonic_balancing_ordering=True,
+            method="gmres",
+            gmres_rtol=self._gmres_rtol,
+            gmres_max_it=self._gmres_max_it,
         )
 
         return reshape_bv_into_harmonic_balanced_vector(self._ts_Y_BV, x)

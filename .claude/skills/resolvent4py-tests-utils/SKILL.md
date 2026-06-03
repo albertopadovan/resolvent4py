@@ -21,7 +21,7 @@ above PETSc/SLEPc and need the broadest coverage.
 | [test_matrix.py](../../../tests/utils/test_matrix.py) | `matrix.py` | Mat factories, hermitian-transpose, `mat_solve_hermitian_transpose`, harmonic resolvent generator, `extract_block_diagonal` |
 | [test_miscellaneous.py](../../../tests/utils/test_miscellaneous.py) | `miscellaneous.py` | `get_mpi_type` for every supported numpy dtype; raises on unsupported |
 | [test_random.py](../../../tests/utils/test_random.py) | `random.py` | Sizes, real/complex flag honored, square + rectangular |
-| [test_time_stepping.py](../../../tests/utils/test_time_stepping.py) | `time_stepping.py` | RK3 forced/adjoint vs `scipy.integrate.solve_ivp` reference (both real and complex `A`) |
+| [test_time_stepping.py](../../../tests/utils/test_time_stepping.py) | `time_stepping.py` | RK3 forced/adjoint vs `scipy.integrate.solve_ivp` reference (both real and complex `A`); plus `compute_post_transient_solution(method='gmres')` ↔ `method='donothing'` cross-check on stable LTI and LTP, forward + adjoint |
 | [test_vector.py](../../../tests/utils/test_vector.py) | `vector.py` | `vec_real/imag` (in-place + copy), `enforce_complex_conjugacy` round-trip, even-`nblocks` raises, harmonic-balanced vec→BV reshape |
 
 ## Notable test patterns
@@ -67,12 +67,23 @@ redistribution.
 
 ### Time stepping reference ([test_time_stepping.py](../../../tests/utils/test_time_stepping.py))
 
-Builds a stable random `A` and a periodic forcing
-`f(t) = Σ F̂_k e^{ikωt}`, then compares
-`res4py.solve_ivp(...)` (RK3, `nsteps=10000`) against
-`scipy.integrate.solve_ivp` with `rtol=atol=1e-13` and the same
-forcing assembled in numpy. Tolerance: `1e-8`. Tested in 4
-combinations: `complex × adjoint`.
+Two test groups in this file:
+
+1. `test_time_stepping_forced` — builds a stable random `A` and a
+   periodic forcing `f(t) = Σ F̂_k e^{ikωt}`, then compares
+   `res4py.solve_ivp(...)` (RK3, `nsteps=10000`) against
+   `scipy.integrate.solve_ivp` with `rtol=atol=1e-13` and the same
+   forcing assembled in numpy. Tolerance: `1e-8`. Tested in 4
+   combinations: `complex × adjoint`.
+
+2. `test_post_transient_gmres_vs_donothing_LTI` /
+   `_LTP` — runs `compute_post_transient_solution` with both
+   `method='donothing'` (`tol=1e-10`, up to 500 periods) and
+   `method='gmres'` (`gmres_rtol=1e-12`) on the same stable operator
+   and forcing, gathers the two `Yhat` BVs, asserts relative
+   agreement `< 1e-6`. LTI uses `pytest_utils.generate_stable_random_matrix`;
+   LTP uses a local `_make_stable_periodic_op` (eigenvalue-shifted
+   DC + `ε=0.1` AC). Both forward and adjoint are tested.
 
 ## Common pitfalls
 

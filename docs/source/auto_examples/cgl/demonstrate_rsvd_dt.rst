@@ -34,7 +34,7 @@ equation. This script demonstrates the following:
 - Resolvent analysis using time-stepping via
   :func:`~resolvent4py.linalg.resolvent_analysis_time_stepping.resolvent_analysis_rsvd_dt`
 
-.. GENERATED FROM PYTHON SOURCE LINES 19-151
+.. GENERATED FROM PYTHON SOURCE LINES 19-153
 
 .. code-block:: Python
 
@@ -54,7 +54,6 @@ equation. This script demonstrates the following:
             "font.family": "serif",
             "font.sans-serif": ["Computer Modern"],
             "font.size": 18,
-            "text.usetex": True,
         }
     )
 
@@ -94,7 +93,7 @@ equation. This script demonstrates the following:
     res4py.petscprint(comm, "This may take several minutes...")
     n_omegas = 1
     n_periods = 100
-    dt = 1e-4
+    dt = 2e-4
     tol = 1e-3
     verbose = 2
     L = res4py.linear_operators.MatrixLinearOperator(A)
@@ -108,7 +107,10 @@ equation. This script demonstrates the following:
             n_rand,
             n_loops,
             n_svals,
+            None,
+            None,
             tol,
+            "RK2",
             verbose,
         )
     )

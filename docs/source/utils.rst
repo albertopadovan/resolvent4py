@@ -41,3 +41,18 @@ Miscellaneous
 -------------
 .. automodule:: resolvent4py.utils.miscellaneous
    :members:
+
+Time Stepping
+-------------
+.. automodule:: resolvent4py.utils.time_stepping
+   :members:
+
+Errors
+------
+.. automodule:: resolvent4py.utils.errors
+   :members:
+
+Spectral-Submanifold Utilities
+------------------------------
+.. automodule:: resolvent4py.utils.ssm
+   :members:

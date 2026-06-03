@@ -67,7 +67,7 @@ In particular, we demonstrate the following:
   Floquet exponents associated with the underlying time-periodic linear system
   (see :cite:`Wereley91`).
 
-.. GENERATED FROM PYTHON SOURCE LINES 52-195
+.. GENERATED FROM PYTHON SOURCE LINES 52-208
 
 .. code-block:: Python
 
@@ -85,7 +85,6 @@ In particular, we demonstrate the following:
             "font.family": "serif",
             "font.sans-serif": ["Computer Modern"],
             "font.size": 18,
-            "text.usetex": True,
         }
     )
 
@@ -101,6 +100,14 @@ In particular, we demonstrate the following:
             save_path + "vals_%02d.dat" % j,
         )
         for j in range(nfb + 1)
+    ]
+
+    fnames_lst_mass = [
+        (
+            save_path + "rows_id.dat",
+            save_path + "cols_id.dat",
+            save_path + "vals_id.dat",
+        )
     ]
 
     nfp = nfb + 3
@@ -120,7 +127,13 @@ In particular, we demonstrate the following:
         ((nl, n), (nl, n)),
         ((Nl, N), (Nl, N)),
     )
-    T = res4py.assemble_harmonic_resolvent_generator(A, perts_freqs)
+    Mass = res4py.read_harmonic_balanced_matrix(
+        fnames_lst_mass,
+        True,
+        ((nl, n), (nl, n)),
+        ((Nl, N), (Nl, N)),
+    )
+    T = res4py.assemble_harmonic_resolvent_generator(A, perts_freqs, Mass)
     T.scale(-1.0)
     # Perturb the generator to avoid numerical singularities
     Id = res4py.create_AIJ_identity(comm, T.getSizes())

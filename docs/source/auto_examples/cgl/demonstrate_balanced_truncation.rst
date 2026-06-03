@@ -38,7 +38,7 @@ using the algorithm presented in :cite:`dergham2011`.
 - Balanced truncation in the frequency domain using 
   :func:`~resolvent4py.model_reduction.balanced_truncation`
 
-.. GENERATED FROM PYTHON SOURCE LINES 23-81
+.. GENERATED FROM PYTHON SOURCE LINES 23-80
 
 .. code-block:: Python
 
@@ -55,7 +55,6 @@ using the algorithm presented in :cite:`dergham2011`.
             "font.family": "serif",
             "font.sans-serif": ["Computer Modern"],
             "font.size": 18,
-            "text.usetex": True,
         }
     )
 
