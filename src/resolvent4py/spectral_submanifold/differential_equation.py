@@ -393,7 +393,7 @@ class PeriodicDifferentialEquation(
         for k in range(self._nblocks):
             qk = self._Q_freqs[-1].getColumn(k)
             qk_in = self._Q_freqs[0].getColumn(k)
-            qk.axpy(-1j * self._omegas[k], qk_in)
+            qk.axpy(PETSc.ScalarType(-1j * self._omegas[k]), qk_in)
             self._Q_freqs[0].restoreColumn(k, qk_in)
             self._Q_freqs[-1].restoreColumn(k, qk)
         return reshape_bv_into_harmonic_balanced_vector(self._Q_freqs[-1], y)

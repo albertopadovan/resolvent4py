@@ -377,7 +377,7 @@ class SpectralSubmanifold:
                     self.diff_eq.get_comm(),
                     f"Computing component {j} (order = {sum(j)})",
                 )
-            shift = np.dot(Lams, np.asarray(j))
+            shift = PETSc.ScalarType(np.dot(Lams, np.asarray(j)))
             rhs.zeroEntries()
 
             # Compute contrib. from quadratic nature of the governing equations
@@ -401,7 +401,10 @@ class SpectralSubmanifold:
                         idxg = self._get_multiindex_index(
                             self.ssm_multiindices, pair[1]
                         )
-                        rhs.axpy(-pair[0][k] * gs[idxg][k], ps[idxp])
+                        rhs.axpy(
+                            PETSc.ScalarType(-pair[0][k] * gs[idxg][k]),
+                            ps[idxp],
+                        )
 
             # Subtract V @ gj from rhs, then solve (shift*I - A) pj = rhs
             gj = W.dotVec(rhs) if not conj else np.zeros(r, dtype=complex)
@@ -443,7 +446,7 @@ class SpectralSubmanifold:
         vec = self.ps[0].duplicate()
         vec.zeroEntries()
         for idx, j in enumerate(self.ssm_multiindices):
-            vec.axpy(np.prod(s ** np.asarray(j)), self.ps[idx])
+            vec.axpy(PETSc.ScalarType(np.prod(s ** np.asarray(j))), self.ps[idx])
         return vec
 
     def encode(self, q: PETSc.Vec) -> np.ndarray:
