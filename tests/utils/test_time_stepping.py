@@ -39,9 +39,6 @@ def test_time_stepping_forced(comm, square_matrix_size):
                 comm, (N, N), complex
             )
             linop = res4py.linear_operators.MatrixLinearOperator(Apetsc)
-            action = (
-                linop.apply if not adjoint else linop.apply_hermitian_transpose
-            )
             Apython = Apython.conj().T if adjoint else Apython
 
             # Generate frequency vector
@@ -101,6 +98,12 @@ def test_time_stepping_forced(comm, square_matrix_size):
             sol_petsc.restoreMat(sol_petsc_mat)
             sol_petsc_mat_seq.destroy()
             error_lst.append(error)
+
+            sol_petsc.destroy()
+            linop.destroy()
+            Apetsc.destroy()
+            Fpetsc.destroy()
+            vpetsc.destroy()
 
     assert np.max(np.asarray(error_lst)) < 1e-8
 
@@ -206,7 +209,9 @@ def _run_post_transient_both_methods(
     Y_dn = _gather_bv(Yhat_dn)
     Y_gm = _gather_bv(Yhat_gm)
 
-    for obj in (Fhat, Yhat_dn, Yhat_gm, X_dn, X_gm, x_dn, x_gm, Id_mat):
+    for obj in (
+        Fhat, Yhat_dn, Yhat_gm, X_dn, X_gm, x_dn, x_gm, Idop, Id_mat
+    ):
         obj.destroy()
     return Y_dn, Y_gm
 
@@ -235,6 +240,7 @@ def test_post_transient_gmres_vs_donothing_LTI(comm, square_matrix_size):
         )
         rel = np.linalg.norm(Y_dn - Y_gm) / np.linalg.norm(Y_dn)
         errs.append(rel)
+        L.destroy()
         Apetsc.destroy()
     assert max(errs) < 1e-6, (
         f"LTI: |Y_donothing - Y_gmres| / |Y_donothing| = {errs} "
@@ -267,6 +273,9 @@ def test_post_transient_gmres_vs_donothing_LTP(comm, square_matrix_size):
         )
         rel = np.linalg.norm(Y_dn - Y_gm) / np.linalg.norm(Y_dn)
         errs.append(rel)
+        for linop in L.Alst:
+            linop.destroy()
+        L.destroy()
         for Ak in A_petsc_lst:
             Ak.destroy()
     assert max(errs) < 1e-6, (

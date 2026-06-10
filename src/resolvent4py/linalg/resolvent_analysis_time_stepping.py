@@ -312,5 +312,6 @@ def resolvent_analysis_rsvd_dt(
             obj.destroy()
 
     Idop.destroy()
+    Id.destroy()
 
     return Qfwd_hat_lst2, Slst, Qadj_hat_lst2

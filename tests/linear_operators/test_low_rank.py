@@ -40,6 +40,8 @@ def test_low_rank_on_vectors(comm, rectangular_matrix_size):
     x.destroy()
     y.destroy()
     linop.destroy()
+    U.destroy()
+    V.destroy()
     assert error < 1e-8
 
 
@@ -81,6 +83,8 @@ def test_low_rank_on_bvs(comm, rectangular_matrix_size):
     X.destroy()
     Y.destroy()
     linop.destroy()
+    U.destroy()
+    V.destroy()
     assert error < 1e-8
 
 
@@ -124,4 +128,6 @@ def test_low_rank_y_none(comm, rectangular_matrix_size):
 
     error = np.linalg.norm([error_vec, error_bv])
     linop.destroy()
+    U.destroy()
+    V.destroy()
     assert error < 1e-8

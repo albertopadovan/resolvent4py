@@ -38,6 +38,7 @@ def test_matrix_on_vectors(comm, square_random_matrix):
     x.destroy()
     y.destroy()
     linop.destroy()
+    ksp.destroy()
     assert error < 1e-10
 
 
@@ -73,6 +74,7 @@ def test_matrix_on_bvs(comm, square_random_matrix):
     X.destroy()
     Y.destroy()
     linop.destroy()
+    ksp.destroy()
     assert error < 1e-10
 
 
@@ -176,6 +178,7 @@ def test_matrix_vectors_y_none(comm, square_random_matrix):
     error = np.linalg.norm(error_vec)
     x.destroy()
     linop.destroy()
+    ksp.destroy()
     assert error < 1e-10
 
 
@@ -211,6 +214,7 @@ def test_matrix_bvs_y_none(comm, square_random_matrix):
     error = np.linalg.norm(error_vec)
     X.destroy()
     linop.destroy()
+    ksp.destroy()
     assert error < 1e-10
 
 

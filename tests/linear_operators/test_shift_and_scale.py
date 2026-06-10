@@ -32,6 +32,7 @@ def test_shift_and_scale_on_vectors(comm, square_random_matrix):
     x.destroy()
     y.destroy()
     linop.destroy()
+    linop_A.destroy()
     assert error < 1e-10
 
 
@@ -64,4 +65,5 @@ def test_shift_and_scale_on_bvs(comm, square_random_matrix):
     X.destroy()
     Y.destroy()
     linop.destroy()
+    linop_A.destroy()
     assert error < 1e-10

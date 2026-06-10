@@ -56,9 +56,11 @@ class ProjectionLinearOperator(LinearOperator):
         Smat.destroy()
 
         self.complement = complement
+        self.Id = None
+        self.Idop = None
         if self.complement:
-            Id = create_AIJ_identity(comm, dimensions)
-            self.Idop = MatrixLinearOperator(Id, None, nblocks)
+            self.Id = create_AIJ_identity(comm, dimensions)
+            self.Idop = MatrixLinearOperator(self.Id, None, nblocks)
             self.L = LowRankUpdatedLinearOperator(
                 self.Idop, Phi, -Sig, Psi, None, nblocks
             )
@@ -80,6 +82,12 @@ class ProjectionLinearOperator(LinearOperator):
         return self.L.apply_hermitian_transpose_mat(X, Y)
 
     def destroy(self):
+        # Phi and Psi are user-supplied. self.L, and (for the complement) the
+        # identity matrix self.Id and its wrapper self.Idop, are created
+        # internally here, so they are ours to destroy. self.Idop.destroy()
+        # frees only its internal Hermitian transpose, so self.Id must be
+        # destroyed explicitly.
         self.L.destroy()
         if self.complement:
             self.Idop.destroy()
+            self.Id.destroy()

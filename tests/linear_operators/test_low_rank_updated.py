@@ -18,14 +18,19 @@ def _create_low_rank_updated_operator(comm, Apetsc, Apython):
     linop = res4py.linear_operators.LowRankUpdatedLinearOperator(
         linop1, U, S, V
     )
-    return linop, Lpython
+    # Objects created here that the operators no longer destroy on their own
+    # (Apetsc is owned by the fixture).
+    owned = [linop, linop1, ksp, U, V]
+    return linop, Lpython, owned
 
 
 def test_low_rank_updated_on_vectors(comm, square_random_matrix):
     r"""Test LowRankUpdatedLinearOperator on vectors"""
     Apetsc, Apython = square_random_matrix
     N = Apython.shape[0]
-    linop, Lpython = _create_low_rank_updated_operator(comm, Apetsc, Apython)
+    linop, Lpython, owned = _create_low_rank_updated_operator(
+        comm, Apetsc, Apython
+    )
 
     x, xpython = pytest_utils.generate_random_vector(comm, N)
     Lpython_inv = sp.linalg.inv(Lpython)
@@ -52,7 +57,8 @@ def test_low_rank_updated_on_vectors(comm, square_random_matrix):
     error = np.linalg.norm(error_vec)
     x.destroy()
     y.destroy()
-    linop.destroy()
+    for o in owned:
+        o.destroy()
     assert error < 1e-8
 
 
@@ -60,7 +66,9 @@ def test_low_rank_updated_on_bvs(comm, square_random_matrix):
     r"""Test LowRankUpdatedLinearOperator on BVs"""
     Apetsc, Apython = square_random_matrix
     N = Apython.shape[0]
-    linop, Lpython = _create_low_rank_updated_operator(comm, Apetsc, Apython)
+    linop, Lpython, owned = _create_low_rank_updated_operator(
+        comm, Apetsc, Apython
+    )
 
     s = 5
     X, Xpython = pytest_utils.generate_random_bv(comm, (N, s))
@@ -88,7 +96,8 @@ def test_low_rank_updated_on_bvs(comm, square_random_matrix):
     error = np.linalg.norm(error_vec)
     X.destroy()
     Y.destroy()
-    linop.destroy()
+    for o in owned:
+        o.destroy()
     assert error < 1e-8
 
 
@@ -97,7 +106,9 @@ def test_low_rank_updated_repeated_apply_mat(comm, square_random_matrix):
     (validates the cached intermediate BV)"""
     Apetsc, Apython = square_random_matrix
     N = Apython.shape[0]
-    linop, Lpython = _create_low_rank_updated_operator(comm, Apetsc, Apython)
+    linop, Lpython, owned = _create_low_rank_updated_operator(
+        comm, Apetsc, Apython
+    )
 
     s = 5
     X, Xpython = pytest_utils.generate_random_bv(comm, (N, s))
@@ -124,7 +135,8 @@ def test_low_rank_updated_repeated_apply_mat(comm, square_random_matrix):
     X.destroy()
     Y1.destroy()
     Y2.destroy()
-    linop.destroy()
+    for o in owned:
+        o.destroy()
     assert error < 1e-14
     assert error_python < 1e-8
 
@@ -134,7 +146,9 @@ def test_low_rank_updated_varying_column_counts(comm, square_random_matrix):
     resize logic"""
     Apetsc, Apython = square_random_matrix
     N = Apython.shape[0]
-    linop, Lpython = _create_low_rank_updated_operator(comm, Apetsc, Apython)
+    linop, Lpython, owned = _create_low_rank_updated_operator(
+        comm, Apetsc, Apython
+    )
 
     error_vec = []
     for s in [3, 7, 3]:
@@ -153,5 +167,6 @@ def test_low_rank_updated_varying_column_counts(comm, square_random_matrix):
         Y.destroy()
 
     error = np.linalg.norm(error_vec)
-    linop.destroy()
+    for o in owned:
+        o.destroy()
     assert error < 1e-8

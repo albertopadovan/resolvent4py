@@ -315,6 +315,7 @@ class ProductLinearOperator(LinearOperator):
             vec.destroy()
 
     def destroy(self):
+        # Only the intermediate work vectors are created internally. The
+        # constituent linear operators are user-supplied (passed in as
+        # `linops`), so destroying them is the caller's responsibility.
         self.destroy_intermediate_vectors()
-        for name in self.names:
-            getattr(self, name).destroy()

@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 from typing import List, Optional, Tuple
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 def plot_convergence_radius(
@@ -31,6 +32,10 @@ def plot_convergence_radius(
     :return: axes with the plot
     :rtype: matplotlib.axes.Axes
     """
+    # Imported lazily so that `import resolvent4py` does not drag in
+    # matplotlib (and its import-time warnings) unless plotting is used.
+    import matplotlib.pyplot as plt
+
     if ax is None:
         _, ax = plt.subplots()
 

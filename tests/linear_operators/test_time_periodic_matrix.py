@@ -81,6 +81,9 @@ def test_real_A_vec_real_input(comm):
 
     x.destroy()
     y.destroy()
+    for Aop in op.Alst:
+        Aop.A.destroy()
+        Aop.destroy()
     op.destroy()
     assert err < 1e-10, f"apply (real x) error = {err:.2e}"
     assert err_h < 1e-10, (
@@ -106,6 +109,9 @@ def test_real_A_vec_complex_input(comm):
 
     x.destroy()
     y.destroy()
+    for Aop in op.Alst:
+        Aop.A.destroy()
+        Aop.destroy()
     op.destroy()
     assert err < 1e-10, f"apply (complex x) error = {err:.2e}"
     assert err_h < 1e-10, (
@@ -134,6 +140,9 @@ def test_real_A_bv_real_input(comm):
 
     X.destroy()
     Y.destroy()
+    for Aop in op.Alst:
+        Aop.A.destroy()
+        Aop.destroy()
     op.destroy()
     assert err < 1e-10, f"apply_mat (real X) error = {err:.2e}"
     assert err_h < 1e-10, (
@@ -163,6 +172,9 @@ def test_real_A_bv_complex_input(comm):
 
     X.destroy()
     Y.destroy()
+    for Aop in op.Alst:
+        Aop.A.destroy()
+        Aop.destroy()
     op.destroy()
     assert err < 1e-10, f"apply_mat (complex X) error = {err:.2e}"
     assert err_h < 1e-10, (
@@ -191,6 +203,9 @@ def test_complex_A_vec(comm):
 
     x.destroy()
     y.destroy()
+    for Aop in op.Alst:
+        Aop.A.destroy()
+        Aop.destroy()
     op.destroy()
     assert err < 1e-10, f"apply (complex A) error = {err:.2e}"
     assert err_h < 1e-10, (
@@ -218,6 +233,9 @@ def test_complex_A_bv(comm):
 
     X.destroy()
     Y.destroy()
+    for Aop in op.Alst:
+        Aop.A.destroy()
+        Aop.destroy()
     op.destroy()
     assert err < 1e-10, f"apply_mat (complex A) error = {err:.2e}"
     assert err_h < 1e-10, (
@@ -249,6 +267,9 @@ def test_set_evaluation_time(comm):
 
     x.destroy()
     y.destroy()
+    for Aop in op.Alst:
+        Aop.A.destroy()
+        Aop.destroy()
     op.destroy()
     assert max(errors) < 1e-10, f"max error across times = {max(errors):.2e}"
 
@@ -312,6 +333,9 @@ def test_adjoint_identity(comm):
                 w.destroy()
                 Lw.destroy()
                 Lhv.destroy()
+        for Aop in op.Alst:
+            Aop.A.destroy()
+            Aop.destroy()
         op.destroy()
 
     max_err = max(errors.values())

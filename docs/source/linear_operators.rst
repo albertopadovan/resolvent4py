@@ -44,6 +44,12 @@ Projection Linear Operator
    :members:
    :show-inheritance:
 
+Leray Projector Linear Operator
+-------------------------------
+.. automodule:: resolvent4py.linear_operators.leray_projector
+   :members:
+   :show-inheritance:
+
 Petsc/Python Linear Operator
 ----------------------------
 .. automodule:: resolvent4py.linear_operators.petsc_python

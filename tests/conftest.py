@@ -53,20 +53,33 @@ def rectangular_matrix_size(request):
 
 @pytest.fixture
 def square_random_matrix(comm, square_matrix_size):
-    """Generate random test matrix."""
-    return pytest_utils.generate_random_matrix(comm, square_matrix_size)
+    """Generate random test matrix. The fixture owns the PETSc matrix and
+    destroys it on teardown (operators no longer destroy user-passed input)."""
+    Apetsc, Apython = pytest_utils.generate_random_matrix(comm, square_matrix_size)
+    yield Apetsc, Apython
+    Apetsc.destroy()
 
 
 @pytest.fixture
 def square_stable_random_matrix(comm, square_matrix_size):
-    """Generate random test matrix with eigenvalues with negative real parts."""
-    return pytest_utils.generate_stable_random_matrix(comm, square_matrix_size)
+    """Generate random test matrix with eigenvalues with negative real parts.
+    The fixture owns the PETSc matrix and destroys it on teardown."""
+    Apetsc, Apython = pytest_utils.generate_stable_random_matrix(
+        comm, square_matrix_size
+    )
+    yield Apetsc, Apython
+    Apetsc.destroy()
 
 
 @pytest.fixture
 def rectangular_random_matrix(comm, rectangular_matrix_size):
-    """Generate random test matrix."""
-    return pytest_utils.generate_random_matrix(comm, rectangular_matrix_size)
+    """Generate random test matrix. The fixture owns the PETSc matrix and
+    destroys it on teardown."""
+    Apetsc, Apython = pytest_utils.generate_random_matrix(
+        comm, rectangular_matrix_size
+    )
+    yield Apetsc, Apython
+    Apetsc.destroy()
 
 
 @pytest.fixture

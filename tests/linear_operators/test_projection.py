@@ -31,8 +31,10 @@ def test_projection_on_vectors(comm, square_matrix_size):
         error = np.linalg.norm(error_vec)
         x.destroy()
         y.destroy()
+        linop.destroy()
 
-    linop.destroy()
+    U.destroy()
+    V.destroy()
     assert error < 1e-8
 
 
@@ -63,8 +65,10 @@ def test_projection_on_bvs(comm, square_matrix_size):
         error = np.linalg.norm(error_vec)
         X.destroy()
         Y.destroy()
+        linop.destroy()
 
-    linop.destroy()
+    U.destroy()
+    V.destroy()
     assert error < 1e-8
 
 
@@ -90,9 +94,11 @@ def test_projection_idempotency_vectors(comm, square_matrix_size):
         x.destroy()
         Px.destroy()
         PPx.destroy()
+        linop.destroy()
         assert error / norm < 1e-10
 
-    linop.destroy()
+    U.destroy()
+    V.destroy()
 
 
 def test_projection_idempotency_bvs(comm, square_matrix_size):
@@ -125,6 +131,8 @@ def test_projection_idempotency_bvs(comm, square_matrix_size):
         X.destroy()
         PX.destroy()
         PPX.destroy()
+        linop.destroy()
         assert error < 1e-10
 
-    linop.destroy()
+    U.destroy()
+    V.destroy()

@@ -1,5 +1,6 @@
 __all__ = [
     "MatrixLinearOperator",
+    "LerayProjectorLinearOperator",
     "LowRankLinearOperator",
     "LowRankUpdatedLinearOperator",
     "PropagatorLinearOperator",
@@ -11,6 +12,7 @@ __all__ = [
     "LinearOperator",
 ]
 
+from .leray_projector import LerayProjectorLinearOperator
 from .linear_operator import LinearOperator
 from .low_rank import LowRankLinearOperator
 from .low_rank_updated import LowRankUpdatedLinearOperator
@@ -23,6 +25,7 @@ from .shift_and_scale import ShiftAndScaleLinearOperator
 from .time_periodic_matrix import TimePeriodicMatrixLinearOperator
 
 del (
+    leray_projector,
     linear_operator,
     low_rank,
     low_rank_updated,

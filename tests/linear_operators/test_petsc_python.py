@@ -25,5 +25,6 @@ def test_petsc_python_on_vectors(comm, square_random_matrix):
     error = np.linalg.norm(error_vec)
     x.destroy()
     y.destroy()
+    Ashell.destroy()
     linop.destroy()
     assert error < 1e-10

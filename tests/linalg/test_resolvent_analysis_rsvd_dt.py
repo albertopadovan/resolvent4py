@@ -3,7 +3,6 @@ import numpy as np
 import resolvent4py as res4py
 from petsc4py import PETSc
 from slepc4py import SLEPc
-import matplotlib.pyplot as plt
 import random
 from .. import pytest_utils
 import resolvent4py.linalg.resolvent_analysis_time_stepping as res_ts
@@ -39,8 +38,8 @@ def test_post_transient_response(comm, square_matrix_size):
     n_omegas = 3
 
     Nl = res4py.compute_local_size(N)
-    Id = res4py.create_AIJ_identity(comm, ((Nl, N), (Nl, N)))
-    Idop = res4py.linear_operators.MatrixLinearOperator(Id)
+    Id_petsc = res4py.create_AIJ_identity(comm, ((Nl, N), (Nl, N)))
+    Idop = res4py.linear_operators.MatrixLinearOperator(Id_petsc)
     B = Idop
     C = Idop
 
@@ -117,6 +116,14 @@ def test_post_transient_response(comm, square_matrix_size):
             errors.append(error)
 
             L.destroy()
+            Apetsc.destroy()
+            Fhat.destroy()
+            Xhat.destroy()
+            x.destroy()
+            X.destroy()
+
+    Idop.destroy()
+    Id_petsc.destroy()
     assert np.max(error) < 1e-5
 
 
@@ -180,5 +187,13 @@ def test_resolvent_analysis_time_stepping(comm, square_matrix_size):
         for i in range(len(Slst)):
             error += np.abs(Slst_[i][0] - Slst[i][0, 0]) / Slst_[i][0]
         errors.append(error)
+
+        L.destroy()
+        Apetsc.destroy()
+
+    B.destroy()
+    C.destroy()
+    Bpetsc.destroy()
+    Cpetsc.destroy()
     print(errors)
     assert np.max(errors) < 1e-2

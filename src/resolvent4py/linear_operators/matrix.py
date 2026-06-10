@@ -148,13 +148,8 @@ class MatrixLinearOperator(LinearOperator):
                 f"the solve() method."
             )
 
-    def destroy_matrix(self: "MatrixLinearOperator"):
-        self.A.destroy()
-        self.Ah.destroy()
-
-    def destroy_ksp(self: "MatrixLinearOperator"):
-        self.ksp.destroy() if self.ksp is not None else None
-
     def destroy(self):
-        self.destroy_matrix()
-        self.destroy_ksp()
+        # self.A and self.ksp are user-supplied (passed to __init__), so the
+        # caller owns them. Only self.Ah (the Hermitian transpose built
+        # internally) is destroyed here.
+        self.Ah.destroy()

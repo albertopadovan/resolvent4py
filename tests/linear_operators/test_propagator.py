@@ -90,6 +90,7 @@ def test_propagator_on_vectors(comm, square_stable_random_matrix):
     x.destroy()
     y.destroy()
     linop.destroy()
+    Alop.destroy()
     assert error < 1e-11
 
 
@@ -119,6 +120,7 @@ def test_propagator_on_bvs(comm, square_stable_random_matrix):
     X.destroy()
     Y.destroy()
     linop.destroy()
+    Alop.destroy()
     assert error < 1e-11
 
 
@@ -148,6 +150,7 @@ def test_propagator_rk2_on_vectors(comm, square_stable_random_matrix):
     x.destroy()
     y.destroy()
     linop.destroy()
+    Alop.destroy()
     assert error < 1e-7
 
 
@@ -177,6 +180,7 @@ def test_propagator_rk2_on_bvs(comm, square_stable_random_matrix):
     X.destroy()
     Y.destroy()
     linop.destroy()
+    Alop.destroy()
     assert error < 1e-7
 
 
@@ -220,6 +224,7 @@ def test_propagator_y_none(comm, square_stable_random_matrix):
 
     error = np.linalg.norm([error_vec, error_bv])
     linop.destroy()
+    Alop.destroy()
     assert error < 1e-11
 
 
@@ -269,6 +274,9 @@ def test_propagator_time_periodic_forward(comm):
     x.destroy()
     y.destroy()
     Prop.destroy()
+    for Aop in Atop.Alst:
+        Aop.A.destroy()
+        Aop.destroy()
     Atop.destroy()
     assert error < 1e-6, f"forward propagator error = {error:.2e}"
 
@@ -317,5 +325,8 @@ def test_propagator_time_periodic_adjoint(comm):
     x.destroy()
     y.destroy()
     Prop.destroy()
+    for Aop in Atop.Alst:
+        Aop.A.destroy()
+        Aop.destroy()
     Atop.destroy()
     assert error < 1e-6, f"adjoint propagator error = {error:.2e}"

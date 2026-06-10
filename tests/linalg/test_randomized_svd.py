@@ -27,3 +27,8 @@ def test_randomized_svd(comm, rectangular_random_matrix):
         V,
     )
     assert np.linalg.norm(triplet_error) < 1e-10
+
+    # Clean up objects created in this test (Apetsc is owned by the fixture).
+    U.destroy()
+    V.destroy()
+    linop.destroy()

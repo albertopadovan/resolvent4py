@@ -25,7 +25,7 @@ def test_eigendecomposition(comm, square_random_matrix):
     r = np.min([r, krylov_dim - 1])
 
     # Compute eigenvalues of A via shift-invert Arnoldi
-    D, _ = res4py.linalg.eig(
+    D, V = res4py.linalg.eig(
         linop,
         linop.solve,
         krylov_dim,
@@ -40,6 +40,14 @@ def test_eigendecomposition(comm, square_random_matrix):
     ev_sorted = np.array([ev[np.argmin(np.abs(ev - d))] for d in D])
     error = 100 * np.max(np.abs(ev_sorted - D) / np.abs(ev_sorted))
     assert error < 5e-1
+
+    # Clean up objects created in this test. The operator does not own the
+    # internally-built Id matrix or the ksp, so destroy them here. Apetsc is
+    # owned by the fixture and must not be destroyed.
+    V.destroy()
+    linop.A.destroy()
+    linop.ksp.destroy()
+    linop.destroy()
 
 
 def test_match_right_and_left_eigenvectors(comm, square_random_matrix):
@@ -82,13 +90,18 @@ def test_match_right_and_left_eigenvectors(comm, square_random_matrix):
     )
     assert np.linalg.norm(error, ord=1) < 1e-7
 
-    # Biorthogonalize (conjugation of Dw handled internally)
+    # Biorthogonalize (conjugation of Dw handled internally). This builds new
+    # BVs internally and returns them, so the original V, W are no longer
+    # referenced afterwards and must be destroyed to avoid leaking them.
+    V_orig, W_orig = V, W
     V, W, Dv, Dw = res4py.linalg.match_right_and_left_eigenvectors(
         V,
         W,
         Dv,
         Dw,
     )
+    V_orig.destroy()
+    W_orig.destroy()
 
     # Eigenvalues sorted by descending real part
     evals = np.diag(Dv)
@@ -110,3 +123,16 @@ def test_match_right_and_left_eigenvectors(comm, square_random_matrix):
         WtAV.getDenseArray() - np.diag(np.diag(Dv))
     )
     assert projection_error < 1e-6
+
+    # Clean up objects created in this test. Apetsc is fixture-owned. The
+    # operators do not own the internally-built Id matrix or the ksp, so those
+    # are destroyed explicitly here.
+    WtV.destroy()
+    AV.destroy()
+    WtAV.destroy()
+    V.destroy()
+    W.destroy()
+    Aop.destroy()
+    linop.A.destroy()
+    linop.ksp.destroy()
+    linop.destroy()

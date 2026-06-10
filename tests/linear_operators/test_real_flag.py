@@ -11,6 +11,7 @@ def test_real_flag_complex_matrix(comm, square_matrix_size):
     linop = res4py.linear_operators.MatrixLinearOperator(Apetsc)
     assert linop.get_real_flag() == False
     linop.destroy()
+    Apetsc.destroy()
 
 
 def test_real_flag_real_matrix(comm, square_matrix_size):
@@ -21,6 +22,7 @@ def test_real_flag_real_matrix(comm, square_matrix_size):
     linop = res4py.linear_operators.MatrixLinearOperator(Apetsc)
     assert linop.get_real_flag() == True
     linop.destroy()
+    Apetsc.destroy()
 
 
 def test_real_flag_real_low_rank(comm, square_matrix_size):
@@ -34,6 +36,8 @@ def test_real_flag_real_low_rank(comm, square_matrix_size):
     linop = res4py.linear_operators.LowRankLinearOperator(U, S, V, None)
     assert linop.get_real_flag() == True
     linop.destroy()
+    U.destroy()
+    V.destroy()
 
 
 def test_real_flag_complex_low_rank(comm, square_matrix_size):
@@ -47,6 +51,8 @@ def test_real_flag_complex_low_rank(comm, square_matrix_size):
     linop = res4py.linear_operators.LowRankLinearOperator(U, S, V, None)
     assert linop.get_real_flag() == False
     linop.destroy()
+    U.destroy()
+    V.destroy()
 
 
 def test_real_flag_shift_and_scale(comm, square_matrix_size):
@@ -61,6 +67,7 @@ def test_real_flag_shift_and_scale(comm, square_matrix_size):
     )
     assert linop.get_real_flag() == True
     linop.destroy()
+    linop_A.destroy()
 
     # Complex alpha with real A should give complex operator
     linop_A2 = res4py.linear_operators.MatrixLinearOperator(Apetsc)
@@ -69,3 +76,5 @@ def test_real_flag_shift_and_scale(comm, square_matrix_size):
     )
     assert linop2.get_real_flag() == False
     linop2.destroy()
+    linop_A2.destroy()
+    Apetsc.destroy()

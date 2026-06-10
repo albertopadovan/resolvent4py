@@ -15,7 +15,9 @@ def L_generator(omega, A):
     Rinv.axpy(-1.0, A)
     ksp = res4py.create_mumps_solver(Rinv)
     L = res4py.linear_operators.MatrixLinearOperator(Rinv, ksp)
-    return (L, L.solve_mat, (L.destroy,))
+    # L.destroy() only frees the internal Hermitian-transpose copy; Rinv and
+    # ksp are created here and must be destroyed explicitly to avoid leaks.
+    return (L, L.solve_mat, (L.destroy, ksp.destroy, Rinv.destroy))
 
 
 def test_balanced_truncation_real(comm):
@@ -68,11 +70,20 @@ def test_balanced_truncation_real(comm):
     )
     r = 1
     Phi, Psi, S = res4py.model_reduction.compute_balanced_projection(X, Y, r)
+    # X and Y are PETSc Mats created by compute_gramian_factors; destroy them
+    # here before the names are rebound to scipy arrays below.
+    X.destroy()
+    Y.destroy()
     linop = res4py.linear_operators.MatrixLinearOperator(Apetsc)
     Ar, _, _ = res4py.model_reduction.assemble_reduced_order_tensors(
         linop, Bpetsc, Cpetsc, Phi, Psi
     )
     linop.destroy()
+    Phi.destroy()
+    Psi.destroy()
+    Apetsc.destroy()
+    Bpetsc.destroy()
+    Cpetsc.destroy()
 
     # Compute exact balanced truncation using scipy
     Qb = -Bpython @ Bpython.conj().T

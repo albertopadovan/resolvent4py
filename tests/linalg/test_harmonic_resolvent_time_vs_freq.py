@@ -69,14 +69,31 @@ def _make_periodic_A_coeffs(N, seed):
 
 def _build_time_periodic_op(comm, Alst_np, freqs, time):
     r"""Wrap the numpy Fourier coefficients into a
-    :class:`TimePeriodicMatrixLinearOperator`."""
+    :class:`TimePeriodicMatrixLinearOperator`.
+
+    Returns the operator along with the constituent PETSc matrices and
+    ``MatrixLinearOperator`` objects, which the caller owns and must
+    destroy: the TimePeriodicMatrixLinearOperator only frees its own
+    work vectors, and each MatrixLinearOperator frees only its internal
+    Hermitian-transpose copy (not the matrix passed in)."""
     Apetsc_lst = [pytest_utils.numpy_to_petsc(comm, Ak) for Ak in Alst_np]
     linop_lst = [
         res4py.linear_operators.MatrixLinearOperator(A) for A in Apetsc_lst
     ]
-    return res4py.linear_operators.TimePeriodicMatrixLinearOperator(
+    op = res4py.linear_operators.TimePeriodicMatrixLinearOperator(
         linop_lst, freqs, time
     )
+    return op, linop_lst, Apetsc_lst
+
+
+def _destroy_time_periodic_op(op, linop_lst, Apetsc_lst):
+    r"""Destroy a TimePeriodicMatrixLinearOperator together with its
+    constituent operators and matrices (see :func:`_build_time_periodic_op`)."""
+    op.destroy()
+    for linop in linop_lst:
+        linop.destroy()
+    for A in Apetsc_lst:
+        A.destroy()
 
 
 def _block_toeplitz_HB(Mlst_np, n_pert):
@@ -125,7 +142,9 @@ def _build_HB_T_op(comm, Alst_np, n_pert, omega_base):
     Top = res4py.linear_operators.MatrixLinearOperator(
         T, ksp, 2 * n_pert + 1
     )
-    return Top, perts_freqs
+    # Top.destroy() frees only the internal Hermitian-transpose copy; T and
+    # ksp are created here and returned so the caller can destroy them.
+    return Top, perts_freqs, T, ksp
 
 
 def _make_HB_force_vec(comm, N, n_pert, f_omega_np, harmonic_index):
@@ -259,7 +278,9 @@ def _run_time_vs_freq_check(comm, adjoint, seed):
     f_omega_np = rng.standard_normal(N) + 1j * rng.standard_normal(N)
 
     # ── time-domain post-transient integration ────────────────────────
-    Atop = _build_time_periodic_op(comm, Alst_np, A_freqs, time=0.0)
+    Atop, Atop_linops, Atop_mats = _build_time_periodic_op(
+        comm, Alst_np, A_freqs, time=0.0
+    )
     Id_mat = res4py.create_AIJ_identity(
         comm,
         (
@@ -294,7 +315,7 @@ def _run_time_vs_freq_check(comm, adjoint, seed):
     Y_np = _gather_BV_columns(Y_BV)   # shape (N, n_omegas + 1)
 
     # ── frequency-domain harmonic-resolvent solve ────────────────────
-    Top, _ = _build_HB_T_op(comm, Alst_np, n_pert, omega_base)
+    Top, _, T_mat, T_ksp = _build_HB_T_op(comm, Alst_np, n_pert, omega_base)
     F_hb_vec = _make_HB_force_vec(comm, N, n_pert, f_omega_np, harmonic_index)
     x_hb_np = _hb_solve_and_gather(comm, Top, F_hb_vec, n_pert, N, adjoint)
 
@@ -316,7 +337,9 @@ def _run_time_vs_freq_check(comm, adjoint, seed):
     X.destroy()
     F_hb_vec.destroy()
     Top.destroy()
-    Atop.destroy()
+    T_mat.destroy()
+    T_ksp.destroy()
+    _destroy_time_periodic_op(Atop, Atop_linops, Atop_mats)
     Idop.destroy()
     Id_mat.destroy()
     return errors
@@ -391,9 +414,15 @@ def _run_time_periodic_BC_check(comm, adjoint, seed):
     f_omega_np = rng.standard_normal(N) + 1j * rng.standard_normal(N)
 
     # ── time-domain post-transient integration ────────────────────────
-    Atop = _build_time_periodic_op(comm, Alst_np, freqs, time=0.0)
-    Btop = _build_time_periodic_op(comm, Blst_np, freqs, time=0.0)
-    Ctop = _build_time_periodic_op(comm, Clst_np, freqs, time=0.0)
+    Atop, Atop_linops, Atop_mats = _build_time_periodic_op(
+        comm, Alst_np, freqs, time=0.0
+    )
+    Btop, Btop_linops, Btop_mats = _build_time_periodic_op(
+        comm, Blst_np, freqs, time=0.0
+    )
+    Ctop, Ctop_linops, Ctop_mats = _build_time_periodic_op(
+        comm, Clst_np, freqs, time=0.0
+    )
 
     tsim, nsave, omegas = res4py.create_time_and_frequency_arrays(
         dt, omega_base, n_omegas, real=True
@@ -420,7 +449,7 @@ def _run_time_periodic_BC_check(comm, adjoint, seed):
     Y_np = _gather_BV_columns(Y_BV)   # shape (N, n_omegas + 1)
 
     # ── frequency-domain harmonic-resolvent solve ────────────────────
-    Top, _ = _build_HB_T_op(comm, Alst_np, n_pert, omega_base)
+    Top, _, T_mat, T_ksp = _build_HB_T_op(comm, Alst_np, n_pert, omega_base)
     B_HB_np = _block_toeplitz_HB(Blst_np, n_pert)
     C_HB_np = _block_toeplitz_HB(Clst_np, n_pert)
     Cstar_HB_np = C_HB_np.conj().T   # matches C.apply_hermitian_transpose
@@ -460,9 +489,11 @@ def _run_time_periodic_BC_check(comm, adjoint, seed):
     X.destroy()
     rhs_vec.destroy()
     Top.destroy()
-    Atop.destroy()
-    Btop.destroy()
-    Ctop.destroy()
+    T_mat.destroy()
+    T_ksp.destroy()
+    _destroy_time_periodic_op(Atop, Atop_linops, Atop_mats)
+    _destroy_time_periodic_op(Btop, Btop_linops, Btop_mats)
+    _destroy_time_periodic_op(Ctop, Ctop_linops, Ctop_mats)
     return errors
 
 

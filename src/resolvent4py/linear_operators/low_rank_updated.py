@@ -68,6 +68,9 @@ class LowRankUpdatedLinearOperator(LinearOperator):
         comm = A.get_comm()
         self.A = A
         self.L = LowRankLinearOperator(B, K, C, nblocks)
+        # Track whether the Woodbury factors X, Y were computed internally
+        # (and are therefore ours to destroy) or supplied by the user.
+        self._woodbury_internal = woodbury_factors == None
         self.W = (
             self.compute_woodbury_operator(nblocks)
             if woodbury_factors == None
@@ -244,14 +247,6 @@ class LowRankUpdatedLinearOperator(LinearOperator):
         bv_add(1.0, Y, Z)
         return Y
 
-    def destroy_woodbury_operator(
-        self: "LowRankUpdatedLinearOperator",
-    ) -> None:
-        self.W.destroy() if self.W is not None else None
-
-    def destroy_low_rank_update(self: "LowRankUpdatedLinearOperator") -> None:
-        self.L.destroy()
-
     def destroy_intermediate_vectors(
         self: "LowRankUpdatedLinearOperator",
     ) -> None:
@@ -263,6 +258,11 @@ class LowRankUpdatedLinearOperator(LinearOperator):
             self._cached_Z_ht.destroy()
 
     def destroy(self):
+        # The intermediate work vectors are created internally. self.A and the
+        # low-rank factors B, K, C (wrapped in self.L) are user-supplied, so we
+        # leave them to the caller. The Woodbury factors X, Y (inside self.W)
+        # are ours to destroy only when we computed them.
         self.destroy_intermediate_vectors()
-        self.destroy_woodbury_operator()
-        self.destroy_low_rank_update()
+        if self._woodbury_internal and self.W is not None:
+            self.W.U.destroy()
+            self.W.V.destroy()

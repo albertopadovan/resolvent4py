@@ -240,7 +240,11 @@ def scatter_array_from_root_to_all(
         if displs is not None
         else displs
     )
+    # The root's send buffer must be C-contiguous: recent mpi4py rejects a
+    # non-contiguous array (via both the buffer protocol and DLPack). On
+    # non-root ranks ``array`` is None and ignored as the send buffer.
+    sendbuf = np.ascontiguousarray(array) if rank == 0 else array
     comm.Scatterv(
-        [array, counts, displs, get_mpi_type(dtype)], recvbuf, root=0
+        [sendbuf, counts, displs, get_mpi_type(dtype)], recvbuf, root=0
     )
     return recvbuf

@@ -75,16 +75,7 @@ class LowRankLinearOperator(LinearOperator):
         M.destroy()
         return Y
 
-    def destroy_U(self: "LowRankLinearOperator") -> None:
-        self.U.destroy()
-
-    def destroy_V(self: "LowRankLinearOperator") -> None:
-        self.V.destroy()
-
-    def destroy_Sigma(self: "LowRankLinearOperator") -> None:
-        del self.Sigma
-
     def destroy(self):
-        self.destroy_U()
-        self.destroy_V()
-        self.destroy_Sigma()
+        # U, Sigma and V are all user-supplied (passed to __init__); nothing
+        # is created internally, so there is nothing to destroy here.
+        pass
