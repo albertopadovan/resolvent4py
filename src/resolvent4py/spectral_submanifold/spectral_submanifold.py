@@ -416,9 +416,13 @@ class SpectralSubmanifold:
                 proj = W.dotVec(pj) * scaling
                 error_conj = np.linalg.norm(proj)
                 if error_conj >= tol_conj:
-                    raise ValueError(
-                        f"|W^* pj| = {error_conj} > {tol_conj}. Please try modifying "
-                        f"the scaling parameters when running .solve()"
+                    from ..utils.miscellaneous import petscprint
+
+                    petscprint(
+                        self.diff_eq.get_comm(),
+                        f"WARNING: |W^* pj| = {error_conj} > {tol_conj}. "
+                        f"Consider modifying the scaling parameters when "
+                        f"running .solve()",
                     )
             gs.append(gj)
             ps.append(pj)

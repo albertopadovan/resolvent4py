@@ -187,31 +187,56 @@ def create_gmres_bjacobi_solver(
     ksp.setMonitor(monitor_fun)
     pc = ksp.getPC()
     pc.setFromOptions()
-    pc.setUp()
+    pc.setUp()    # first MUMPS factor runs with DEFAULTS here -- we'll
+                  # force a refactor with the user's ICNTLs below.
     ksp.setUp()
 
-    # Apply sub_icntl / sub_cntl on each bjacobi sub-block's MUMPS factor
-    # matrix AFTER pc.setUp() has materialized the sub-KSPs.  We tried the
-    # canonical PETSc options-DB route via
-    # "sub_pc_factor_mat_mumps_icntl_N=v" set before pc.setFromOptions(),
-    # but PETSc 3.24's bjacobi→sub-LU→MUMPS chain does NOT pull those keys
-    # (verified: PETSc reports them as "Option left ... source: code" at
-    # end-of-run).  This direct setMumpsIcntl path works via PETSc-MUMPS's
-    # lazy re-factor mechanism: the new ICNTLs take effect on the next
-    # ksp.solve, costing one extra sub-block factorization cycle per call.
-    # Cheap relative to the GMRES iteration count.  Common knob for this
-    # path: sub_icntl={24: 1} for null-pivot detection at near-spectrum
-    # real shifts (the k=0 saddle sub-block of (sM-T) is singular).
+    # Apply sub_icntl / sub_cntl AND FORCE A REFACTOR so they're consumed.
+    #
+    # Background: in PETSc 3.24 the bjacobi→sub-LU→MUMPS chain does NOT
+    # pull the PETSc options-DB keys 'sub_pc_factor_mat_mumps_icntl_N'
+    # (verified empirically: PETSc reports them as "Option left ...
+    # source: code" at end-of-run, even though they were set before
+    # pc.setUp()).  The only reliable path is:
+    #
+    #   1. setMumpsIcntl / setMumpsCntl on each sub-factor's mumps_id
+    #      struct -- this writes the live ICNTL/CNTL values successfully
+    #      (test_mumps_settings.py Check 1 confirms this).
+    #
+    #   2. Force a numeric refactor on each sub-PC so JOB=2 reads the
+    #      values we just wrote.  ``PCSetReusePreconditioner(False)``
+    #      makes PCSetUp re-run the factor regardless of matstate; we
+    #      then call ``pc.setUp()`` to trigger it and immediately
+    #      restore reuse=True for the caller.
+    #
+    # NOTE: JOB=1 (analysis) ICNTLs -- ICNTL(7) ordering, ICNTL(28)
+    # serial/parallel analysis, ICNTL(29) tool selection -- ONLY take
+    # effect during JOB=1, which already ran during step pc.setUp()
+    # above with MUMPS defaults.  To pin those, build MUMPS with the
+    # desired ordering as default OR rely on the fact that ICNTL(7)=7
+    # (auto) already picks METIS when available (most PETSc/MUMPS
+    # builds on Stampede3).  Verify with INFOG(7) (= ordering used)
+    # in test_mumps_settings.py Check 2.
     if sub_icntl or sub_cntl:
         sub_ksps = pc.getBJacobiSubKSP()
         for sk in sub_ksps:
-            F = sk.getPC().getFactorMatrix()
+            sub_pc = sk.getPC()
+            F = sub_pc.getFactorMatrix()
             if sub_icntl:
                 for k, v in sub_icntl.items():
                     F.setMumpsIcntl(k, v)
             if sub_cntl:
                 for k, v in sub_cntl.items():
                     F.setMumpsCntl(k, v)
+            # Force this sub-PC to refactor with the live mumps_id
+            # values.  PCSetReusePreconditioner(False) makes PCSetUp
+            # re-do the factor (calls MatLUFactorNumeric) regardless
+            # of operator matstate.  pc.setUp() triggers it.  Restore
+            # reuse=True so the caller's subsequent solves behave
+            # normally (matstate-driven refactor for FIX C).
+            sub_pc.setReusePreconditioner(False)
+            sub_pc.setUp()
+            sub_pc.setReusePreconditioner(True)
 
     return ksp
 
