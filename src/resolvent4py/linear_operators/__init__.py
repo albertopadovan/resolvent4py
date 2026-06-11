@@ -1,5 +1,6 @@
 __all__ = [
     "MatrixLinearOperator",
+    "IncompressibleNavierStokesLinearOperator",
     "LerayProjectorLinearOperator",
     "LowRankLinearOperator",
     "LowRankUpdatedLinearOperator",
@@ -12,6 +13,9 @@ __all__ = [
     "LinearOperator",
 ]
 
+from .incompressible_navier_stokes import (
+    IncompressibleNavierStokesLinearOperator,
+)
 from .leray_projector import LerayProjectorLinearOperator
 from .linear_operator import LinearOperator
 from .low_rank import LowRankLinearOperator
@@ -25,6 +29,7 @@ from .shift_and_scale import ShiftAndScaleLinearOperator
 from .time_periodic_matrix import TimePeriodicMatrixLinearOperator
 
 del (
+    incompressible_navier_stokes,
     leray_projector,
     linear_operator,
     low_rank,

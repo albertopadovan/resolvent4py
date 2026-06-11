@@ -50,6 +50,12 @@ Leray Projector Linear Operator
    :members:
    :show-inheritance:
 
+Incompressible Navier-Stokes Linear Operator
+--------------------------------------------
+.. automodule:: resolvent4py.linear_operators.incompressible_navier_stokes
+   :members:
+   :show-inheritance:
+
 Petsc/Python Linear Operator
 ----------------------------
 .. automodule:: resolvent4py.linear_operators.petsc_python
