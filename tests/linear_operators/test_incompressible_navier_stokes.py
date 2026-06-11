@@ -14,7 +14,7 @@ Conventions used by the class (see incompressible_navier_stokes.py):
   ``N_v`` columns (``Lm``), so the test mass matrix is block-diagonal
   ``blkdiag(M_vv, 0)`` (no nonzeros in the constraint columns);
 - the generator (``apply``) is ``P L^* (sM - A) L P`` and the resolvent
-  (``solve``, after ``update_resolvent_operator``) is ``L^* (sM - A)^{-1} L``,
+  (``solve``, after ``update_operator``) is ``L^* (sM - T)^{-1} L``,
   both mapping velocity space to itself.
 """
 
@@ -100,6 +100,18 @@ def _block_toeplitz(coeffs, nblocks):
                 continue
             M[i * br : (i + 1) * br, j * bc : (j + 1) * bc] = blk
     return M
+
+
+def _hb_generator(A_full, M_full, freqs, nblocks):
+    r"""Harmonic-resolvent generator T = A - i*Omega*M, matching
+    assemble_harmonic_resolvent_generator. ``freqs`` is the one-sided
+    perturbation-frequency array; it is mirrored to the two-sided per-block
+    array, and Omega is block-diagonal with block k equal to perts[k] * I."""
+    perts = np.concatenate((-np.flip(freqs[1:]), freqs))
+    Omega = np.zeros((N * nblocks, N * nblocks), dtype=complex)
+    for k in range(nblocks):
+        Omega[k * N : (k + 1) * N, k * N : (k + 1) * N] = perts[k] * np.eye(N)
+    return A_full - 1j * Omega @ M_full
 
 
 def _reference(M, A, D, G, s, nblocks):
@@ -241,6 +253,55 @@ def _gen_inverts_res_error(comm, linop, vel):
     return err
 
 
+def _action_errors(comm, linop, apply_ref, solve_ref, vel):
+    r"""Relative errors of all eight action variants against the dense
+    references: apply (generator) and solve (resolvent), each as forward /
+    Hermitian-transpose and on a vector / BV. The Hermitian-transpose reference
+    is the conjugate transpose of the forward reference."""
+    x, xnp = pytest_utils.generate_random_vector(comm, vel)
+    y = linop.create_left_vector()
+    err = [
+        pytest_utils.compute_error_vector(
+            comm, linop.apply, x, y, apply_ref.dot, xnp
+        ),
+        pytest_utils.compute_error_vector(
+            comm, linop.apply_hermitian_transpose, x, y,
+            apply_ref.conj().T.dot, xnp,
+        ),
+        pytest_utils.compute_error_vector(
+            comm, linop.solve, x, y, solve_ref.dot, xnp
+        ),
+        pytest_utils.compute_error_vector(
+            comm, linop.solve_hermitian_transpose, x, y,
+            solve_ref.conj().T.dot, xnp,
+        ),
+    ]
+    x.destroy()
+    y.destroy()
+
+    X, Xnp = pytest_utils.generate_random_bv(comm, (vel, 4))
+    Y = linop.create_left_bv(X.getSizes()[-1])
+    err += [
+        pytest_utils.compute_error_bv(
+            comm, linop.apply_mat, X, Y, apply_ref.dot, Xnp
+        ),
+        pytest_utils.compute_error_bv(
+            comm, linop.apply_hermitian_transpose_mat, X, Y,
+            apply_ref.conj().T.dot, Xnp,
+        ),
+        pytest_utils.compute_error_bv(
+            comm, linop.solve_mat, X, Y, solve_ref.dot, Xnp
+        ),
+        pytest_utils.compute_error_bv(
+            comm, linop.solve_hermitian_transpose_mat, X, Y,
+            solve_ref.conj().T.dot, Xnp,
+        ),
+    ]
+    X.destroy()
+    Y.destroy()
+    return err
+
+
 # ── non-harmonic-balanced branch ────────────────────────────────────────────
 def test_ns_nonhb_actions(comm, tmpdir_shared):
     r"""apply (generator) and solve (resolvent) vs dense reference, complex s."""
@@ -256,23 +317,16 @@ def test_ns_nonhb_actions(comm, tmpdir_shared):
     linop = res4py.linear_operators.IncompressibleNavierStokesLinearOperator(
         comm, s, fA, fM, (N_V, N_C), fname_Dm=fD, fname_Gm=fG
     )
-    linop.update_resolvent_operator(s)
+    linop.update_operator(s)
 
     assert linop.get_nblocks() is None
     assert linop.get_dimensions()[0][-1] == N_V
     assert linop.get_real_flag() is False  # complex shift
     assert linop.get_block_cc_flag() is None
 
-    x, xnp = pytest_utils.generate_random_vector(comm, N_V)
-    y = linop.create_left_vector()
-    err = [
-        pytest_utils.compute_error_vector(comm, linop.apply, x, y, apply_ref.dot, xnp),
-        pytest_utils.compute_error_vector(comm, linop.solve, x, y, solve_ref.dot, xnp),
-    ]
-    x.destroy()
-    y.destroy()
+    err = _action_errors(comm, linop, apply_ref, solve_ref, N_V)
     linop.destroy()
-    assert np.linalg.norm(err) < 1e-8
+    assert np.linalg.norm(err) < 1e-10
 
 
 def test_ns_nonhb_real_shift_flags(comm, tmpdir_shared):
@@ -295,7 +349,7 @@ def test_ns_nonhb_real_shift_flags(comm, tmpdir_shared):
 # ── harmonic-balanced branch ────────────────────────────────────────────────
 def test_ns_hb_actions(comm, tmpdir_shared):
     r"""apply and solve vs the dense block-Toeplitz reference, complex s."""
-    freqs = [0.0, 1.0]  # two (one-sided) frequencies -> nblocks = 3
+    freqs = [0.0, 1.0, 2.0]  # 3 perturbation freqs > 2 base-flow coeffs -> nblocks = 5
     nblocks = 2 * (len(freqs) - 1) + 1
     if comm.getSize() != 1 and comm.getSize() % nblocks != 0:
         pytest.skip(
@@ -309,7 +363,10 @@ def test_ns_hb_actions(comm, tmpdir_shared):
     M_full = _block_toeplitz(M_c, nblocks)
     D_full = _block_toeplitz(D_c, nblocks)
     G_full = _block_toeplitz(G_c, nblocks)
-    apply_ref, solve_ref = _reference(M_full, A_full, D_full, G_full, s, nblocks)
+    # The HB operator subtracts the harmonic-resolvent generator
+    # T = A - i*Omega*M, not A itself, so build the same T for the reference.
+    T_full = _hb_generator(A_full, M_full, freqs, nblocks)
+    apply_ref, solve_ref = _reference(M_full, T_full, D_full, G_full, s, nblocks)
 
     fA = _write_coo_list(comm, tmpdir_shared, "A", A_c)
     fM = _write_coo_list(comm, tmpdir_shared, "M", M_c)
@@ -319,7 +376,7 @@ def test_ns_hb_actions(comm, tmpdir_shared):
     linop = res4py.linear_operators.IncompressibleNavierStokesLinearOperator(
         comm, s, fA, fM, (N_V, N_C), fname_Dm=fD, fname_Gm=fG, freqs=freqs
     )
-    linop.update_resolvent_operator(s)
+    linop.update_operator(s)
 
     vel = N_V * nblocks
     assert linop.get_nblocks() == nblocks
@@ -327,22 +384,15 @@ def test_ns_hb_actions(comm, tmpdir_shared):
     assert linop.get_real_flag() is False  # HB is complex-valued
     assert linop.get_block_cc_flag() is False  # complex shift -> no cc
 
-    x, xnp = pytest_utils.generate_random_vector(comm, vel)
-    y = linop.create_left_vector()
-    err = [
-        pytest_utils.compute_error_vector(comm, linop.apply, x, y, apply_ref.dot, xnp),
-        pytest_utils.compute_error_vector(comm, linop.solve, x, y, solve_ref.dot, xnp),
-    ]
-    x.destroy()
-    y.destroy()
+    err = _action_errors(comm, linop, apply_ref, solve_ref, vel)
     linop.destroy()
-    assert np.linalg.norm(err) < 1e-8
+    assert np.linalg.norm(err) < 1e-10
 
 
 def test_ns_hb_real_shift_flags(comm, tmpdir_shared):
     r"""With a real shift the HB operator reports cc block structure (and is
     still complex-valued)."""
-    freqs = [0.0, 1.0]
+    freqs = [0.0, 1.0, 2.0]
     nblocks = 2 * (len(freqs) - 1) + 1
     if comm.getSize() != 1 and comm.getSize() % nblocks != 0:
         pytest.skip(
@@ -384,12 +434,12 @@ def test_ns_nonhb_generator_inverts_resolvent(comm, tmpdir_shared):
     )
     err = _gen_inverts_res_error(comm, linop, N_V)
     linop.destroy()
-    assert err < 1e-8
+    assert err < 1e-10
 
 
 def test_ns_hb_generator_inverts_resolvent(comm, tmpdir_shared):
     r"""Same generator/resolvent inverse check, harmonic-balanced case."""
-    freqs = [0.0, 1.0]
+    freqs = [0.0, 1.0, 2.0]
     nblocks = 2 * (len(freqs) - 1) + 1
     if comm.getSize() != 1 and comm.getSize() % nblocks != 0:
         pytest.skip(
@@ -408,4 +458,4 @@ def test_ns_hb_generator_inverts_resolvent(comm, tmpdir_shared):
     )
     err = _gen_inverts_res_error(comm, linop, N_V * nblocks)
     linop.destroy()
-    assert err < 1e-8
+    assert err < 1e-10
