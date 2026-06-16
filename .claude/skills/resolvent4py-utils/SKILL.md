@@ -45,6 +45,29 @@ This routine distributes per-block instead, requiring
 `pool_size % nblocks == 0`. Use this only when building
 block-Jacobi-preconditioned matrices.
 
+### Single-rank gather / scatter (`comms.py`)
+
+Three Vec-to-numpy distribution patterns coexist; pick by who
+consumes the result:
+
+- `distributed_to_sequential_vector(vec) → COMM_SELF Vec` — Allgather.
+  Every rank ends up with the full vector.  Use when every rank
+  *redundantly* runs the same compute on the gathered data.
+- `gather_vec_to_rank(vec, dest_rank) → np.ndarray | None` — Gatherv
+  to one root.  Returns the full numpy array on `dest_rank` and
+  `None` everywhere else.  Use when *one* rank does the compute.
+- `scatter_vec_from_rank(arr_on_source, target_vec, source_rank) →
+  target_vec` — the inverse of `gather_vec_to_rank`.  Scatterv from
+  one source so each rank receives only its `target_vec` ownership
+  slice.
+
+The pair `(gather_vec_to_rank, scatter_vec_from_rank)` round-trips
+exactly (modulo dtype) and replaces the heavier
+Allgather-then-everyone-computes pattern when the per-rank
+compute would be redundant or memory-heavy.  This is what
+`DifferentialEquation.evaluate_dynamics` and
+`SpectralSubmanifold._evaluate_quadratic_rhs_root` use.
+
 ### KSP factories (`ksp.py`)
 
 - `create_mumps_solver(A, icntl=None, cntl=None)` → KSP with

@@ -104,6 +104,28 @@ them:
    action callable.** It selects `apply` vs `apply_hermitian_transpose`
    based on `adjoint=` and threads `set_evaluation_time` through `L`
    at every stage.
+10. **`DifferentialEquation.evaluate_quadratic_term` takes/returns
+    NUMPY arrays, not PETSc Vecs** — but `evaluate_linear_term` and
+    `solve_linear_system` are still PETSc Vec.  The split is what
+    enables the parallel pair loop in `SpectralSubmanifold.solve`.
+    The base class's `evaluate_dynamics` bridges via
+    `gather_vec_to_rank` + `scatter_vec_from_rank`.  Subclasses must
+    NOT gather/scatter inside the bilinear (the caller already does
+    it).  All in-tree subclasses except `JetFlowPeriodic` are
+    updated to the new contract.
+11. **`SpectralSubmanifold(diff_eq, r, m, n_workers=None)`** —
+    `n_workers ∈ [1, world_size]` (default `world_size`) controls
+    how many ranks participate in the per-`j_idx` pair loop.
+    Workers are placed by decimation across the rank space.
+    Non-worker ranks still participate in all collectives (gathers
+    + Allreduce) but skip the bilinear evaluation — drop `r` only
+    when the per-call bilinear is memory-heavy.
+12. **`gather_vec_to_rank(vec, dest) → np.ndarray | None`** and
+    **`scatter_vec_from_rank(arr, target_vec, source) → target_vec`**
+    are the inverse pair for single-rank consume/produce patterns.
+    Prefer them over the Allgather-based
+    `distributed_to_sequential_vector` when only one rank needs the
+    result.
 
 ## Workflow patterns
 
