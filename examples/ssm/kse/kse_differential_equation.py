@@ -129,28 +129,17 @@ class KuramotoSivashinsky(DifferentialEquation):
     def evaluate_quadratic_term(
         self,
         t: float,
-        q1: PETSc.Vec,
-        q2: PETSc.Vec,
-        y: Optional[PETSc.Vec] = None,
-    ) -> PETSc.Vec:
+        q1: np.ndarray,
+        q2: np.ndarray,
+        y: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
         # Autonomous bilinear: t argument is accepted but ignored.
-        q1_seq = res4py.distributed_to_sequential_vector(q1)
-        q2_seq = res4py.distributed_to_sequential_vector(q2)
-        result = self._evaluate_quadratic_term_numpy(
-            q1_seq.getArray(),
-            q2_seq.getArray(),
-        )
-        y_seq = PETSc.Vec().createWithArray(
-            np.asarray(result, dtype=np.complex128),
-            len(result),
-            comm=PETSc.COMM_SELF,
-        )
-        y = q1.duplicate() if y is None else y
-        y = res4py.sequential_to_distributed_vector(y_seq, y)
-        objs = [y_seq, q1_seq, q2_seq]
-        for obj in objs:
-            obj.destroy()
-        return y
+        result = self._evaluate_quadratic_term_numpy(q1, q2)
+        result = np.asarray(result, dtype=np.complex128)
+        if y is not None:
+            y[:] = result
+            return y
+        return result
 
     def solve_linear_system(
         self,
@@ -164,7 +153,11 @@ class KuramotoSivashinsky(DifferentialEquation):
         I = res4py.create_AIJ_identity(self.get_comm(), (size, size))
         M.axpy(s, I)
         I.destroy()
-        ksp = res4py.create_mumps_solver(M)
+        # ICNTL(13)=1 disables ScaLAPACK at the root frontal — required
+        # whenever the matrix is small enough that ScaLAPACK chokes
+        # (MUMPS INFOG(1)=-3 otherwise).  At n=64 this fires already on
+        # 4 ranks; safe and effectively free at any scale.
+        ksp = res4py.create_mumps_solver(M, icntl={13: 1})
         res4py.check_lu_factorization(M, ksp)
         L = res4py.linear_operators.MatrixLinearOperator(M, ksp)
         x = L.solve(b, x)

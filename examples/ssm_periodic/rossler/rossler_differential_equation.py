@@ -232,27 +232,17 @@ class RosslerPeriodic(DifferentialEquation):
     def evaluate_quadratic_term(
         self,
         t: float,
-        q1: PETSc.Vec,
-        q2: PETSc.Vec,
-        y: Optional[PETSc.Vec] = None,
-    ) -> PETSc.Vec:
-        q1_seq = res4py.distributed_to_sequential_vector(q1)
-        q2_seq = res4py.distributed_to_sequential_vector(q2)
-        result = quadratic_bilinear(q1_seq.getArray(), q2_seq.getArray())
-
-        if np.isrealobj(q1_seq.getArray()) and np.isrealobj(q2_seq.getArray()):
+        q1: np.ndarray,
+        q2: np.ndarray,
+        y: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        result = quadratic_bilinear(q1, q2)
+        if np.isrealobj(q1) and np.isrealobj(q2):
             result = result.astype(np.complex128)
-
-        y_seq = PETSc.Vec().createWithArray(
-            np.asarray(result, dtype=np.complex128),
-            len(result),
-            comm=PETSc.COMM_SELF,
-        )
-        y = q1.duplicate() if y is None else y
-        y = res4py.sequential_to_distributed_vector(y_seq, y)
-        for obj in (q1_seq, q2_seq, y_seq):
-            obj.destroy()
-        return y
+        if y is not None:
+            y[:] = result
+            return y
+        return np.asarray(result, dtype=np.complex128)
 
     def solve_linear_system(
         self,

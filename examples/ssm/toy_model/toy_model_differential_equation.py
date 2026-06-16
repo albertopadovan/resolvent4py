@@ -72,28 +72,21 @@ class Hopf3D(DifferentialEquation):
     def evaluate_quadratic_term(
         self,
         t: float,
-        q1: PETSc.Vec,
-        q2: PETSc.Vec,
-        y: Optional[PETSc.Vec] = None,
-    ) -> PETSc.Vec:
+        q1: np.ndarray,
+        q2: np.ndarray,
+        y: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
         # Autonomous bilinear: t argument is accepted but ignored.
-        q1seq = res4py.distributed_to_sequential_vector(q1)
-        q2seq = res4py.distributed_to_sequential_vector(q2)
         alpha, beta = self.alpha, self.beta
-        x1, y1, z1 = q1seq.getArray()
-        x2, y2, z2 = q2seq.getArray()
-        y_np = np.zeros(3, dtype=np.complex128)
-        y_np[0] = -0.5 * alpha * (x1 * z2 + x2 * z1) - 0.5 * beta * (
+        x1, y1, z1 = q1
+        x2, y2, z2 = q2
+        out = y if y is not None else np.zeros(3, dtype=np.complex128)
+        out[0] = -0.5 * alpha * (x1 * z2 + x2 * z1) - 0.5 * beta * (
             x1 * y2 + x2 * y1
         )
-        y_np[1] = -0.5 * alpha * (y1 * z2 + y2 * z1) + beta * x1 * x2
-        y_np[2] = alpha * (x1 * x2 + y1 * y2)
-        y_seq = PETSc.Vec().createWithArray(
-            y_np, len(y_np), comm=PETSc.COMM_SELF
-        )
-        y = q1.duplicate() if y is None else y
-        y = res4py.sequential_to_distributed_vector(y_seq, y)
-        return y
+        out[1] = -0.5 * alpha * (y1 * z2 + y2 * z1) + beta * x1 * x2
+        out[2] = alpha * (x1 * x2 + y1 * y2)
+        return out
 
     def solve_linear_system(
         self, s: complex, b: PETSc.Vec, x: Optional[PETSc.Vec] = None

@@ -111,27 +111,38 @@ class DifferentialEquation(metaclass=abc.ABCMeta):
     def evaluate_quadratic_term(
         self,
         t: float,
-        q1: PETSc.Vec,
-        q2: PETSc.Vec,
-        y: Optional[PETSc.Vec] = None,
-    ) -> PETSc.Vec:
+        q1: np.ndarray,
+        q2: np.ndarray,
+        y: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
         r"""
         Compute the quadratic bilinear term at time :math:`t`:
         :math:`B(t;\, q_1, q_2)`.  Must satisfy
         :math:`B(t;\, q_1, q_2) = B(t;\, q_2, q_1)`.  For autonomous
         systems the ``t`` argument may be ignored.
 
+        Operates on **rank-replicated numpy arrays**, not PETSc Vecs.
+        Callers are responsible for gathering distributed inputs to
+        numpy on every rank that calls this method (or batched on a
+        worker subset, see
+        :meth:`SpectralSubmanifold._evaluate_quadratic_rhs_root` and
+        :meth:`_evaluate_quadratic_rhs_parallel`).  Returning numpy
+        keeps the per-call cost a function of the state dim only —
+        no collectives — which is what makes the per-pair loop in
+        :meth:`SpectralSubmanifold.solve` parallelisable across pairs.
+
         :param t: time
         :type t: float
-        :param q1: first state vector
-        :type q1: PETSc.Vec
-        :param q2: second state vector
-        :type q2: PETSc.Vec
-        :param y: optional output vector (reused if provided)
-        :type y: Optional[PETSc.Vec]
+        :param q1: first state vector as a numpy array
+        :type q1: np.ndarray
+        :param q2: second state vector as a numpy array
+        :type q2: np.ndarray
+        :param y: optional output buffer (reused if provided); same
+            shape as ``q1``
+        :type y: Optional[np.ndarray]
 
-        :return: result of :math:`B(t;\, q_1, q_2)`
-        :rtype: PETSc.Vec
+        :return: result of :math:`B(t;\, q_1, q_2)` as a numpy array
+        :rtype: np.ndarray
         """
         ...
 
@@ -172,10 +183,27 @@ class DifferentialEquation(metaclass=abc.ABCMeta):
         :return: result of :math:`A(t)\, q + B(t;\, q, q)`
         :rtype: PETSc.Vec
         """
+        # Local import to avoid circular imports at module load.
+        from ..utils.comms import gather_vec_to_rank, scatter_vec_from_rank
+
+        # Linear part — PETSc Vec interface, unchanged.
         y = self.evaluate_linear_term(t, q, y)
-        Bqq = self.evaluate_quadratic_term(t, q, q)
-        y.axpy(1.0, Bqq)
-        Bqq.destroy()
+
+        # Quadratic part — numpy interface.  Gather ``q`` to rank 0,
+        # run the bilinear there (rank-0 only), then scatter the
+        # result back into a temporary distributed Vec and axpy
+        # into ``y``.  Avoids the all-ranks redundant compute and the
+        # full-vector replication that ``distributed_to_sequential_vector``
+        # would do.
+        q_arr = gather_vec_to_rank(q, 0)
+        Bqq_arr = None
+        if q.getComm().tompi4py().Get_rank() == 0:
+            Bqq_arr = self.evaluate_quadratic_term(t, q_arr, q_arr)
+
+        Bqq_dist = y.duplicate()
+        Bqq_dist = scatter_vec_from_rank(Bqq_arr, Bqq_dist, 0)
+        y.axpy(1.0, Bqq_dist)
+        Bqq_dist.destroy()
         return y
 
 
@@ -401,27 +429,34 @@ class PeriodicDifferentialEquation(
     def evaluate_quadratic_term(
         self,
         t: float,
-        q1: PETSc.Vec,
-        q2: PETSc.Vec,
-        y: Optional[PETSc.Vec] = None,
-    ) -> PETSc.Vec:
+        q1: np.ndarray,
+        q2: np.ndarray,
+        y: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
         r"""
         Evaluate the bilinear term in the harmonic-balanced
-        representation.
+        representation, **in pure numpy**.
 
-        Reshapes ``q1`` and ``q2`` into BV form, reconstructs them in
-        the time domain at every sample :math:`t_i` via :func:`ifft`,
-        calls the user's per-time-instant bilinear at each
-        :math:`t_i` through
-        ``super().evaluate_quadratic_term(t_i, qk1, qk2, yk)``, and
-        projects the result back onto the harmonic basis via
-        :func:`fft`.
+        Reshapes the flat HB long vectors ``q1`` and ``q2`` into per-
+        harmonic blocks, reconstructs them in the time domain at every
+        sample :math:`t_i` via an explicit IDFT matrix product, calls
+        the user's per-time-instant bilinear at each :math:`t_i`
+        through ``super().evaluate_quadratic_term(t_i, qk1, qk2)``,
+        and projects the result back onto the harmonic basis via the
+        forward DFT matrix product.
+
+        Everything happens on rank-replicated numpy arrays: no SLEPc
+        BV / PETSc Vec, no collective.  That makes the routine safe to
+        run on COMM_SELF / per-worker — which is the prerequisite for
+        parallelising the pair loop in
+        :meth:`SpectralSubmanifold.solve`.
 
         The per-time call resolves through the MRO inserted by
         :meth:`DifferentialEquation.__new__`: from this mixin,
         ``super()`` points to the user's concrete subclass, whose
         :meth:`evaluate_quadratic_term` is the *time-domain* bilinear
-        :math:`B(t_i;\, q_1(t_i), q_2(t_i))`.
+        :math:`B(t_i;\, q_1(t_i), q_2(t_i))` operating on numpy state
+        arrays of length ``state_dim``.
 
         :param t: accepted for signature consistency with
             :meth:`DifferentialEquation.evaluate_quadratic_term`, but
@@ -429,45 +464,59 @@ class PeriodicDifferentialEquation(
             internal loop supplies ``self._time[k]`` to each
             per-time-instant call instead.
         :type t: float
-        :param q1: first HB state vector of size
-            ``state_dim * nblocks``
-        :type q1: PETSc.Vec
-        :param q2: second HB state vector of size
-            ``state_dim * nblocks``
-        :type q2: PETSc.Vec
-        :param y: optional output vector (reused if provided)
-        :type y: Optional[PETSc.Vec]
+        :param q1: first HB state vector (flat, size
+            ``state_dim * nblocks``)
+        :type q1: np.ndarray
+        :param q2: second HB state vector (flat, same layout)
+        :type q2: np.ndarray
+        :param y: optional output buffer (reused if provided)
+        :type y: Optional[np.ndarray]
 
-        :return: HB representation of :math:`B(q_1, q_2)`
-        :rtype: PETSc.Vec
+        :return: HB representation of :math:`B(q_1, q_2)` as a flat
+            numpy array of size ``state_dim * nblocks``
+        :rtype: np.ndarray
         """
-        # Temporal reconstruction of the harmonic-balanced vectors
-        qlst = [q1, q2]
-        for j in range(len(qlst)):
-            reshape_harmonic_balanced_vector_into_bv(
-                qlst[j], self._nblocks, self._Q_freqs[j]
+        nblocks = self._nblocks
+        nt = self._nt
+        N = q1.size // nblocks
+
+        # IDFT / DFT weight matrices (cached on first call).
+        # ``E[i, k] = exp(1j * omegas[k] * time[i])`` so that
+        #   time-reconstruction = freqs @ E.T   (each row = one DOF)
+        #   freq-projection      = (time @ conj(E)) / nt
+        if not hasattr(self, "_E_idft"):
+            self._E_idft = np.exp(
+                1j * np.outer(self._time, self._omegas)
+            )  # shape (nt, nblocks)
+
+        E = self._E_idft
+
+        # Flat HB layout: ``q[k*N + i]`` is block k row i, so
+        # ``q.reshape(nblocks, N).T`` is the (N, nblocks) per-block view
+        # where column k is the k-th harmonic block.
+        Q1_freqs = q1.reshape(nblocks, N).T   # (N, nblocks)
+        Q2_freqs = q2.reshape(nblocks, N).T
+
+        # IDFT to time domain.
+        Q1_time = Q1_freqs @ E.T              # (N, nt)
+        Q2_time = Q2_freqs @ E.T
+
+        # Per-time-instant bilinear, dispatched via MRO to the user's class.
+        Y_time = np.empty_like(Q1_time)
+        for k in range(nt):
+            Y_time[:, k] = super().evaluate_quadratic_term(
+                self._time[k], Q1_time[:, k], Q2_time[:, k]
             )
-            for i in range(self._nt):
-                q = self._Q_time[j].getColumn(i)
-                ifft(self._Q_freqs[j], q, self._omegas, self._time[i])
-                self._Q_time[j].restoreColumn(i, q)
 
-        # Per-time-instant bilinear, dispatched via MRO to the user's class
-        for k in range(self._nt):
-            qk1 = self._Q_time[0].getColumn(k)
-            qk2 = self._Q_time[1].getColumn(k)
-            yk = self._Q_time[-1].getColumn(k)
-            yk = super().evaluate_quadratic_term(self._time[k], qk1, qk2, yk)
+        # DFT back to HB.
+        Y_freqs = (Y_time @ E.conj()) / nt     # (N, nblocks)
 
-            self._Q_time[-1].restoreColumn(k, yk)
-            self._Q_time[0].restoreColumn(k, qk1)
-            self._Q_time[1].restoreColumn(k, qk2)
-
-        # FFT back into the frequency domain
-        self._Q_freqs[-1] = fft(
-            self._Q_time[-1], self._Q_freqs[-1], False, True
-        )
-        return reshape_bv_into_harmonic_balanced_vector(self._Q_freqs[-1], y)
+        # Flatten back to HB long-vector layout.
+        y_out = np.ascontiguousarray(Y_freqs.T).reshape(-1)
+        if y is not None:
+            y[:] = y_out
+            return y
+        return y_out
 
     # def solve_linear_system(self, s, b, x = None):
     #     reshape_harmonic_balanced_vector_into_bv(b, self._nblocks, self._Q_freqs[0])

@@ -1,11 +1,16 @@
 import numpy as np
-from typing import List, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 import itertools
 
+from mpi4py import MPI
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
 from .differential_equation import DifferentialEquation
+from ..utils.comms import (
+    gather_vec_to_rank,
+    scatter_vec_from_rank,
+)
 
 
 def _check_eigen_triplets(diff_eq, V, W, L, tol=1e-10):
@@ -50,17 +55,35 @@ class SpectralSubmanifold:
     Compute a spectral submanifold :math:`P(s)` and the
     intrinsic dynamics :math:`\dot{s} = \Lambda s + g(s)`.
 
-    :param diff_eq: differential equation providing
-        :math:`A`, :math:`B(q,q)`, and eigenvalues
+    :param diff_eq: quadratic differential equation providing
+        :math:`A`, :math:`B(q,q)`, and eigenvalues.
     :type diff_eq: DifferentialEquation
-    :param r: dimension of the latent space
+    :param r: dimension of the latent space.
     :type r: int
-    :param m: polynomial expansion order
+    :param m: polynomial expansion order.
     :type m: int
-    :param conj_to_linear_dynamics: if True, set :math:`g(s) = 0`
-        (conjugacy to linear dynamics); if False, solve for
-        nonlinear :math:`g(s)`
+    :param conj_to_linear_dynamics: if ``True``, set :math:`g(s)=0`
+        (conjugacy to linear dynamics); if ``False``, solve for
+        nonlinear :math:`g(s)`.
     :type conj_to_linear_dynamics: bool
+    :param n_workers: number of MPI ranks that participate in the
+        per-pair :meth:`DifferentialEquation.evaluate_quadratic_term`
+        evaluation inside :meth:`solve`.  Default is ``world_size``
+        (every rank works on the quadratic term).  Set
+        ``1 <= n_workers <= world_size`` to opt-out a subset of
+        ranks — useful when the per-call bilinear allocates so much
+        memory that you cannot afford to run it on every rank.
+        Workers are spread evenly across the rank space (decimation
+        placement); non-workers still participate in all collectives
+        (gathers + Allreduce) but skip the bilinear evaluation.
+
+        This parallel path passes ``COMM_SELF`` Vecs to
+        ``evaluate_quadratic_term``, so the user's subclass must
+        tolerate that: e.g. it must not allocate workspace on a
+        harmonic-balanced ``self._comm = COMM_WORLD`` BV.  Use
+        ``n_workers=1`` to fall back to the bit-for-bit serial
+        path.
+    :type n_workers: Optional[int]
     """
 
     # -------------------------------------------------------------------------
@@ -75,6 +98,7 @@ class SpectralSubmanifold:
         r: int,
         m: int,
         conj_to_linear_dynamics: bool = False,
+        n_workers: Optional[int] = None,
     ) -> None:
         self.diff_eq = diff_eq
         self.r = r
@@ -95,6 +119,10 @@ class SpectralSubmanifold:
         self.ssm_nonlin_dynmc = self.compute_nonlinear_dynamics_combinations(
             self.m
         )
+
+        # Build the worker pool and the per-rank routing table for the
+        # parallel quadratic-RHS evaluation in solve().
+        self._setup_worker_pool(n_workers)
 
     def compute_multiindices(self, m: int) -> List[Tuple[int, ...]]:
         r"""
@@ -147,6 +175,226 @@ class SpectralSubmanifold:
             self._generate_nonlinear_dynamics_pairs(j, m)
             for j in self.ssm_multiindices
         ]
+
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # --------- Worker-pool setup for parallel quadratic-RHS evaluation -------
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+
+    def _setup_worker_pool(self, n_workers: Optional[int]) -> None:
+        r"""Decide which ``n_workers`` ranks evaluate
+        :meth:`DifferentialEquation.evaluate_quadratic_term`, partition
+        the pair lists across them, and pre-compute the routing table
+        that drives the per-``j_idx`` gather in :meth:`solve`.
+
+        Workers are placed by **decimation** across the world rank
+        space (rank ``w * world_size // n_workers`` for
+        ``w = 0..n_workers-1``).  On a typical MPI launch (adjacent
+        ranks on the same node), this places at most one worker per
+        node — balancing inbound bandwidth across nodes during the
+        gather phase.
+
+        Sets the following per-instance attributes:
+
+        - ``self.n_workers`` (int): the active worker count.
+        - ``self._world_comm`` (mpi4py.MPI.Comm): the diff_eq's world.
+        - ``self._world_rank`` (int), ``self._world_size`` (int).
+        - ``self._worker_world_ranks`` (List[int]): the chosen worker
+          ranks in world-rank order.
+        - ``self._worker_id`` (int): worker index in
+          ``[0, n_workers)`` for worker ranks; ``-1`` otherwise.
+        - ``self.my_ssm_quad_rhs_idc`` (List[List[pair]]): per-j_idx
+          local pair list for this rank.  Empty list on non-workers.
+        - ``self._needed_indices`` (List[Set[int]]): per-j_idx set of
+          ``ps``-indices this rank needs in its pair loop.  Empty on
+          non-workers.
+        - ``self._workers_needing`` (List[Dict[int, List[int]]]):
+          per-j_idx routing table — for each ``ps``-index, the list of
+          world ranks that want it.  Identical on every rank (it's
+          fully deterministic).
+        """
+        self._world_comm = self.diff_eq.get_comm().tompi4py()
+        self._world_size = self._world_comm.Get_size()
+        self._world_rank = self._world_comm.Get_rank()
+
+        if n_workers is None:
+            n_workers = self._world_size
+        if not (1 <= n_workers <= self._world_size):
+            raise ValueError(
+                f"n_workers must satisfy 1 <= n_workers <= world_size; "
+                f"got n_workers = {n_workers}, world_size = "
+                f"{self._world_size}."
+            )
+        self.n_workers = n_workers
+
+        # Decimation placement.
+        self._worker_world_ranks = [
+            w * self._world_size // n_workers for w in range(n_workers)
+        ]
+        rank_to_worker = {
+            r: w for w, r in enumerate(self._worker_world_ranks)
+        }
+        self._worker_id = rank_to_worker.get(self._world_rank, -1)
+
+        # Build per-j_idx local view + routing table.  All ranks run
+        # this exact deterministic computation, so the tables agree by
+        # construction (no MPI needed to sync them).
+        self.my_ssm_quad_rhs_idc: List[List[Tuple]] = []
+        self._needed_indices: List[Set[int]] = []
+        self._workers_needing: List[Dict[int, List[int]]] = []
+
+        for j_idx in range(len(self.ssm_multiindices)):
+            full_pairs = self.ssm_quad_rhs_idc[j_idx]
+
+            # Round-robin assignment of pairs to workers
+            # (w_pairs[w] = pairs assigned to worker w).
+            w_pairs = [
+                full_pairs[w :: n_workers] for w in range(n_workers)
+            ]
+            # Union of ps-indices each worker needs.
+            w_needs = [
+                {
+                    self._get_multiindex_index(self.ssm_multiindices, p)
+                    for pair in w_pairs[w]
+                    for p in pair
+                }
+                for w in range(n_workers)
+            ]
+
+            if self._worker_id >= 0:
+                self.my_ssm_quad_rhs_idc.append(w_pairs[self._worker_id])
+                self._needed_indices.append(w_needs[self._worker_id])
+            else:
+                self.my_ssm_quad_rhs_idc.append([])
+                self._needed_indices.append(set())
+
+            # Invert: ps_index -> sorted list of world ranks needing it.
+            routing: Dict[int, List[int]] = {}
+            for w, needs in enumerate(w_needs):
+                dr = self._worker_world_ranks[w]
+                for i in needs:
+                    routing.setdefault(i, []).append(dr)
+            self._workers_needing.append(routing)
+
+    def _evaluate_quadratic_rhs_root(
+        self,
+        t: float,
+        q1_vec: PETSc.Vec,
+        q2_vec: PETSc.Vec,
+        y_vec: PETSc.Vec,
+    ) -> PETSc.Vec:
+        r"""PETSc-Vec ↔ numpy adapter around
+        :meth:`DifferentialEquation.evaluate_quadratic_term`.
+
+        Three phases:
+
+        1. Gather ``q1_vec`` and ``q2_vec`` to **rank 0 only** via
+           :func:`gather_vec_to_rank` — non-root ranks contribute to
+           the Gatherv but hold no copy of the full array.
+        2. Rank 0 alone evaluates the bilinear in numpy.  No
+           redundant compute across ranks; no per-rank memory blowup
+           if the bilinear allocates large workspace.
+        3. Scatter the rank-0 result back into the ownership ranges of
+           ``y_vec`` via :func:`scatter_vec_from_rank` (the inverse
+           of :func:`gather_vec_to_rank`).  Each rank receives only
+           its local slice.
+
+        This is what the serial (``n_workers == 1``) path uses to
+        preserve the existing public behaviour of :meth:`solve` after
+        switching the per-instant bilinear to its numpy signature."""
+        q1_arr = gather_vec_to_rank(q1_vec, 0)
+        q2_arr = gather_vec_to_rank(q2_vec, 0)
+
+        Bqq_arr = None
+        if self._world_rank == 0:
+            Bqq_arr = self.diff_eq.evaluate_quadratic_term(
+                t, q1_arr, q2_arr
+            )
+
+        return scatter_vec_from_rank(Bqq_arr, y_vec, 0)
+
+    def _evaluate_quadratic_rhs_parallel(
+        self,
+        j_idx: int,
+        ps: List[PETSc.Vec],
+        rhs: PETSc.Vec,
+    ) -> None:
+        r"""Compute :math:`\sum_{(i_1, i_2) \in \mathrm{pairs}}
+        B(p_{i_1}, p_{i_2})` in parallel and *replace* ``rhs`` with the
+        result (caller must zero ``rhs`` beforehand).
+
+        Four phases:
+
+        1. **Gather**: for each ``ps[i]`` needed by any worker, do
+           one :func:`gather_vec_to_rank` to the *primary* worker
+           (``routing[i][0]``), which then forwards via blocking
+           ``Send`` to each additional worker in the list.  Iterate
+           in sorted index order so every rank issues the same
+           sequence of collectives.
+        2. **Local pair loop**: each worker iterates its assigned
+           pairs, calling the numpy ``evaluate_quadratic_term`` on
+           the cached arrays and accumulating into a local buffer.
+        3. **Allreduce**: sum the per-worker buffers across
+           ``world_comm`` so every rank holds the global RHS in numpy.
+        4. **Inject**: each rank writes its ownership range of ``rhs``
+           from the global numpy buffer.
+        """
+        N_global = rhs.getSize()
+        routing = self._workers_needing[j_idx]
+
+        # Phase 1: gather to primary worker + point-to-point forward
+        # to any other workers that also need each ps[i].
+        ps_cache: Dict[int, np.ndarray] = {}
+        for i in sorted(routing.keys()):
+            dest_ranks = routing[i]
+            primary = dest_ranks[0]
+            gathered = gather_vec_to_rank(ps[i], primary)
+
+            secondary = dest_ranks[1:]
+            if self._world_rank == primary:
+                ps_cache[i] = gathered
+                for dr in secondary:
+                    self._world_comm.Send(
+                        np.ascontiguousarray(gathered, dtype=np.complex128),
+                        dest=dr,
+                        tag=0,
+                    )
+            elif self._world_rank in secondary:
+                recvbuf = np.empty(N_global, dtype=np.complex128)
+                self._world_comm.Recv(recvbuf, source=primary, tag=0)
+                ps_cache[i] = recvbuf
+
+        # Phase 2: local pair loop, pure numpy.
+        local_rhs_np = np.zeros(N_global, dtype=np.complex128)
+        if self._worker_id >= 0 and self.my_ssm_quad_rhs_idc[j_idx]:
+            y_buf = np.empty(N_global, dtype=np.complex128)
+            for pair in self.my_ssm_quad_rhs_idc[j_idx]:
+                idces = [
+                    self._get_multiindex_index(self.ssm_multiindices, p)
+                    for p in pair
+                ]
+                local_rhs_np += self.diff_eq.evaluate_quadratic_term(
+                    0,
+                    ps_cache[idces[0]],
+                    ps_cache[idces[1]],
+                    y_buf,
+                )
+
+        # Phase 3: Allreduce.
+        global_rhs_np = np.empty_like(local_rhs_np)
+        self._world_comm.Allreduce(
+            local_rhs_np, global_rhs_np, op=MPI.SUM
+        )
+
+        # Phase 4: inject into the distributed rhs Vec.
+        rhs.zeroEntries()
+        r0, r1 = rhs.getOwnershipRange()
+        rhs.setValues(
+            np.arange(r0, r1, dtype=PETSc.IntType),
+            global_rhs_np[r0:r1],
+        )
+        rhs.assemble()
 
     # -------------------------------------------------------------------------
     # -------------------------------------------------------------------------
@@ -380,16 +628,24 @@ class SpectralSubmanifold:
             shift = PETSc.ScalarType(np.dot(Lams, np.asarray(j)))
             rhs.zeroEntries()
 
-            # Compute contrib. from quadratic nature of the governing equations
-            for pair in self.ssm_quad_rhs_idc[j_idx]:
-                idces = [
-                    self._get_multiindex_index(self.ssm_multiindices, p)
-                    for p in pair
-                ]
-                rhsj = self.diff_eq.evaluate_quadratic_term(
-                    0, ps[idces[0]], ps[idces[1]], rhsj
-                )
-                rhs.axpy(1.0, rhsj)
+            # Compute contrib. from quadratic nature of the governing
+            # equations.  Two paths:
+            #   - n_workers == 1: original serial loop, bit-for-bit.
+            #   - n_workers >  1: gather needed ps[i] to the workers
+            #     that own them, run the pair-wise bilinear locally on
+            #     COMM_SELF Vecs, then Allreduce the partial rhs back.
+            if self.n_workers == 1:
+                for pair in self.ssm_quad_rhs_idc[j_idx]:
+                    idces = [
+                        self._get_multiindex_index(self.ssm_multiindices, p)
+                        for p in pair
+                    ]
+                    rhsj = self._evaluate_quadratic_rhs_root(
+                        0, ps[idces[0]], ps[idces[1]], rhsj
+                    )
+                    rhs.axpy(1.0, rhsj)
+            else:
+                self._evaluate_quadratic_rhs_parallel(j_idx, ps, rhs)
 
             if not conj:
                 # Compute contrib. from nonlinear latent-space dynamics
