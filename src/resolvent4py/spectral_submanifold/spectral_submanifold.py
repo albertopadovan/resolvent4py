@@ -573,8 +573,14 @@ class SpectralSubmanifold:
         :type Psi: SLEPc.BV
         :param Lams: eigenvalues of shape :math:`(r,)`
         :type Lams: np.ndarray
-        :param scaling: scaling applied to eigenvectors
-        :type scaling: float
+        :param scaling: gauge scaling applied to the eigenvectors.  A scalar
+            scales every master coordinate equally (V = Phi*scaling,
+            W = Psi/scaling).  An array of shape (r,) applies a per-coordinate
+            DIAGONAL gauge  V[:,i] = Phi[:,i]*scaling[i],
+            W[:,i] = Psi[:,i]/scaling[i] -- useful to rebalance a strongly
+            non-normal master subspace where one mode would otherwise dominate.
+            Should be real (it must preserve W^H V = I).
+        :type scaling: float or numpy.ndarray
 
         :return: manifold coefficients :math:`p_j` and
             dynamics coefficients :math:`g_j`
@@ -583,15 +589,27 @@ class SpectralSubmanifold:
         r = len(Lams)
         conj = self.conj_to_linear_dynamics
 
-        # Scale eigenvectors: V = Phi * scaling,  W = Psi / scaling
+        # Normalise `scaling` to a per-coordinate gauge vector of shape (r,):
+        # a scalar is broadcast to all master coordinates; an (r,) array gives
+        # an independent (diagonal) gauge per coordinate.
+        scaling = np.broadcast_to(
+            np.asarray(scaling, dtype=PETSc.ScalarType), (r,)
+        ).copy()
+
+        # Scale eigenvectors per master coordinate:
+        #   V[:, i] = Phi[:, i] * scaling[i],  W[:, i] = Psi[:, i] / scaling[i]
+        # (a real diagonal gauge preserves W^H V = I; uniform scaling recovers
+        # the original scalar behaviour).
         V = Phi.copy()
         W = Psi.copy()
-        objs = [V, W]
-        factors = [scaling, 1 / scaling]
-        for j, obj in enumerate(objs):
-            obj_mat = obj.getMat()
-            obj_mat.scale(factors[j])
-            obj.restoreMat(obj_mat)
+        if np.all(scaling == scaling[0]):
+            # Uniform gauge: scale the whole matrices in one shot (cheap).
+            Vm = V.getMat(); Vm.scale(scaling[0]); V.restoreMat(Vm)
+            Wm = W.getMat(); Wm.scale(1.0 / scaling[0]); W.restoreMat(Wm)
+        else:
+            for i in range(r):
+                vc = V.getColumn(i); vc.scale(scaling[i]); V.restoreColumn(i, vc)
+                wc = W.getColumn(i); wc.scale(1.0 / scaling[i]); W.restoreColumn(i, wc)
 
         _check_eigen_triplets(self.diff_eq, V, W, Lams)
 
@@ -669,7 +687,11 @@ class SpectralSubmanifold:
 
             if not conj:
                 tol_conj = 1e-2
-                proj = W.dotVec(pj) * scaling
+                # `scaling` is a per-coordinate vector; the element-wise product
+                # recovers <Psi_i, pj> in the ORIGINAL (un-gauged) metric -- each
+                # W_i carries a 1/scaling[i] that cancels -- so this acceptance
+                # check is gauge-independent for scalar OR diagonal scaling.
+                proj = np.asarray(W.dotVec(pj)).ravel() * scaling
                 error_conj = np.linalg.norm(proj)
                 if error_conj >= tol_conj:
                     from ..utils.miscellaneous import petscprint
