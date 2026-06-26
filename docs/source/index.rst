@@ -15,7 +15,7 @@ capabilities of the PETSc and SLEPc library.
 Current functionalities include:
 
 - Right and left eigendecomposition 
-- Resolvent analysis (algebraic and using time-stepping techniques)
+- Resolvent analysis (algebraic, time-stepping techniques, and spatial marching techniques)
 - Harmonic resolvent analysis
 - Balanced truncation (time-invariant)
 

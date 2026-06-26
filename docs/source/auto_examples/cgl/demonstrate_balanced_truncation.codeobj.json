@@ -148,7 +148,7 @@
    "is_class": false,
    "is_explicit": true,
    "module": "resolvent4py.utils.ksp",
-   "module_short": "resolvent4py",
+   "module_short": "resolvent4py.utils.ksp",
    "name": "create_mumps_solver"
   }
  ]

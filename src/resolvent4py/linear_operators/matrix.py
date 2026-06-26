@@ -23,6 +23,9 @@ class MatrixLinearOperator(LinearOperator):
     :param nblocks: number of blocks (if the linear operator has block
         structure). This must be an odd number.
     :type nblocks: Optional[Union[int, None]], default is None
+    :param real_valued: real-valuedness flag. If :code:`None`, this is checked
+        automatically.
+    :type real_valued: Optional[Union[bool, None]], default is None
     """
 
     def __init__(
@@ -30,12 +33,17 @@ class MatrixLinearOperator(LinearOperator):
         A: PETSc.Mat,
         ksp: typing.Optional[typing.Union[PETSc.KSP, None]] = None,
         nblocks: typing.Optional[typing.Union[int, None]] = None,
+        real_valued: typing.Optional[typing.Union[bool, None]] = None,
     ) -> None:
         self.A = A
         self.ksp = ksp
-        super().__init__(
-            A.getComm(), "MatrixLinearOperator", A.getSizes(), nblocks
-        )
+        self.real_valued = real_valued
+        super().__init__(A.getComm(), "MatrixLinearOperator", A.getSizes(), nblocks)
+
+    def check_if_real_valued(self) -> bool:
+        if self.real_valued is not None:
+            return self.real_valued
+        return super().check_if_real_valued()
 
     def apply(self, x, y=None):
         y = self.create_left_vector() if y == None else y
@@ -79,7 +87,7 @@ class MatrixLinearOperator(LinearOperator):
 
     def solve(self, x, y=None):
         if self.ksp != None:
-            y = self.create_left_vector() if y == None else y
+            y = self.create_right_vector() if y == None else y
             self.ksp.solve(x, y)
             return y
         else:
@@ -113,7 +121,7 @@ class MatrixLinearOperator(LinearOperator):
 
     def solve_hermitian_transpose(self, x, y=None):
         if self.ksp != None:
-            y = self.create_right_vector() if y == None else y
+            y = self.create_left_vector() if y == None else y
             x.conjugate()
             self.ksp.solveTranspose(x, y)
             x.conjugate()

@@ -32,7 +32,6 @@ plt.rcParams.update(
         "font.family": "serif",
         "font.sans-serif": ["Computer Modern"],
         "font.size": 18,
-        "text.usetex": True,
     }
 )
 
@@ -72,7 +71,7 @@ res4py.petscprint(comm, "Running randomized SVD (time stepping)...")
 res4py.petscprint(comm, "This may take several minutes...")
 n_omegas = 1
 n_periods = 100
-dt = 1e-4
+dt = 2e-4
 tol = 1e-3
 verbose = 2
 L = res4py.linear_operators.MatrixLinearOperator(A)
@@ -86,7 +85,10 @@ U, S, V = (
         n_rand,
         n_loops,
         n_svals,
+        None,
+        None,
         tol,
+        "RK2",
         verbose,
     )
 )

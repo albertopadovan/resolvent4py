@@ -1,6 +1,12 @@
 __all__ = [
     "create_dense_matrix",
+    "create_aij_matrix",
     "create_AIJ_identity",
+    "add_identity_block",
+    "add_matrix_block",
+    "left_diagonal_solve",
+    "matrix_diagonal_array",
+    "matrix_subblock",
     "mat_solve_hermitian_transpose",
     "hermitian_transpose",
     "convert_coo_to_csr",
@@ -22,6 +28,7 @@ from petsc4py import PETSc
 from typing import Optional
 
 from .miscellaneous import get_mpi_type, petscprint
+from .vector import array_from_petsc_vector
 
 
 def create_dense_matrix(
@@ -41,6 +48,32 @@ def create_dense_matrix(
     return M
 
 
+def create_aij_matrix(
+    comm: PETSc.Comm,
+    nrows: int,
+    ncols: int,
+    nnz: int | None = None,
+) -> PETSc.Mat:
+    r"""
+    Create an AIJ matrix.
+
+    :param comm: PETSc communicator
+    :type comm: PETSc.Comm
+    :param nrows: Global row count
+    :type nrows: int
+    :param ncols: Global column count
+    :type ncols: int
+    :param nnz: Optional row nonzero preallocation
+    :type nnz: int | None
+
+    :return: Sparse AIJ matrix
+    :rtype: PETSc.Mat
+    """
+    mat = PETSc.Mat().createAIJ(((PETSc.DECIDE, nrows), (PETSc.DECIDE, ncols)), nnz=nnz, comm=comm)
+    mat.setUp()
+    return mat
+
+
 def create_AIJ_identity(
     comm: PETSc.Comm, sizes: tuple[tuple[int, int], tuple[int, int]]
 ) -> PETSc.Mat:
@@ -58,6 +91,159 @@ def create_AIJ_identity(
     Id = PETSc.Mat().createConstantDiagonal(sizes, 1.0, comm)
     Id.convert(PETSc.Mat.Type.AIJ)
     return Id
+
+
+def matrix_diagonal_array(matrix: PETSc.Mat) -> np.ndarray:
+    r"""
+    Return the global matrix diagonal.
+
+    :param matrix: PETSc matrix
+    :type matrix: PETSc.Mat
+
+    :return: Matrix diagonal
+    :rtype: np.ndarray
+    """
+    diagonal = matrix.createVecLeft()
+    try:
+        matrix.getDiagonal(diagonal)
+        return array_from_petsc_vector(diagonal)
+    finally:
+        diagonal.destroy()
+
+
+def matrix_subblock(
+    matrix: PETSc.Mat,
+    rows: np.ndarray | list[int],
+    columns: np.ndarray | list[int],
+) -> PETSc.Mat:
+    r"""
+    Extract a PETSc submatrix.
+
+    :param matrix: PETSc matrix
+    :type matrix: PETSc.Mat
+    :param rows: Global row indices
+    :type rows: np.ndarray | list[int]
+    :param columns: Global column indices
+    :type columns: np.ndarray | list[int]
+
+    :return: PETSc submatrix
+    :rtype: PETSc.Mat
+    """
+    comm = matrix.getComm()
+    rank = comm.getRank()
+    size = comm.getSize()
+    rows = np.asarray(rows, dtype=PETSc.IntType)
+    columns = np.asarray(columns, dtype=PETSc.IntType)
+    row_start, row_end = _ownership_slice(rows.size, rank, size)
+    col_start, col_end = _ownership_slice(columns.size, rank, size)
+    row_is = PETSc.IS().createGeneral(rows[row_start:row_end], comm=comm)
+    col_is = PETSc.IS().createGeneral(columns[col_start:col_end], comm=comm)
+    try:
+        return matrix.createSubMatrix(row_is, col_is)
+    finally:
+        col_is.destroy()
+        row_is.destroy()
+
+
+def _ownership_slice(size: int, rank: int, n_ranks: int) -> tuple[int, int]:
+    base = size // n_ranks
+    extra = size % n_ranks
+    start = rank * base + min(rank, extra)
+    end = start + base + (1 if rank < extra else 0)
+    return start, end
+
+
+def add_matrix_block(
+    target: PETSc.Mat,
+    row_offset: int,
+    col_offset: int,
+    scale: complex,
+    block: PETSc.Mat,
+) -> None:
+    r"""
+    Add a matrix block into another matrix.
+
+    :param target: Target matrix
+    :type target: PETSc.Mat
+    :param row_offset: Target row offset
+    :type row_offset: int
+    :param col_offset: Target column offset
+    :type col_offset: int
+    :param scale: Block scaling
+    :type scale: complex
+    :param block: Source matrix block
+    :type block: PETSc.Mat
+    :rtype: None
+    """
+    start, end = block.getOwnershipRange()
+    for row in range(start, end):
+        columns, values = block.getRow(row)
+        if len(columns) == 0:
+            continue
+        target.setValues(row_offset + row, np.asarray(columns, dtype=PETSc.IntType) + col_offset, scale * values, addv=PETSc.InsertMode.ADD_VALUES)
+
+
+def add_identity_block(
+    target: PETSc.Mat,
+    row_offset: int,
+    col_offset: int,
+    size: int,
+    scale: complex = 1.0,
+) -> None:
+    r"""
+    Add a scaled identity block.
+
+    :param target: Target matrix
+    :type target: PETSc.Mat
+    :param row_offset: Target row offset
+    :type row_offset: int
+    :param col_offset: Target column offset
+    :type col_offset: int
+    :param size: Identity size
+    :type size: int
+    :param scale: Identity scaling
+    :type scale: complex
+    :rtype: None
+    """
+    start, end = target.getOwnershipRange()
+    first = max(start, row_offset)
+    last = min(end, row_offset + size)
+    for row in range(first, last):
+        col = col_offset + row - row_offset
+        target.setValue(row, col, scale, addv=PETSc.InsertMode.ADD_VALUES)
+
+
+def left_diagonal_solve(diagonal: np.ndarray, rhs: PETSc.Mat) -> PETSc.Mat:
+    r"""
+    Solve a diagonal left system against a matrix.
+
+    :param diagonal: Left-hand-side diagonal
+    :type diagonal: np.ndarray
+    :param rhs: Right-hand-side matrix
+    :type rhs: PETSc.Mat
+
+    :return: Matrix with rows divided by the diagonal
+    :rtype: PETSc.Mat
+    """
+    diagonal = np.asarray(diagonal, dtype=complex)
+    nrows, ncols = rhs.getSize()
+    if len(diagonal) != nrows:
+        raise ValueError("Diagonal length does not match matrix row count.")
+
+    out = create_aij_matrix(rhs.getComm(), nrows, ncols)
+    start, end = rhs.getOwnershipRange()
+    for row in range(start, end):
+        value = diagonal[row]
+        if abs(value) == 0:
+            raise ValueError("Diagonal solve encountered a zero entry.")
+
+        columns, values = rhs.getRow(row)
+        if len(columns) == 0:
+            continue
+        out.setValues(row, columns, values / value, addv=PETSc.InsertMode.INSERT_VALUES)
+
+    out.assemble()
+    return out
 
 
 def mat_solve_hermitian_transpose(

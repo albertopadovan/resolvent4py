@@ -184,7 +184,7 @@
    "is_class": false,
    "is_explicit": false,
    "module": "resolvent4py.linalg.resolvent_analysis_time_stepping",
-   "module_short": "resolvent4py.linalg",
+   "module_short": "resolvent4py.linalg.resolvent_analysis_time_stepping",
    "name": "resolvent_analysis_rsvd_dt"
   }
  ],
@@ -220,7 +220,7 @@
    "is_class": false,
    "is_explicit": true,
    "module": "resolvent4py.linalg.resolvent_analysis_time_stepping",
-   "module_short": "resolvent4py.linalg",
+   "module_short": "resolvent4py.linalg.resolvent_analysis_time_stepping",
    "name": "resolvent_analysis_rsvd_dt"
   }
  ]

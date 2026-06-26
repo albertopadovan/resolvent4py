@@ -202,7 +202,7 @@
    "is_class": false,
    "is_explicit": true,
    "module": "resolvent4py.linalg.randomized_svd",
-   "module_short": "resolvent4py.linalg",
+   "module_short": "resolvent4py.linalg.randomized_svd",
    "name": "randomized_svd"
   }
  ],
@@ -211,7 +211,7 @@
    "is_class": false,
    "is_explicit": true,
    "module": "resolvent4py.utils.ksp",
-   "module_short": "resolvent4py",
+   "module_short": "resolvent4py.utils.ksp",
    "name": "create_mumps_solver"
   }
  ],

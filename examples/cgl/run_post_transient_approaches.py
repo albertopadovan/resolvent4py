@@ -1,3 +1,10 @@
+"""
+Post-Transient Time-Stepping Approaches
+========================================
+
+Compare post-transient and direct time-stepping approaches for the CGL example.
+"""
+
 import os
 
 import matplotlib.pyplot as plt

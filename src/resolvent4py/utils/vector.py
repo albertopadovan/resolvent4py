@@ -1,4 +1,5 @@
 __all__ = [
+    "array_from_petsc_vector",
     "enforce_complex_conjugacy",
     "check_complex_conjugacy",
     "vec_real",
@@ -8,6 +9,31 @@ __all__ = [
 import numpy as np
 import typing
 from petsc4py import PETSc
+
+
+def array_from_petsc_vector(vector: PETSc.Vec) -> np.ndarray:
+    r"""
+    Gather a PETSc vector into a NumPy array.
+
+    :param vector: PETSc vector
+    :type vector: PETSc.Vec
+
+    :return: Global vector values
+    :rtype: np.ndarray
+    """
+    try:
+        if vector.getComm().getSize() == 1:
+            return vector.getArray(readonly=True).copy()
+    except AttributeError:
+        return vector.getArray(readonly=True).copy()
+
+    scatter, all_vector = PETSc.Scatter.toAll(vector)
+    try:
+        scatter.scatter(vector, all_vector, addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
+        return all_vector.getArray(readonly=True).copy()
+    finally:
+        all_vector.destroy()
+        scatter.destroy()
 
 
 def vec_real(
