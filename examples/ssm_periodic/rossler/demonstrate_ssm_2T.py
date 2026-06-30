@@ -53,13 +53,13 @@ plt.rcParams.update(
 
 # %% Parameters that aren't in the cache
 
-n_periods = 5  # in units of T (= 2*T_base) → 10 base-period cycles
+n_periods = 50  # in units of T (= 2*T_base) → 10 base-period cycles
 n_t = 2000
 rtol_rom = 1e-12
 atol_rom = 1e-12
 rtol_truth = 1e-10
 atol_truth = 1e-10
-s0_fraction = 0.7
+s0_fraction = 0.3
 scaling_off = 0.3
 
 figsize = (7, 5)

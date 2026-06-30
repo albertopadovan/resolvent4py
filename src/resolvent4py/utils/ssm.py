@@ -1,8 +1,13 @@
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
+
+if TYPE_CHECKING:
+    # Only imported for the type annotations below — avoids dragging in
+    # matplotlib at module-import time.
+    import matplotlib.pyplot as plt
 
 
 def plot_convergence_radius(
@@ -11,8 +16,8 @@ def plot_convergence_radius(
     slope: float,
     intercept: float,
     R_estimate: float,
-    ax: Optional[plt.Axes] = None,
-) -> plt.Axes:
+    ax: Optional["plt.Axes"] = None,
+) -> "plt.Axes":
     r"""
     Plot SSM coefficient decay vs polynomial order with fitted line.
 
@@ -101,3 +106,79 @@ def proper_radius(
     assert 0 < p <= 1.0
     est_error = 10**intercept * p ** (m + 1) / (1 - p)
     return p, est_error
+
+
+def evaluate_dP(
+    s: np.ndarray,
+    multiindices: np.ndarray,
+    ps: np.ndarray,
+) -> np.ndarray:
+    r"""
+    Evaluate the Jacobian :math:`\partial P / \partial s` of a polynomial
+    SSM map at the latent point :math:`s`.
+
+    The manifold map has the polynomial form
+
+    .. math::
+
+        P(s) \;=\; \sum_{j} p_j \, s^{j},
+        \qquad s^j \;=\; \prod_{k=1}^{r} s_k^{j_k},
+
+    so its Jacobian column for direction :math:`k = 0, \dots, r-1` is
+
+    .. math::
+
+        \frac{\partial P}{\partial s_k}(s)
+        \;=\; \sum_{j: j_k > 0}\, j_k\, p_j\, s^{j - e_k}.
+
+    The function is fully numpy and works with arbitrary trailing shape on
+    ``ps`` — it sums coefficients along the first axis, so ``ps`` can be
+    ``(n_terms, n)``, ``(n_terms, n_harmonics, n)``, etc.
+
+    :param s: latent coordinates, shape ``(r,)``
+    :type s: np.ndarray
+    :param multiindices: polynomial multi-indices, shape ``(n_terms, r)``
+    :type multiindices: np.ndarray
+    :param ps: polynomial coefficients, shape ``(n_terms, *trailing)``
+    :type ps: np.ndarray
+
+    :return: Jacobian columns, shape ``(r, *trailing)`` — column ``k`` is
+        :math:`\partial P / \partial s_k(s)`.
+    :rtype: np.ndarray
+    """
+    s = np.asarray(s)
+    mi = np.asarray(multiindices, dtype=int)
+    ps_arr = np.asarray(ps)
+    r = mi.shape[1]
+    n_terms = mi.shape[0]
+
+    if s.shape != (r,):
+        raise ValueError(f"s must have shape ({r},); got {s.shape}.")
+    if ps_arr.shape[0] != n_terms:
+        raise ValueError(
+            f"ps.shape[0] = {ps_arr.shape[0]} must match "
+            f"multiindices.shape[0] = {n_terms}."
+        )
+
+    out_shape = (r,) + ps_arr.shape[1:]
+    dP = np.zeros(out_shape, dtype=complex)
+
+    # Broadcasting shape for the per-term scalar coefficient
+    bcast = (n_terms,) + (1,) * (ps_arr.ndim - 1)
+
+    for k in range(r):
+        j_k = mi[:, k]                       # (n_terms,)  exponent on s_k
+        mask = j_k > 0
+        if not np.any(mask):
+            continue
+        mi_shifted = mi.copy()
+        mi_shifted[:, k] -= 1                # multiindex for s^{j - e_k}
+        # Monomial s^{j - e_k}; for masked-out terms set to 0 contribution.
+        # We compute on the full set since np.power handles 0**(-1) only
+        # when mask filters it out.
+        mono = np.zeros(n_terms, dtype=complex)
+        mono[mask] = np.prod(s[None, :] ** mi_shifted[mask], axis=1)
+        coef = (j_k * mono).reshape(bcast)   # (n_terms, 1, 1, ...)
+        dP[k] = (coef * ps_arr).sum(axis=0)
+
+    return dP

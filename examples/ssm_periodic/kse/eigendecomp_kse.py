@@ -103,9 +103,19 @@ def _compute_neutral_eigentriples(
     n_strips: int = 6,
     n_evals: int = 4,
     krylov_dim: int = 50,
+    neutral_omega: Optional[float] = None,
 ):
     """Find the neutrally stable Floquet directions at
-    :math:`\\pm i k \\omega` for ``k = 0, ..., n_strips-1``.
+    :math:`\\pm i k \\omega_n` for ``k = 0, ..., n_strips-1``, where
+    :math:`\\omega_n = ` ``neutral_omega`` if provided, else
+    :math:`\\omega = ` ``eq.omega``.
+
+    Pass ``neutral_omega = 2 * eq.omega`` when building a 2T-periodic
+    eigendecomposition: the T-periodic orbit-tangent neutrals sit at
+    integer multiples of the *original* orbit frequency ω_base, which
+    in the 2T basis is ``2 * eq.omega``.  Using the default would
+    deflate at half-integer multiples of ω_base — including the
+    period-doubling mode at ``λ = i·ω_base/2 = i·eq.omega``.
 
     Returns ``(V_neutral, W_neutral, neutral_proj)`` where the BVs hold
     the biorthogonalised right/left neutral eigenvectors and
@@ -114,11 +124,19 @@ def _compute_neutral_eigentriples(
     """
     comm = eq.A.A.getComm()
     n_harmonics = 2 * eq.nf + 1
+    omega_strip = neutral_omega if neutral_omega is not None else eq.omega
 
+    # σ for every strip carries a tiny real offset (1e-8) so that
+    # L_HB − σ·I is non-singular even when the orbit-tangent direction is
+    # an exact kernel mode of L_HB at λ ≡ 0 (mod i·ω_HB).  Without the
+    # offset, MUMPS factorisation of an exactly-singular matrix returns
+    # garbage Krylov vectors instead of true eigenpairs.  1e-8 is far
+    # below any meaningful eigvalue, so accuracy is unaffected.
+    sigma_offset = 1e-8
     v_list, w_list = [], []
     for k in range(n_strips):
         for sign in [0] if k == 0 else [1, -1]:
-            sigma = sign * k * 1j * eq.omega
+            sigma = sign * k * 1j * omega_strip + sigma_offset
             Dv, V, _, W = _shift_invert_eig(
                 eq.A,
                 sigma,
@@ -185,6 +203,7 @@ def compute_eigendecomposition(
     krylov_dim: int = 60,
     sigma: complex = 0.0,
     n_neutral_strips: int = 6,
+    neutral_omega: Optional[float] = None,
 ):
     """Compute the full Floquet eigendecomposition for ``eq``.
 
@@ -203,10 +222,17 @@ def compute_eigendecomposition(
     """
     n_harmonics = 2 * eq.nf + 1
 
-    _V_neut, _W_neut, neutral_proj = _compute_neutral_eigentriples(
-        eq,
-        n_strips=n_neutral_strips,
-    )
+    if n_neutral_strips > 0:
+        _V_neut, _W_neut, neutral_proj = _compute_neutral_eigentriples(
+            eq,
+            n_strips=n_neutral_strips,
+            neutral_omega=neutral_omega,
+        )
+    else:
+        # No neutral-direction deflation — caller is responsible for
+        # making sure the shift-invert target ``sigma`` is far enough
+        # from i·k·ω for the eig() to converge to non-neutral modes.
+        neutral_proj = None
 
     Dv, V, _, W = _shift_invert_eig(
         eq.A,
@@ -219,20 +245,28 @@ def compute_eigendecomposition(
     # Principal strip filter and descending Re(λ) sort
     evals = np.diag(Dv)
     half_omega = eq.omega / 2.0
-    in_strip = np.abs(evals.imag) <= half_omega + 1e-10
+    in_strip = np.abs(evals.imag) <= half_omega * (1.0 + 1e-2)
     idces = np.where(in_strip)[0]
     idces = idces[np.argsort(-evals[idces].real)]
     Dv = np.diag(evals[idces])
     V = res4py.bv_slice(V, idces.astype(np.int32))
     W = res4py.bv_slice(W, idces.astype(np.int32))
 
-    # Remove the residual neutral (eigenvalue closest to 0)
-    evals_strip = np.diag(Dv)
-    idx_neutral = np.argmin(np.abs(evals_strip))
-    keep = np.delete(np.arange(len(evals_strip)), idx_neutral)
-    Dv = np.diag(evals_strip[keep])
-    V = res4py.bv_slice(V, keep.astype(np.int32))
-    W = res4py.bv_slice(W, keep.astype(np.int32))
+    # σ=0 + neutral-strip path: the orbit-tangent neutral that was
+    # deflated in shift-invert still leaks back into the principal-strip
+    # result with significant magnitude (~1e-4 for KSE — much larger than
+    # rossler's ~1e-10 because of integration-error differences).  We
+    # cannot gate on a fixed |λ| threshold; instead, *unconditionally*
+    # drop the smallest-|λ| mode in the strip whenever neutral deflation
+    # was used.  The actual period-doubling mode lives at slightly larger
+    # |λ| (negative real) and survives this delete cleanly.
+    if n_neutral_strips > 0:
+        evals_strip = np.diag(Dv)
+        idx_neutral = int(np.argmin(np.abs(evals_strip)))
+        keep = np.delete(np.arange(len(evals_strip)), idx_neutral)
+        Dv = np.diag(evals_strip[keep])
+        V = res4py.bv_slice(V, keep.astype(np.int32))
+        W = res4py.bv_slice(W, keep.astype(np.int32))
 
     L = np.diag(Dv)
     return L, V, W, neutral_proj
@@ -300,8 +334,15 @@ def save(
 
     Phi_arr = _gather_bv_to_array(Phi)
     Psi_arr = _gather_bv_to_array(Psi)
-    Phi_neutral_arr = _gather_bv_to_array(neutral_proj.L.L.U)
-    Psi_neutral_arr = _gather_bv_to_array(neutral_proj.L.L.V)
+    if neutral_proj is not None:
+        Phi_neutral_arr = _gather_bv_to_array(neutral_proj.L.L.U)
+        Psi_neutral_arr = _gather_bv_to_array(neutral_proj.L.L.V)
+    else:
+        # No neutral subspace requested — stash zero-column placeholders
+        # so the cache shape is still parseable on load.
+        N_hb = Phi_arr.shape[0]
+        Phi_neutral_arr = np.zeros((N_hb, 0), dtype=np.complex128)
+        Psi_neutral_arr = np.zeros((N_hb, 0), dtype=np.complex128)
 
     if comm.getRank() == 0:
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
@@ -354,13 +395,16 @@ def load(
 
     Phi = _bv_from_array(Phi_arr, state_dim, comm)
     Psi = _bv_from_array(Psi_arr, state_dim, comm)
-    V_neutral = _bv_from_array(Phi_neutral_arr, state_dim, comm)
-    W_neutral = _bv_from_array(Psi_neutral_arr, state_dim, comm)
-
-    neutral_proj = res4py.linear_operators.ProjectionLinearOperator(
-        V_neutral,
-        W_neutral,
-        complement=True,
-        nblocks=n_harmonics,
-    )
+    if Phi_neutral_arr.shape[-1] == 0:
+        # Cache was written without a neutral subspace.
+        neutral_proj = None
+    else:
+        V_neutral = _bv_from_array(Phi_neutral_arr, state_dim, comm)
+        W_neutral = _bv_from_array(Psi_neutral_arr, state_dim, comm)
+        neutral_proj = res4py.linear_operators.ProjectionLinearOperator(
+            V_neutral,
+            W_neutral,
+            complement=True,
+            nblocks=n_harmonics,
+        )
     return L, Phi, Psi, neutral_proj

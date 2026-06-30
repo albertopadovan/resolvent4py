@@ -228,8 +228,20 @@ class SpectralSubmanifoldROM:
         s: np.ndarray,
     ) -> np.ndarray:
         r"""
-        Right-hand side of the latent flow:
-        :math:`\dot{s} = \Lambda s + g(s)`.
+        Right-hand side of the latent flow,
+        :math:`\dot{s} = \sum_j g_j \, s^j`, summed uniformly over every
+        multi-index ``j``.  This includes:
+
+          * ``gs[0]``: the constant DC drift (nonzero for charts whose
+            reference is NOT a true periodic orbit, e.g. atlas chart 2);
+          * ``gs[1..r]``: the linear terms holding the master eigenvalues
+            ``Lams`` diagonally — reproduces ``Lams · s`` term-by-term;
+          * ``gs[r+1..]``: the nonlinear orders.
+
+        No special-casing per ``conj_to_linear_dynamics`` is needed:
+        orders the SSM solver was instructed to zero out (via the
+        normal-form constraint) have ``gs[j] = 0`` exactly and contribute
+        nothing.
 
         Signature ``(t, s) -> ds/dt`` matches what
         :func:`scipy.integrate.solve_ivp` expects.  ``t`` is unused.
@@ -238,17 +250,10 @@ class SpectralSubmanifoldROM:
         :param s: ``(r,)`` complex latent coordinate.
         :return: ``(r,)`` complex ``ds/dt``.
         """
-        ds = self.Lams * s
-        if not self.conj_to_linear_dynamics:
-            # Skip the first ``r + 1`` rows: the DC term and the ``r``
-            # linear terms, whose contribution is already captured by
-            # ``Lams * s`` above.
-            _start = self.r + 1
-            J = self.multiindices[_start:]
-            G = self.gs[_start:]
-            monomials = np.prod(s[None, :] ** J, axis=1)
-            ds += monomials @ G
-        return ds
+        J = self.multiindices
+        G = self.gs
+        monomials = np.prod(s[None, :] ** J, axis=1)
+        return monomials @ G
 
     def neutral_project(
         self,

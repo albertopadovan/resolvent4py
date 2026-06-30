@@ -20,12 +20,12 @@ from petsc4py import PETSc
 import resolvent4py as res4py
 from resolvent4py.spectral_submanifold import SpectralSubmanifold
 
-# ── Parameters (sync with save_eigendecomp_2T.py) ───────────────────────────
-nf = 100
-nfb = 70
+# ── Parameters ──────────────────────────────────────────────────────────────
+# nfb / nf are derived from the orbit cache, in lock-step with
+# save_eigendecomp_2T.py:  nfb = 2·nf_orbit,  nf = nfb + 10.
 r = 1
-m = 30
-ssm_scaling = 0.01
+m = 40
+ssm_scaling = 0.1
 manifold_tol = 1e-2
 
 comm = PETSc.COMM_WORLD
@@ -36,7 +36,11 @@ comm = PETSc.COMM_WORLD
 data = np.load("data/periodic_orbit.npz")
 c = float(data["c"])
 T_base = float(data["T"])
+nf_orbit = int(data["nf"])
 C_periodic_1T = data["C"][:, :-1]
+
+nfb = 2 * nf_orbit
+nf = nfb + 10
 
 T = 2.0 * T_base
 C_periodic_2T = np.tile(C_periodic_1T, (1, 2))
@@ -44,6 +48,12 @@ C_periodic_2T = np.tile(C_periodic_1T, (1, 2))
 n_time = 2 * (nf + nfb) + 1
 C_periodic = resample(C_periodic_2T, n_time, axis=1)
 time_orbit = np.linspace(0, T, n_time, endpoint=False)
+
+res4py.petscprint(
+    comm,
+    f"  nf_orbit = {nf_orbit}  →  nfb = 2·nf_orbit = {nfb},  "
+    f"nf = nfb + 10 = {nf}",
+)
 
 res4py.petscprint(
     comm,

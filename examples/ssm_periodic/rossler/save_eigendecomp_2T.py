@@ -27,12 +27,10 @@ from eigendecomp_rossler import compute_eigendecomposition, save
 
 
 # ── Parameters ───────────────────────────────────────────────────────────────
-# Doubled vs the 1T config (nf=50, nfb=35) so the 2T basis covers the
-# same physical-frequency range:
-#   pertb_freqs go up to nf * omega_2T = nf * omega_base/2.
-nf = 100
-nfb = 70
-
+# nfb / nf are derived from the orbit's HB truncation (`nf_orbit`) saved by
+# compute_periodic_orbit.py.  In the 2T-cover, every T-harmonic index k maps
+# to a 2T-harmonic index 2k, so to capture the same physical bandwidth we
+# need nfb = 2 · nf_orbit.  ``nf`` adds a 10-harmonic margin above nfb.
 n_evals = 5
 krylov_dim = 100
 n_neutral_strips = 4
@@ -46,16 +44,27 @@ comm = PETSc.COMM_WORLD
 data = np.load("data/periodic_orbit.npz")
 c = float(data["c"])
 T_base = float(data["T"])
-C_periodic_1T = data["C"][:, :-1]  # (3, n_orbit), T-periodic
+nf_orbit = int(data["nf"])               # T-periodic harmonics from the orbit cache
+C_periodic_1T = data["C"][:, :-1]        # (3, n_orbit_save), T-periodic
+
+# 2T-HB bandwidth derived from the orbit cache.
+nfb = 2 * nf_orbit                       # 2T-HB: each T-harmonic k → 2T k' = 2k
+nf = nfb + 10                            # 10-harmonic margin for eigenproblem
 
 T = 2.0 * T_base
-C_periodic_2T = np.tile(C_periodic_1T, (1, 2))  # (3, 2*n_orbit)
+C_periodic_2T = np.tile(C_periodic_1T, (1, 2))  # (3, 2*n_orbit_save)
 
 n_time = 2 * (nf + nfb) + 1
 C_periodic = resample(C_periodic_2T, n_time, axis=1)
 time_orbit = np.linspace(0, T, n_time, endpoint=False)
 
-sigma = 0.0
+sigma = 1e-8
+
+res4py.petscprint(
+    comm,
+    f"  nf_orbit = {nf_orbit}  →  nfb = 2·nf_orbit = {nfb},  "
+    f"nf = nfb + 10 = {nf}",
+)
 
 res4py.petscprint(
     comm,

@@ -62,10 +62,19 @@ class SpectralSubmanifold:
     :type r: int
     :param m: polynomial expansion order.
     :type m: int
-    :param conj_to_linear_dynamics: if ``True``, set :math:`g(s)=0`
-        (conjugacy to linear dynamics); if ``False``, solve for
-        nonlinear :math:`g(s)`.
-    :type conj_to_linear_dynamics: bool
+    :param latent_space_components: list of polynomial orders ``|j|``
+        that the latent-space dynamics ``g(s)`` is allowed to contain.
+        At every multi-index ``j`` with ``sum(j)`` *not* in this list,
+        ``gj`` is forced to ``0`` AFTER its standard computation (and
+        before being stored / used by subsequent orders), so the
+        higher-order corrections are absorbed into the manifold map
+        ``P(s)`` instead — a normal-form parametrisation.  ``None``
+        (default) keeps every order, i.e. the natural parametrisation.
+        ``latent_space_components = [1]`` reduces to the
+        conjugacy-to-linear-dynamics case (``g(s) = Lams * s``) and is
+        flagged internally as such.  Typical pitchfork-style example:
+        ``latent_space_components = [1, 3]``.
+    :type latent_space_components: Optional[List[int]]
     :param n_workers: number of MPI ranks that participate in the
         per-pair :meth:`DifferentialEquation.evaluate_quadratic_term`
         evaluation inside :meth:`solve`.  Default is ``world_size``
@@ -97,13 +106,16 @@ class SpectralSubmanifold:
         diff_eq: DifferentialEquation,
         r: int,
         m: int,
-        conj_to_linear_dynamics: bool = False,
+        latent_space_components: Optional[List[int]] = None,
         n_workers: Optional[int] = None,
     ) -> None:
         self.diff_eq = diff_eq
         self.r = r
         self.m = m
-        self.conj_to_linear_dynamics = conj_to_linear_dynamics
+        # `conj_to_linear_dynamics` is the legacy "g(s) = Lams * s" flag,
+        # now derived: True iff the only retained latent-space order is 1.
+        self.latent_space_components = latent_space_components
+        self.conj_to_linear_dynamics = latent_space_components == [1]
 
         if self.diff_eq.get_poly_degree() > 2:
             raise ValueError("Only quadratic dynamics are supported for now.")
@@ -561,11 +573,21 @@ class SpectralSubmanifold:
         Psi: SLEPc.BV,
         Lams: np.ndarray,
         scaling: float = 1.0,
+        p0: Optional[PETSc.Vec] = None,
         verbose: int = 0,
     ) -> Tuple[List[PETSc.Vec], List[np.ndarray]]:
         r"""
         Compute the coefficients :math:`p_j` and :math:`g_j` in the
         polynomial expansions of :math:`P(s)` and :math:`g(s)`.
+
+        This class assumes the reference ``c_*`` is a true equilibrium
+        / periodic orbit of the host system, so the constant drift
+        ``gs[0]`` is identically zero by construction.  For
+        non-orbit references (e.g. atlas charts anchored at an
+        intermediate point of a parent chart) use
+        :class:`SpectralSubmanifoldChart` instead, which accepts a
+        non-zero ``g0`` at instantiation and handles the resulting
+        up-order coupling via Picard iteration.
 
         :param Phi: right eigenvectors
         :type Phi: SLEPc.BV
@@ -581,6 +603,10 @@ class SpectralSubmanifold:
             non-normal master subspace where one mode would otherwise dominate.
             Should be real (it must preserve W^H V = I).
         :type scaling: float or numpy.ndarray
+        :param p0: optional zeroth-order manifold coefficient placed at
+            ``ps[0]`` (the constant offset of the SSM from the origin in
+            physical space).  ``None`` (default) keeps the zero vector.
+        :type p0: Optional[PETSc.Vec]
 
         :return: manifold coefficients :math:`p_j` and
             dynamics coefficients :math:`g_j`
@@ -618,17 +644,31 @@ class SpectralSubmanifold:
         template = v_ref.duplicate()
         V.restoreColumn(0, v_ref)
 
-        # Zeroth and first order terms in the manifold expansion
-        p0 = template.duplicate()
-        p0.zeroEntries()
-        ps: List[PETSc.Vec] = [p0]
+        # Zeroth and first order terms in the manifold expansion.
+        # ps[0] = constant offset (user-supplied via `p0` or zero).
+        # ps[k+1] = k-th master right eigenvector V[:, k].
+        ps_zero = template.duplicate()
+        if p0 is None:
+            ps_zero.zeroEntries()
+        else:
+            p0.copy(ps_zero)            # in-place copy of user vector
+        ps: List[PETSc.Vec] = [ps_zero]
         for k in range(r):
             v_k = V.getColumn(k)
             ps.append(v_k.copy())
             V.restoreColumn(k, v_k)
 
-        # Zeroth and first order terms in g(s), internal dynamics
-        gs: List[np.ndarray] = [np.zeros(r, dtype=complex)] * (r + 1)
+        # Zeroth and first order terms in g(s), internal dynamics.
+        # gs[0]   = constant term (always zero — orbit reference).
+        # gs[k+1] = linear term: Lams[k] in slot k, zero elsewhere — mirrors
+        #          ps[k+1] = V[:, k] (k-th master eigenvector), giving a
+        #          uniform polynomial representation g(s) = sum_j gs[j] s^j
+        #          where the linear part reproduces  ds = Lams * s.
+        gs: List[np.ndarray] = [
+            np.zeros(r, dtype=complex) for _ in range(r + 1)
+        ]
+        for k in range(r):
+            gs[k + 1][k] = Lams[k]
 
         # Reusable work vector
         rhs = template.duplicate()
@@ -682,6 +722,14 @@ class SpectralSubmanifold:
 
             # Subtract V @ gj from rhs, then solve (shift*I - A) pj = rhs
             gj = W.dotVec(rhs) if not conj else np.zeros(r, dtype=complex)
+            # Normal-form constraint: if this order is excluded from the
+            # retained latent-space dynamics, force gj = 0 so the
+            # corrections are absorbed into pj instead.
+            if (
+                self.latent_space_components is not None
+                and sum(j) not in self.latent_space_components
+            ):
+                gj = np.zeros(r, dtype=complex)
             V.multVec(-1.0, 1.0, rhs, gj)  # rhs = -V @ gj + rhs
             pj = self.diff_eq.solve_linear_system(shift, rhs)
 
@@ -747,7 +795,13 @@ class SpectralSubmanifold:
 
     def latent_space_dynamics(self, t: float, s: np.ndarray) -> np.ndarray:
         r"""
-        Compute :math:`\dot{s} = \Lambda s + g(s)`.
+        Compute :math:`\dot{s} = \sum_j g_j \, s^j` summed over every
+        multi-index.  This single uniform representation covers the
+        constant term (``gs[0]``), the linear terms (``gs[1..r]``, which
+        hold ``Lams`` diagonally to reproduce ``Lams * s``), and all
+        nonlinear orders.  No special-casing per ``latent_space_components``
+        is needed — orders the user excluded from the dynamics have
+        ``gs[j] = 0`` exactly, so they contribute nothing.
 
         :param t: time (unused, included for ODE-solver compatibility)
         :type t: float
@@ -756,17 +810,12 @@ class SpectralSubmanifold:
 
         :rtype: np.ndarray
         """
-        if self.Lams is None:
+        if self.gs is None:
             raise RuntimeError("Call solve() first.")
-        ds = self.Lams * s
-        if not self.conj_to_linear_dynamics:
-            _start = len(self.Lams) + 1
-            J = np.array(self.ssm_multiindices[_start:])
-            G = np.array(self.gs[_start:])
-            monomials = np.prod(s[None, :] ** J, axis=1)
-            ds = ds + monomials @ G
-
-        return ds
+        J = np.array(self.ssm_multiindices)
+        G = np.array(self.gs)
+        monomials = np.prod(s[None, :] ** J, axis=1)
+        return monomials @ G
 
     def estimate_convergence_radius(
         self,
