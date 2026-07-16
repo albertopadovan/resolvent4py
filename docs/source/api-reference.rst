@@ -8,5 +8,4 @@ API-reference
    linear_operators.rst
    linalg.rst
    model_reduction.rst
-   spectral_submanifold.rst
    utils.rst

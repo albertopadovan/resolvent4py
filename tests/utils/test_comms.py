@@ -108,3 +108,86 @@ def test_scatter_array_with_custom_locsize(comm):
         expected = np.random.randn(total)
         error = np.linalg.norm(reconstructed - expected)
         assert error < 1e-14
+
+
+def test_gather_vec_to_rank_root_zero(comm):
+    r"""gather_vec_to_rank returns the full array on the root rank and
+    None everywhere else, with values matching the distributed vector."""
+    N = 47
+    x, xpython = pytest_utils.generate_random_vector(comm, N)
+    arr = res4py.gather_vec_to_rank(x, dest_rank=0)
+    if comm.getRank() == 0:
+        assert arr is not None
+        assert arr.shape == (N,)
+        err = np.linalg.norm(arr - xpython)
+        assert err < 1e-14, f"gathered array differs by {err:.3e}"
+    else:
+        assert arr is None
+    x.destroy()
+
+
+def test_gather_vec_to_rank_non_zero_root(comm):
+    r"""gather_vec_to_rank works with a non-zero destination rank."""
+    if comm.getSize() < 2:
+        return  # trivial single-rank case: dest_rank=0 already covered
+    N = 33
+    x, xpython = pytest_utils.generate_random_vector(comm, N)
+    dest = 1
+    arr = res4py.gather_vec_to_rank(x, dest_rank=dest)
+    if comm.getRank() == dest:
+        assert arr is not None
+        err = np.linalg.norm(arr - xpython)
+        assert err < 1e-14
+    else:
+        assert arr is None
+    x.destroy()
+
+
+def test_scatter_vec_from_rank_from_root(comm):
+    r"""scatter_vec_from_rank writes a source-rank numpy array into a
+    fresh distributed Vec so its concatenated slices match the source."""
+    N = 47
+    rank = comm.getRank()
+    arr_on_source = None
+    if rank == 0:
+        np.random.seed(2024)
+        arr_on_source = (
+            np.random.randn(N) + 1j * np.random.randn(N)
+        ).astype(PETSc.ScalarType)
+
+    Nl = res4py.compute_local_size(N)
+    target = PETSc.Vec().create(comm=PETSc.COMM_WORLD)
+    target.setSizes((Nl, N))
+    target.setType("standard")
+
+    res4py.scatter_vec_from_rank(arr_on_source, target, source_rank=0)
+
+    # Gather back and compare on rank 0.
+    check = res4py.distributed_to_sequential_vector(target)
+    if rank == 0:
+        err = np.linalg.norm(check.getArray() - arr_on_source)
+        assert err < 1e-14, f"scattered vec differs by {err:.3e}"
+    check.destroy()
+    target.destroy()
+
+
+def test_gather_scatter_roundtrip(comm):
+    r"""gather_vec_to_rank then scatter_vec_from_rank reproduces the
+    original distributed vector bit-for-bit."""
+    N = 61
+    root = comm.getSize() - 1  # last rank
+    x, _ = pytest_utils.generate_random_vector(comm, N)
+
+    arr = res4py.gather_vec_to_rank(x, dest_rank=root)
+
+    y = PETSc.Vec().create(comm=PETSc.COMM_WORLD)
+    y.setSizes(x.getSizes())
+    y.setType("standard")
+    res4py.scatter_vec_from_rank(arr, y, source_rank=root)
+
+    # Compare local slices.
+    err_local = np.linalg.norm(y.getArray() - x.getArray()) ** 2
+    err = np.sqrt(comm.tompi4py().allreduce(err_local))
+    assert err < 1e-14, f"roundtrip err = {err:.3e}"
+    x.destroy()
+    y.destroy()

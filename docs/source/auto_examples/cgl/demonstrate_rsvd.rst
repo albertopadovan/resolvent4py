@@ -31,7 +31,7 @@ by computing the singular value decomposition (SVD) of the resolvent operator
 with :math:`\omega = 0.648` the natural frequency of the linearized CGL
 equation. This script demonstrates the following:
 
-- LU decomposition using :func:`~resolvent4py.utils.ksp.create_mumps_solver`
+- LU decomposition using :func:`~resolvent4py.utils.ksp.create_direct_solver`
 - Resolvent analysis in the frequency domain using
   :func:`~resolvent4py.linalg.randomized_svd.randomized_svd`
 
@@ -80,8 +80,8 @@ equation. This script demonstrates the following:
     Rinv = res4py.create_AIJ_identity(comm, sizes)
     Rinv.scale(s)
     Rinv.axpy(-1.0, A)
-    ksp = res4py.create_mumps_solver(Rinv)
-    res4py.check_lu_factorization(Rinv, ksp)
+    ksp = res4py.create_direct_solver(Rinv)
+    res4py.check_solver(Rinv, ksp)
     L = res4py.linear_operators.MatrixLinearOperator(Rinv, ksp)
 
     # Compute the svd

@@ -24,7 +24,7 @@ def test_product_on_vectors(comm, square_matrix_size):
     S = comm.tompi4py().bcast(S, root=0)
     Apython1 += Upython @ S @ Vpython.conj().T
 
-    ksp = res4py.create_mumps_solver(Apetsc1)
+    ksp = res4py.create_direct_solver(Apetsc1)
     linop_ = res4py.linear_operators.MatrixLinearOperator(Apetsc1, ksp)
     linop1 = res4py.linear_operators.LowRankUpdatedLinearOperator(
         linop_, U, S, V
@@ -104,7 +104,7 @@ def test_product_on_bvs(comm, square_matrix_size):
     S = comm.tompi4py().bcast(S, root=0)
     Apython1 += Upython @ S @ Vpython.conj().T
 
-    ksp = res4py.create_mumps_solver(Apetsc1)
+    ksp = res4py.create_direct_solver(Apetsc1)
     linop_ = res4py.linear_operators.MatrixLinearOperator(Apetsc1, ksp)
     linop1 = res4py.linear_operators.LowRankUpdatedLinearOperator(
         linop_, U, S, V

@@ -9,7 +9,7 @@ def test_mumps_solver_accuracy(comm, square_random_matrix):
     r"""Test that MUMPS solver produces accurate solutions"""
     Apetsc, Apython = square_random_matrix
     N = Apython.shape[0]
-    ksp = res4py.create_mumps_solver(Apetsc)
+    ksp = res4py.create_direct_solver(Apetsc)
 
     b, bpython = pytest_utils.generate_random_vector(comm, N)
     x = b.duplicate()
@@ -25,12 +25,12 @@ def test_mumps_solver_accuracy(comm, square_random_matrix):
     assert error < 1e-10
 
 
-def test_check_lu_factorization_passes(comm, square_random_matrix):
-    r"""Test that check_lu_factorization does not raise on valid factorization"""
+def test_check_solver_passes_on_mumps(comm, square_random_matrix):
+    r"""Test that check_solver does not raise on a valid MUMPS factorization"""
     Apetsc, _ = square_random_matrix
-    ksp = res4py.create_mumps_solver(Apetsc)
+    ksp = res4py.create_direct_solver(Apetsc)
     # Should not raise
-    res4py.check_lu_factorization(Apetsc, ksp)
+    res4py.check_solver(Apetsc, ksp)
     ksp.destroy()
 
 
@@ -38,7 +38,7 @@ def test_mumps_solver_multiple_rhs(comm, square_random_matrix):
     r"""Test MUMPS solver with multiple sequential right-hand sides"""
     Apetsc, Apython = square_random_matrix
     N = Apython.shape[0]
-    ksp = res4py.create_mumps_solver(Apetsc)
+    ksp = res4py.create_direct_solver(Apetsc)
 
     errors = []
     for _ in range(3):
@@ -112,9 +112,10 @@ def test_gmres_bjacobi_block_diagonal_one_iter(comm):
     M.setValuesCSR(rows_ptr, cols_csr, vals_csr, True)
     M.assemble(False)
 
-    ksp = res4py.create_gmres_bjacobi_solver(
+    ksp = res4py.create_gmres_solver(
         M,
-        nblocks,
+        preconditioner="bjacobi",
+        nblocks=nblocks,
         rtol=1e-12,
         atol=1e-12,
     )
@@ -164,8 +165,12 @@ def test_gmres_bjacobi_solver_custom_tolerances(comm):
 
     residuals = []
     for tol in [1e-8, 1e-12]:
-        ksp = res4py.create_gmres_bjacobi_solver(
-            Apetsc, nblocks, rtol=tol, atol=tol
+        ksp = res4py.create_gmres_solver(
+            Apetsc,
+            preconditioner="bjacobi",
+            nblocks=nblocks,
+            rtol=tol,
+            atol=tol,
         )
         x = b.duplicate()
         ksp.solve(b, x)
@@ -233,8 +238,13 @@ def test_gmres_block_tridiagonal_one_iter(comm):
 
     A = _build_block_banded_petsc(comm, nblocks, n, n_off_diags=1, seed=11)
 
-    ksp = res4py.create_gmres_block_banded_solver(
-        A, nblocks, n_off_diags=1, rtol=1e-12, atol=1e-12
+    ksp = res4py.create_gmres_solver(
+        A,
+        preconditioner="block_banded",
+        nblocks=nblocks,
+        n_off_diags=1,
+        rtol=1e-12,
+        atol=1e-12,
     )
 
     b = res4py.generate_random_petsc_vector(A.getSizes()[0])
@@ -270,8 +280,13 @@ def test_gmres_block_pentadiagonal_tridiagonal_pc(comm):
 
     A = _build_block_banded_petsc(comm, nblocks, n, n_off_diags=2, seed=23)
 
-    ksp = res4py.create_gmres_block_banded_solver(
-        A, nblocks, n_off_diags=1, rtol=1e-12, atol=1e-12
+    ksp = res4py.create_gmres_solver(
+        A,
+        preconditioner="block_banded",
+        nblocks=nblocks,
+        n_off_diags=1,
+        rtol=1e-12,
+        atol=1e-12,
     )
 
     b = res4py.generate_random_petsc_vector(A.getSizes()[0])

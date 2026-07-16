@@ -68,7 +68,7 @@ def test_mat_solve_hermitian_transpose(comm, square_random_matrix):
 
     Apetsc, Apython = square_random_matrix
     N = Apython.shape[0]
-    ksp = res4py.create_mumps_solver(Apetsc)
+    ksp = res4py.create_direct_solver(Apetsc)
 
     s = 3
     X, Xpython = pytest_utils.generate_random_bv(comm, (N, s))

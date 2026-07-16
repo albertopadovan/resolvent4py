@@ -13,8 +13,8 @@ __all__ = [
 import typing
 
 import numpy as np
-from petsc4py import PETSc
 from mpi4py import MPI
+from petsc4py import PETSc
 
 from .miscellaneous import get_mpi_type
 
@@ -48,7 +48,7 @@ def compute_local_size(Ng: int) -> int:
     return Nl
 
 
-def compute_local_size_block_aligned(n: int, N: int) -> typing.Tuple[int, int]:
+def compute_local_size_block_aligned(n: int, N: int) -> tuple[int, int]:
     r"""
     Compute per-rank local sizes :code:`(nl, Nl)` for a block-structured
     :math:`N \times N` PETSc matrix made of :code:`nblocks = N // n`
@@ -203,7 +203,7 @@ def scatter_array_from_root_to_all(
     comm = MPI.COMM_WORLD
     size, rank = comm.Get_size(), comm.Get_rank()
     counts, displs = None, None
-    if locsize == None:
+    if locsize is None:
         if rank == 0:
             n = len(array)
             counts = np.asarray(
@@ -263,7 +263,8 @@ def gather_vec_to_rank(
 
     Compared to :func:`distributed_to_sequential_vector` (which
     Allgathers — i.e. replicates the full array on every rank), this
-    routine does a single :func:`Gatherv` to one root.  Use it when
+    routine does a single :py:meth:`~mpi4py.MPI.Comm.Gatherv` to one
+    root.  Use it when
     only one rank actually consumes the data (e.g. a single-rank
     bilinear evaluation).  If multiple ranks need the result, follow
     up with explicit point-to-point sends or a broadcast.
@@ -286,9 +287,7 @@ def gather_vec_to_rank(
 
     local = vec.getArray()
     counts = np.asarray(comm.allgather(len(local)), dtype=PETSc.IntType)
-    disps = np.concatenate(([0], np.cumsum(counts[:-1]))).astype(
-        PETSc.IntType
-    )
+    disps = np.concatenate(([0], np.cumsum(counts[:-1]))).astype(PETSc.IntType)
     total = int(counts.sum())
     mpi_dtype = get_mpi_type(local.dtype)
 
@@ -326,7 +325,8 @@ def scatter_vec_from_rank(
         arr = gather_vec_to_rank(vec, root)        # arr is non-None on `root` only
         scatter_vec_from_rank(arr, vec, root)      # writes back into `vec`
 
-    Implementation: a single :func:`Scatterv` from ``source_rank``;
+    Implementation: a single :py:meth:`~mpi4py.MPI.Comm.Scatterv` from
+    ``source_rank``;
     each rank receives only its local slice, so non-source ranks
     never allocate the full vector.
 
@@ -352,9 +352,7 @@ def scatter_vec_from_rank(
     r0, r1 = target_vec.getOwnershipRange()
     locsize = r1 - r0
     counts = np.asarray(comm.allgather(locsize), dtype=PETSc.IntType)
-    disps = np.concatenate(([0], np.cumsum(counts[:-1]))).astype(
-        PETSc.IntType
-    )
+    disps = np.concatenate(([0], np.cumsum(counts[:-1]))).astype(PETSc.IntType)
 
     dtype = target_vec.getArray().dtype
     mpi_dtype = get_mpi_type(dtype)

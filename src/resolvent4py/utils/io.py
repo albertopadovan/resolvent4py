@@ -22,7 +22,7 @@ from .matrix import convert_coo_to_csr
 
 def read_vector(
     filename: str,
-    sizes: typing.Optional[typing.Tuple[int, int]] = None,
+    sizes: typing.Optional[tuple[int, int]] = None,
 ) -> PETSc.Vec:
     r"""
     Read PETSc vector from file
@@ -37,15 +37,15 @@ def read_vector(
     comm = PETSc.COMM_WORLD
     viewer = PETSc.Viewer().createMPIIO(filename, "r", comm=comm)
     vec = PETSc.Vec().create(comm)
-    vec.setSizes(sizes) if sizes != None else None
+    vec.setSizes(sizes) if sizes is not None else None
     vec.load(viewer)
     viewer.destroy()
     return vec
 
 
 def read_coo_matrix(
-    filenames: typing.Tuple[str, str, str],
-    sizes: typing.Tuple[typing.Tuple[int, int], typing.Tuple[int, int]],
+    filenames: tuple[str, str, str],
+    sizes: tuple[tuple[int, int], tuple[int, int]],
 ) -> PETSc.Mat:
     r"""
     Read COO matrix from file
@@ -84,10 +84,10 @@ def read_coo_matrix(
 
 
 def read_harmonic_balanced_matrix(
-    filenames_lst: typing.List[typing.Tuple[str, str, str]],
+    filenames_lst: list[tuple[str, str, str]],
     real_bflow: bool,
-    block_sizes: typing.Tuple[typing.Tuple[int, int], typing.Tuple[int, int]],
-    full_sizes: typing.Tuple[typing.Tuple[int, int], typing.Tuple[int, int]],
+    block_sizes: tuple[tuple[int, int], tuple[int, int]],
+    full_sizes: tuple[tuple[int, int], tuple[int, int]],
 ) -> PETSc.Mat:
     r"""
     Given :math:`\{\ldots, A_{-1}, A_{0}, A_{1},\ldots\}`, where :math:`A_j` is
@@ -150,9 +150,9 @@ def read_harmonic_balanced_matrix(
         valsvec.destroy()
 
     if real_bflow:
-        l = len(rows_lst)
-        for i in range(1, l):
-            idx_lst = i - l
+        n_original = len(rows_lst)
+        for i in range(1, n_original):
+            idx_lst = i - n_original
             rows_lst.insert(0, rows_lst[idx_lst])
             cols_lst.insert(0, cols_lst[idx_lst])
             vals_lst.insert(0, np.conj(vals_lst[idx_lst]))
@@ -165,8 +165,8 @@ def read_harmonic_balanced_matrix(
     nfp = (nblocks - 1) // 2  # Number of perturbation frequencies
     if nfp < nfb:
         raise ValueError(
-            f"The number of blocks must be larger than the number of Fourier "
-            f"coefficients of A(t). (See function description.)"
+            "The number of blocks must be larger than the number of Fourier "
+            "coefficients of A(t). (See function description.)"
         )
     for i in range(2 * nfp + 1):
         for j in range(2 * nfp + 1):
@@ -196,7 +196,7 @@ def read_harmonic_balanced_matrix(
 
 def read_dense_matrix(
     filename: str,
-    sizes: typing.Tuple[typing.Tuple[int, int], typing.Tuple[int, int]],
+    sizes: tuple[tuple[int, int], tuple[int, int]],
 ) -> PETSc.Mat:
     r"""
     Read dense PETSc matrix from file.
@@ -218,7 +218,7 @@ def read_dense_matrix(
 
 def read_bv(
     filename: str,
-    sizes: typing.Tuple[typing.Tuple[int, int], int],
+    sizes: tuple[tuple[int, int], int],
 ) -> SLEPc.BV:
     r"""
     Read dense matrix from file and store as a SLEPc BV
@@ -240,10 +240,10 @@ def read_bv(
 
 
 def read_harmonic_balanced_bv(
-    filenames_lst: typing.List[str],
+    filenames_lst: list[str],
     real_bflow: bool,
-    block_sizes: typing.Tuple[typing.Tuple[int, int], int],
-    full_sizes: typing.Tuple[typing.Tuple[int, int], int],
+    block_sizes: tuple[tuple[int, int], int],
+    full_sizes: tuple[tuple[int, int], int],
 ) -> SLEPc.BV:
     r"""
     Given :math:`\{\ldots, A_{-1}, A_{0}, A_{1},\ldots\}`, where :math:`A_j` is
@@ -292,9 +292,9 @@ def read_harmonic_balanced_bv(
         bv.destroy()
 
     if real_bflow:
-        l = len(bvs_lst)
-        for i in range(1, l):
-            idx_lst = i - l
+        n_original = len(bvs_lst)
+        for i in range(1, n_original):
+            idx_lst = i - n_original
             bvs_lst.insert(0, bv_conj(bvs_lst[idx_lst]))
 
     Nrb = block_sizes[0][-1]  # Number of rows for each block
@@ -304,8 +304,8 @@ def read_harmonic_balanced_bv(
     nfp = (nblocks - 1) // 2  # Number of perturbation frequencies
     if nfp < nfb:
         raise ValueError(
-            f"The number of blocks must be larger than the number of Fourier "
-            f"coefficients of A(t). (See function description.)"
+            "The number of blocks must be larger than the number of Fourier "
+            "coefficients of A(t). (See function description.)"
         )
 
     bv_mat = bvs_lst[0].getMat()
@@ -335,10 +335,10 @@ def read_harmonic_balanced_bv(
 
 
 def read_harmonic_balanced_vector(
-    filenames_lst: typing.List[str],
+    filenames_lst: list[str],
     real_bflow: bool,
-    block_sizes: typing.Tuple[int, int],
-    full_sizes: typing.Tuple[int, int],
+    block_sizes: tuple[int, int],
+    full_sizes: tuple[int, int],
 ) -> PETSc.Vec:
     r"""
     Given :math:`\{\ldots, v_{-1}, v_{0}, v_{1},\ldots\}`, where :math:`v_j` is
@@ -376,9 +376,9 @@ def read_harmonic_balanced_vector(
         vec.destroy()
 
     if real_bflow:
-        l = len(vec_lst)
-        for i in range(1, l):
-            idx_lst = i - l
+        n_original = len(vec_lst)
+        for i in range(1, n_original):
+            idx_lst = i - n_original
             vecconj = vec_lst[idx_lst].copy()
             vecconj.conjugate()
             vec_lst.insert(0, vecconj.copy())
@@ -415,12 +415,18 @@ def write_to_file(
     r"""
     Write PETSc/SLEPc object (PETSc.Mat, PETSc.Vec or SLEPc.BV) to file.
 
+    Uses the parallel MPI-I/O binary viewer so the file is written
+    collectively; readers (:func:`read_vector`, :func:`read_dense_matrix`,
+    :func:`read_bv`) use the same viewer type so the write/read paths
+    stay symmetric and the on-disk format is guaranteed to match across
+    PETSc versions.
+
     :param filename: name of the file to store the object
     :type filename: str
     :param object: any PETSc matrix or vector, or SLEPc BV
     :type object: Union[PETSc.Mat, PETSc.Vec, SLEPc.BV]
     """
-    viewer = PETSc.Viewer().createBinary(filename, "w", comm=object.getComm())
+    viewer = PETSc.Viewer().createMPIIO(filename, "w", comm=object.getComm())
     if isinstance(object, SLEPc.BV):
         mat = object.getMat()
         mat.view(viewer)

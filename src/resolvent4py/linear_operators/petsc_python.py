@@ -1,4 +1,5 @@
 from petsc4py import PETSc
+
 from .linear_operator import LinearOperator
 
 
@@ -19,15 +20,41 @@ class _PCContext:
                 f"action must be L.apply or L.solve, got {action}."
             )
 
-    def setUp(self, pc: PETSc.PC) -> None:
-        pass
+    def setUp(self, pc: PETSc.PC) -> None:  # noqa: D401
+        """PETSc shell PC hook — nothing to set up.
+
+        :param pc: shell PC (unused; supplied by PETSc)
+        :type pc: PETSc.PC
+        """
 
     def apply(self, pc: PETSc.PC, x: PETSc.Vec, y: PETSc.Vec) -> None:
+        """PETSc shell PC hook: apply :math:`y = P x`.
+
+        :param pc: shell PC (unused; supplied by PETSc)
+        :type pc: PETSc.PC
+        :param x: input vector
+        :type x: PETSc.Vec
+        :param y: output vector (populated in place)
+        :type y: PETSc.Vec
+        """
         self._action(x, y)
 
-    def applyTranspose(self, pc: PETSc.PC, x: PETSc.Vec, y: PETSc.Vec) -> None:
-        # PETSc calls this for P^T, but our _action_t is P^H.
-        # P^T x = conj(P^H conj(x))
+    def applyTranspose(
+        self, pc: PETSc.PC, x: PETSc.Vec, y: PETSc.Vec,
+    ) -> None:
+        """PETSc shell PC hook: apply :math:`y = P^{T} x`.
+
+        PETSc requests the plain transpose but the linear operator only
+        exposes the Hermitian transpose, so we bridge with
+        :math:`P^{T} x = \\overline{P^{*} \\overline{x}}`.
+
+        :param pc: shell PC (unused; supplied by PETSc)
+        :type pc: PETSc.PC
+        :param x: input vector
+        :type x: PETSc.Vec
+        :param y: output vector (populated in place)
+        :type y: PETSc.Vec
+        """
         x.conjugate()
         self._action_t(x, y)
         y.conjugate()
@@ -71,11 +98,31 @@ class PetscPythonLinearOperator:
             )
 
     def mult(self, A: PETSc.Mat, x: PETSc.Vec, y: PETSc.Vec) -> None:
-        r"""Compute :math:`y = L x`"""
+        r"""
+        Compute :math:`y = L x`.  PETSc shell matrix hook; not usually
+        called directly by user code.
+
+        :param A: the shell matrix (unused; supplied by PETSc)
+        :type A: PETSc.Mat
+        :param x: input vector
+        :type x: PETSc.Vec
+        :param y: output vector (populated in place)
+        :type y: PETSc.Vec
+        """
         self._action(x, y)
 
     def multHermitian(self, A: PETSc.Mat, x: PETSc.Vec, y: PETSc.Vec) -> None:
-        r"""Compute :math:`y = L^* x`"""
+        r"""
+        Compute :math:`y = L^{*} x`.  PETSc shell matrix hook; not usually
+        called directly by user code.
+
+        :param A: the shell matrix (unused; supplied by PETSc)
+        :type A: PETSc.Mat
+        :param x: input vector
+        :type x: PETSc.Vec
+        :param y: output vector (populated in place)
+        :type y: PETSc.Vec
+        """
         self._action_ht(x, y)
 
     @classmethod

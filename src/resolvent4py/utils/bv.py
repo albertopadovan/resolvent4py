@@ -10,18 +10,22 @@ __all__ = [
 import typing
 
 import numpy as np
-from slepc4py import SLEPc
 from petsc4py import PETSc
+from slepc4py import SLEPc
 
 
 def bv_add(alpha: float, X: SLEPc.BV, Y: SLEPc.BV) -> SLEPc.BV:
     r"""
-    Compute in-place addition :math:`X \leftarrow X + \alpha Y`
+    Compute in-place addition :math:`X \leftarrow X + \alpha Y`.
 
+    :param alpha: scalar multiplier
     :type alpha: float
+    :param X: BV to update in place
     :type X: SLEPc.BV
+    :param Y: BV to add (unchanged on exit)
     :type Y: SLEPc.BV
 
+    :return: the updated :code:`X`
     :rtype: SLEPc.BV
     """
     Xm = X.getMat()
@@ -34,13 +38,15 @@ def bv_add(alpha: float, X: SLEPc.BV, Y: SLEPc.BV) -> SLEPc.BV:
 
 def bv_conj(X: SLEPc.BV, inplace: typing.Optional[bool] = False) -> SLEPc.BV:
     r"""
-    Returns the complex conjugate :math:`\overline{X}` of the BV structure
+    Return the complex conjugate :math:`\overline{X}` of the BV.
 
+    :param X: input BV
     :type X: SLEPc.BV
     :param inplace: in-place if :code:`True`, else the result is stored in a
         new SLEPc.BV structure
     :type inplace: Optional[bool], default is False
 
+    :return: :math:`\overline{X}`
     :rtype: SLEPc.BV
     """
     Y = X if inplace else X.copy()
@@ -52,13 +58,15 @@ def bv_conj(X: SLEPc.BV, inplace: typing.Optional[bool] = False) -> SLEPc.BV:
 
 def bv_real(X: SLEPc.BV, inplace: typing.Optional[bool] = False) -> SLEPc.BV:
     r"""
-    Returns the real part :math:`\text{Re}(X)` of the BV structure
+    Return the real part :math:`\text{Re}(X)` of the BV.
 
+    :param X: input BV
     :type X: SLEPc.BV
     :param inplace: in-place if :code:`True`, else the result is stored in a
         new SLEPc.BV structure
     :type inplace: Optional[bool], default is False
 
+    :return: :math:`\text{Re}(X)`
     :rtype: SLEPc.BV
     """
     Y = X if inplace else X.copy()
@@ -70,13 +78,15 @@ def bv_real(X: SLEPc.BV, inplace: typing.Optional[bool] = False) -> SLEPc.BV:
 
 def bv_imag(X: SLEPc.BV, inplace: typing.Optional[bool] = False) -> SLEPc.BV:
     r"""
-    Returns the imaginary part :math:`\text{Im}(X)` of the BV structure
+    Return the imaginary part :math:`\text{Im}(X)` of the BV.
 
+    :param X: input BV
     :type X: SLEPc.BV
     :param inplace: in-place if :code:`True`, else the result is stored in a
         new SLEPc.BV structure
     :type inplace: Optional[bool], default is False
 
+    :return: :math:`\text{Im}(X)`
     :rtype: SLEPc.BV
     """
     Y = X if inplace else X.copy()
@@ -90,18 +100,22 @@ def bv_slice(
     X: SLEPc.BV,
     columns: np.array,
     Y: typing.Optional[SLEPc.BV] = None,
-):
+) -> SLEPc.BV:
     r"""
-    Extract a subset of columns from X and store into Y
+    Extract a subset of columns from :code:`X` and store into :code:`Y`.
 
+    :param X: source BV
     :type X: SLEPc.BV
-    :param columns: array of columns to extract
+    :param columns: array of column indices to extract
     :type columns: np.array
+    :param Y: destination BV.  If :code:`None`, a new BV is created with
+        the same row layout as :code:`X` and :code:`len(columns)` columns
     :type Y: Optional[SLEPc.BV], default is None
 
+    :return: the destination BV holding the selected columns
     :rtype: SLEPc.BV
     """
-    if Y == None:
+    if Y is None:
         Y = SLEPc.BV().create(X.getComm())
         Y.setSizes(X.getSizes()[0], len(columns))
         Y.setType("mat")
@@ -177,14 +191,17 @@ def bv_roll(
     in_place: typing.Optional[bool] = False,
 ) -> SLEPc.BV:
     r"""
-    Roll the columns of :code:`X` by amount :code:`roll`. This operation
-    can be done in place if :code:`in_place == True` (default is
-    :code:`False`).
+    Roll the columns of :code:`X` by amount :code:`roll`.
 
+    :param X: BV whose columns will be rolled
     :type X: SLEPc.BV
+    :param roll: shift amount (same convention as :func:`numpy.roll`)
     :type roll: int
+    :param in_place: if :code:`True` modify :code:`X` in place; otherwise
+        operate on a copy
     :type in_place: Optional[bool], default is :code:`False`
 
+    :return: rolled BV (same object as :code:`X` when :code:`in_place`)
     :rtype: SLEPc.BV
     """
     Y = X.copy() if not in_place else X

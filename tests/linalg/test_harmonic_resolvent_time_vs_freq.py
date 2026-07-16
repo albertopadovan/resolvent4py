@@ -137,8 +137,8 @@ def _build_HB_T_op(comm, Alst_np, n_pert, omega_base):
     T.scale(-1.0)
     A_hb.destroy()
 
-    ksp = res4py.create_mumps_solver(T)
-    res4py.check_lu_factorization(T, ksp)
+    ksp = res4py.create_direct_solver(T)
+    res4py.check_solver(T, ksp)
     Top = res4py.linear_operators.MatrixLinearOperator(
         T, ksp, 2 * n_pert + 1
     )

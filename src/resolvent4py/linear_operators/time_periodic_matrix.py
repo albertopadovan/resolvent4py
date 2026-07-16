@@ -1,10 +1,11 @@
 import typing
-import numpy as np
-from .linear_operator import LinearOperator
-from ..utils.bv import bv_add, bv_real, bv_conj
-from ..utils.vector import vec_real
 
+import numpy as np
 from mpi4py import MPI
+
+from ..utils.bv import bv_add, bv_conj, bv_real
+from ..utils.vector import vec_real
+from .linear_operator import LinearOperator
 
 
 class TimePeriodicMatrixLinearOperator(LinearOperator):
@@ -22,7 +23,7 @@ class TimePeriodicMatrixLinearOperator(LinearOperator):
         \sum_{k=-r_b}^{r_b} A_k\, v\, e^{i \omega_k t}.
 
     The Fourier coefficients :math:`A_k` are supplied as a list of
-    :class:`LinearOperator` objects, paired with their angular
+    :class:`.LinearOperator` objects, paired with their angular
     frequencies :math:`\omega_k`.  The operator is evaluated at a single
     time instant ``time`` (changing ``self.time`` between calls re-uses
     the same :math:`A_k` and just updates the exponential weights).
@@ -37,7 +38,7 @@ class TimePeriodicMatrixLinearOperator(LinearOperator):
 
     A shifted operator :math:`A(t) - s I` can be obtained by composing
     this class with
-    :class:`~resolvent4py.linear_operators.ShiftAndScaleLinearOperator`.
+    :class:`.ShiftAndScaleLinearOperator`.
 
     :param Alst: list of Fourier coefficient operators
         :math:`\{A_k\}`.  All entries must share the same domain and
@@ -50,13 +51,13 @@ class TimePeriodicMatrixLinearOperator(LinearOperator):
         :math:`A(t)`.
     :type time: float
     :param nblocks: number of blocks if the operator has a known block
-        structure (forwarded to :class:`LinearOperator`).
-    :type nblocks: Optional[int], default None
+        structure (forwarded to :class:`.LinearOperator`).
+    :type nblocks: Optional[int], default is None
     """
 
     def __init__(
         self: "TimePeriodicMatrixLinearOperator",
-        Alst: typing.List[LinearOperator],
+        Alst: list[LinearOperator],
         freqs: np.ndarray,
         time: float,
         nblocks: typing.Optional[int] = None,
@@ -104,8 +105,13 @@ class TimePeriodicMatrixLinearOperator(LinearOperator):
         return bv
 
     def set_evaluation_time(self, time: float) -> None:
-        r"""Overwrite :code:`self.time`, used by subsequent ``apply*``
-        calls to compute the exponential weights :math:`e^{i\omega_k t}`."""
+        r"""
+        Overwrite :code:`self.time`, used by subsequent ``apply*`` calls
+        to compute the exponential weights :math:`e^{i\omega_k t}`.
+
+        :param time: new evaluation time :math:`t`
+        :type time: float
+        """
         self.time = time
 
     def apply(self, x, y=None):
@@ -114,7 +120,9 @@ class TimePeriodicMatrixLinearOperator(LinearOperator):
         # Check if x is real (matters only if self._real_A is True)
         if self._real_A:
             sq_norm = np.linalg.norm(x.getArray().imag) ** 2
-            norm = np.sqrt(self.get_comm().tompi4py().allreduce(sq_norm, op=MPI.SUM))
+            norm = np.sqrt(
+                self.get_comm().tompi4py().allreduce(sq_norm, op=MPI.SUM)
+            )
             if norm <= 1e-14:
                 is_x_real = True
             else:
@@ -139,7 +147,9 @@ class TimePeriodicMatrixLinearOperator(LinearOperator):
                     if self.freqs[k] > 0.0:
                         self.vleftcc = Ak.apply(xcc, self.vleftcc)
                         self.vleftcc.conjugate()
-                        self.vleftcc.scale(np.exp(-1j * self.freqs[k] * self.time))
+                        self.vleftcc.scale(
+                            np.exp(-1j * self.freqs[k] * self.time)
+                        )
                         self.vleft.axpy(1.0, self.vleftcc)
             y.axpy(1.0, self.vleft)
 
@@ -233,9 +243,7 @@ class TimePeriodicMatrixLinearOperator(LinearOperator):
                         self.bvleftcc.scale(
                             np.exp(-1j * self.freqs[k] * self.time)
                         )
-                        self.bvleft = bv_add(
-                            1.0, self.bvleft, self.bvleftcc
-                        )
+                        self.bvleft = bv_add(1.0, self.bvleft, self.bvleftcc)
             Y = bv_add(1.0, Y, self.bvleft)
 
         if self._real_A and not is_X_real:
@@ -279,9 +287,7 @@ class TimePeriodicMatrixLinearOperator(LinearOperator):
                         self.bvrightcc = Ak.apply_hermitian_transpose_mat(
                             Xcc, self.bvrightcc
                         )
-                        self.bvrightcc = bv_conj(
-                            self.bvrightcc, inplace=True
-                        )
+                        self.bvrightcc = bv_conj(self.bvrightcc, inplace=True)
                         self.bvrightcc.scale(
                             np.exp(1j * self.freqs[k] * self.time)
                         )

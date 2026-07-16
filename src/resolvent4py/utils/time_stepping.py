@@ -1,10 +1,12 @@
 import typing
 import warnings
+
 import numpy as np
 from petsc4py import PETSc
 from slepc4py import SLEPc
-from ..utils.vector import vec_real
+
 from ..utils.miscellaneous import petscprint
+from ..utils.vector import vec_real
 
 if typing.TYPE_CHECKING:
     from ..linear_operators import LinearOperator
@@ -148,7 +150,7 @@ def ifft(
 
 def create_time_and_frequency_arrays(
     dt: float, omega: float, n_omegas: int, real: bool
-) -> typing.Tuple[np.array, int, np.array]:
+) -> tuple[np.array, int, np.array]:
     r"""
     Build mutually-consistent simulation-time and frequency arrays for
     a signal with fundamental period :math:`T = 2\pi / \omega`.
@@ -214,7 +216,7 @@ def create_time_and_frequency_arrays(
     tsim = dt * np.arange(0, nsteps + 1)
     nsave = round(dt_store / dt)
     if len(tsim[::nsave]) - 1 != len(tstore):
-        raise ValueError(f"The time vectors were not constructed properly.")
+        raise ValueError("The time vectors were not constructed properly.")
     omegas = np.arange(n_omegas + 1) * omega
     omegas = (
         omegas if real else np.concatenate((omegas, -np.flipud(omegas[1:])))
@@ -232,7 +234,7 @@ def solve_ivp(
     m: typing.Optional[int] = -1,
     adjoint: typing.Optional[bool] = False,
     X: typing.Optional[SLEPc.BV] = None,
-    periodic_forcing: typing.Optional[typing.Tuple[SLEPc.BV, np.array]] = None,
+    periodic_forcing: typing.Optional[tuple[SLEPc.BV, np.array]] = None,
 ) -> typing.Union[PETSc.Vec, SLEPc.BV]:
     r"""
     Integrate a (possibly time-dependent) linear system of the form
@@ -256,9 +258,9 @@ def solve_ivp(
         f(t) = f(t + T) = \sum_{k=-r}^r f_k e^{ik\omega t},\quad \omega = 2\pi/T.
 
     At every RK stage the time ``t`` is forwarded to the operator via
-    :meth:`LinearOperator.set_evaluation_time`, so any time-dependent
+    :meth:`.LinearOperator.set_evaluation_time`, so any time-dependent
     operator (e.g. one built around a
-    :class:`TimePeriodicMatrixLinearOperator`) is automatically kept in
+    :class:`.TimePeriodicMatrixLinearOperator`) is automatically kept in
     sync with the integrator.  For time-invariant operators, that call
     is a no-op walk over child attributes.
 
@@ -298,6 +300,11 @@ def solve_ivp(
         Otherwise, include the negative frequencies as well.
     :type periodic_forcing: Optional[Union[Tuple[SLEPc.BV, np.array], None]],
         default is None
+
+    :return: the terminal state :math:`x(t_f)` (or :math:`x(t_0)` when
+        integrating backward) when :code:`m == -1`; otherwise the SLEPc BV
+        ``X`` holding one column per saved step
+    :rtype: PETSc.Vec or SLEPc.BV
     """
     action = L.apply_hermitian_transpose if adjoint else L.apply
 
@@ -309,7 +316,7 @@ def solve_ivp(
     # Create array to store the solution (unless it is passed by the user)
     # When m = -1, we return only the solution at time tf (or t0, if
     # integrating backward in time).
-    if X == None and m != -1:
+    if X is None and m != -1:
         X = SLEPc.BV().create(comm=v.getComm())
         X.setSizes(v.getSizes(), len(time[::m]))
         X.setType("mat")
@@ -317,12 +324,12 @@ def solve_ivp(
     if m != -1:
         if X.getSizes()[-1] != len(time[::m]):
             raise ValueError(
-                f"The SLEPc BV X used to store the solution has the wrong "
-                f"number of columns."
+                "The SLEPc BV X used to store the solution has the wrong "
+                "number of columns."
             )
 
     # Check if the user has provided an external forcing function
-    if periodic_forcing == None:
+    if periodic_forcing is None:
         f = None
 
         def evaluate_dynamics(x, y, t, f=None):
@@ -405,7 +412,7 @@ def solve_ivp(
             vec.destroy()
 
     else:
-        raise ValueError(f"Integration method should be one of RK2 or RK3.")
+        raise ValueError("Integration method should be one of RK2 or RK3.")
 
     if adjoint and m != -1:
         Xmat = X.getMat()
@@ -454,14 +461,14 @@ def compute_post_transient_solution(
 
     Each of :math:`L(t)`, :math:`B(t)`, :math:`C(t)` may be
     time-invariant or :math:`T`-periodic.  Time updates are forwarded
-    to every operator via :meth:`LinearOperator.set_evaluation_time`:
+    to every operator via :meth:`.LinearOperator.set_evaluation_time`:
     :func:`solve_ivp` advances ``L``'s time at every RK stage; this
     routine advances ``B``'s time while pre-computing the
     state-space forcing and advances ``C``'s time when projecting
     snapshots and the periodicity-check endpoints.  For an operator
     with no internal time dependence the call is a no-op walk over
     child attributes — see
-    :class:`~resolvent4py.linear_operators.TimePeriodicMatrixLinearOperator`
+    :class:`.TimePeriodicMatrixLinearOperator`
     for the canonical implementation that does use the time.
 
     The Fourier coefficients of :math:`g(t) = B(t) f(t)` are
@@ -494,7 +501,7 @@ def compute_post_transient_solution(
 
     :param L: state operator :math:`L(t)`.  Time-invariant or
         :math:`T`-periodic; if time-periodic it must override
-        :meth:`LinearOperator.set_evaluation_time` to update its
+        :meth:`.LinearOperator.set_evaluation_time` to update its
         internal time (composite operators inherit the propagation
         from the base class).
     :type L: LinearOperator
@@ -547,8 +554,7 @@ def compute_post_transient_solution(
     :type verbose: Optional[int], default ``0``
     :param harmonic_balancing_ordering: passed to the output FFT.
         ``False`` (default) gives numpy-FFT column order
-        ``[0, 1, …, m, -m, …, -1]``; ``True`` gives the
-        :class:`~resolvent4py.spectral_submanifold.PeriodicDifferentialEquation`
+        ``[0, 1, …, m, -m, …, -1]``; ``True`` gives the harmonic-balancing
         convention ``[-m, …, -1, 0, 1, …, m]``.  Only relevant when
         ``omegas`` is two-sided.
     :type harmonic_balancing_ordering: Optional[bool], default ``False``
@@ -558,10 +564,7 @@ def compute_post_transient_solution(
         - ``'donothing'``: integrate one period at a time, reseed
           with :math:`x(T)`, stop once
           :math:`\|C(0)(x(0) - x(T))\| / \|C(0)\, x(T)\| < \mathrm{tol}`
-          or after ``nperiods`` periods.  Cheap per call but requires
-          the *shifted* Floquet spectrum to lie strictly in the left
-          half-plane (i.e.\ the time-stepping is stable).  Diverges
-          if any direction has :math:`\mathrm{Re}(\lambda) \geq 0`.
+          or after ``nperiods`` periods.
 
         - ``'gmres'``: solve the linear BVP
           :math:`(I - \Phi(T, 0))\, x(0) = \int_0^T \Phi(T, \tau)\,
@@ -593,8 +596,7 @@ def compute_post_transient_solution(
     # implies a complex signal (use full fft).  ``harmonic_balancing_ordering``
     # additionally selects whether the two-sided output columns are
     # numpy-ordered ``[0, …, m, -m, …, -1]`` or HB-ordered
-    # ``[-m, …, -1, 0, …, m]`` — the latter matches the
-    # :class:`PeriodicDifferentialEquation` convention.
+    # ``[-m, …, -1, 0, …, m]``.
     real_signal = np.min(omegas) == 0.0
 
     # ── Pre-compute Fourier coefficients of g(t) = B(t) f(t) ───────────
@@ -603,7 +605,7 @@ def compute_post_transient_solution(
     # time-invariant it reproduces ``B.apply_mat(Fhat)`` (the IFFT/FFT
     # round-trip is exact on the matching grid); when B is time-periodic
     # it produces the correct convolution coefficients.  Time updates
-    # are forwarded to B via :meth:`set_evaluation_time` — a cheap
+    # are forwarded to B via :meth:`.LinearOperator.set_evaluation_time` — a cheap
     # attribute-walk no-op when B has no internal time dependence.
     save_times = tsim[::nsave][:-1]
     state_sizes = X.getSizes()[0]
@@ -695,8 +697,15 @@ def compute_post_transient_solution(
         # where the iteration path diverges.
         x.zeroEntries()
         rhs = solve_ivp(
-            x, L, 0.0, tsim[-1], len(tsim), time_stpper,
-            m=-1, adjoint=adjoint, X=None,
+            x,
+            L,
+            0.0,
+            tsim[-1],
+            len(tsim),
+            time_stpper,
+            m=-1,
+            adjoint=adjoint,
+            X=None,
             periodic_forcing=(BFhat, omegas),
         )
 
@@ -704,13 +713,21 @@ def compute_post_transient_solution(
             r"""``mult: y = x − Φ_eff(T, 0) x`` where Φ_eff is the
             forward or adjoint propagator depending on
             ``adjoint``."""
+
             def mult(self_, _M, x_in, y_out):
                 sol = solve_ivp(
-                    x_in, L, 0.0, tsim[-1], len(tsim), time_stpper,
-                    m=-1, adjoint=adjoint, X=None,
+                    x_in,
+                    L,
+                    0.0,
+                    tsim[-1],
+                    len(tsim),
+                    time_stpper,
+                    m=-1,
+                    adjoint=adjoint,
+                    X=None,
                     periodic_forcing=None,
                 )
-                sol.aypx(-1.0, x_in)   # sol = x_in − Φ_eff x_in
+                sol.aypx(-1.0, x_in)  # sol = x_in − Φ_eff x_in
                 sol.copy(y_out)
                 sol.destroy()
 
@@ -726,11 +743,13 @@ def compute_post_transient_solution(
         ksp.getPC().setType("none")
         ksp.setTolerances(rtol=gmres_rtol, max_it=gmres_max_it)
         if verbose > 1:
+
             def _mon(_ksp, it, rn):
                 petscprint(
                     comm,
                     f"GMRES iter {it}: |r| = {rn:.3e}",
                 )
+
             ksp.setMonitor(_mon)
         ksp.solve(rhs, x)
         if verbose > 0:
@@ -758,8 +777,16 @@ def compute_post_transient_solution(
         # One more integration from the periodic IC ``x`` to fill ``X``
         # with snapshots for the FFT below.
         X = solve_ivp(
-            x, L, 0.0, tsim[-1], len(tsim), time_stpper,
-            nsave, adjoint, X, (BFhat, omegas),
+            x,
+            L,
+            0.0,
+            tsim[-1],
+            len(tsim),
+            time_stpper,
+            nsave,
+            adjoint,
+            X,
+            (BFhat, omegas),
         )
 
     else:

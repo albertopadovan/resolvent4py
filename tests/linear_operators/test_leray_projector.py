@@ -30,7 +30,7 @@ def _build_leray(comm, seed=0):
     Dm = pytest_utils.numpy_to_petsc(comm, Dnp)
     Gm = pytest_utils.numpy_to_petsc(comm, Gnp)
     DGm = pytest_utils.numpy_to_petsc(comm, DGnp)
-    ksp = res4py.create_mumps_solver(DGm)
+    ksp = res4py.create_direct_solver(DGm)
 
     D_op = res4py.linear_operators.MatrixLinearOperator(Dm)
     G_op = res4py.linear_operators.MatrixLinearOperator(Gm)

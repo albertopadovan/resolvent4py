@@ -61,7 +61,7 @@ class LowRankUpdatedLinearOperator(LinearOperator):
         K: np.ndarray,
         C: SLEPc.BV,
         woodbury_factors: typing.Optional[
-            typing.Union[typing.Tuple[SLEPc.BV, np.ndarray, SLEPc.BV], None]
+            typing.Union[tuple[SLEPc.BV, np.ndarray, SLEPc.BV], None]
         ] = None,
         nblocks: typing.Optional[typing.Union[int, None]] = None,
     ) -> None:
@@ -70,10 +70,10 @@ class LowRankUpdatedLinearOperator(LinearOperator):
         self.L = LowRankLinearOperator(B, K, C, nblocks)
         # Track whether the Woodbury factors X, Y were computed internally
         # (and are therefore ours to destroy) or supplied by the user.
-        self._woodbury_internal = woodbury_factors == None
+        self._woodbury_internal = woodbury_factors is None
         self.W = (
             self.compute_woodbury_operator(nblocks)
-            if woodbury_factors == None
+            if woodbury_factors is None
             else LowRankLinearOperator(*woodbury_factors, nblocks)
         )
         self.create_intermediate_vectors()
@@ -87,7 +87,7 @@ class LowRankUpdatedLinearOperator(LinearOperator):
     ) -> LowRankLinearOperator:
         r"""
         :param nblocks: number of blocks (if the operator has block structure)
-        :type nblocks: Unions[int, None]
+        :type nblocks: Union[int, None]
 
         :return: a :class:`.LowRankLinearOperator` constructed from the
             Woodbury factors :code:`X`, :code:`D` and :code:`Y`
@@ -111,7 +111,7 @@ class LowRankUpdatedLinearOperator(LinearOperator):
             XS.destroy()
             M.destroy()
             S.destroy()
-        except:
+        except Exception:
             W = None
         return W
 

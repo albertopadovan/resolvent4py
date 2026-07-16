@@ -8,8 +8,8 @@ from .. import pytest_utils
 def test_matrix_on_vectors(comm, square_random_matrix):
     r"""Test MatrixLinearOperator on vectors"""
     Apetsc, Apython = square_random_matrix
-    ksp = res4py.create_mumps_solver(Apetsc)
-    res4py.check_lu_factorization(Apetsc, ksp)
+    ksp = res4py.create_direct_solver(Apetsc)
+    res4py.check_solver(Apetsc, ksp)
     linop = res4py.linear_operators.MatrixLinearOperator(Apetsc, ksp)
     x, xpython = pytest_utils.generate_random_vector(comm, Apython.shape[-1])
 
@@ -45,7 +45,7 @@ def test_matrix_on_vectors(comm, square_random_matrix):
 def test_matrix_on_bvs(comm, square_random_matrix):
     r"""Test MatrixLinearOperator on BVs"""
     Apetsc, Apython = square_random_matrix
-    ksp = res4py.create_mumps_solver(Apetsc)
+    ksp = res4py.create_direct_solver(Apetsc)
     linop = res4py.linear_operators.MatrixLinearOperator(Apetsc, ksp)
     X, Xpython = pytest_utils.generate_random_bv(comm, (Apython.shape[0], 5))
 
@@ -150,7 +150,7 @@ def test_rectangular_matrix_on_bvs(comm, rectangular_random_matrix):
 def test_matrix_vectors_y_none(comm, square_random_matrix):
     r"""Test MatrixLinearOperator with Y=None (output auto-allocated)"""
     Apetsc, Apython = square_random_matrix
-    ksp = res4py.create_mumps_solver(Apetsc)
+    ksp = res4py.create_direct_solver(Apetsc)
     linop = res4py.linear_operators.MatrixLinearOperator(Apetsc, ksp)
 
     x, xpython = pytest_utils.generate_random_vector(comm, Apython.shape[-1])
@@ -185,7 +185,7 @@ def test_matrix_vectors_y_none(comm, square_random_matrix):
 def test_matrix_bvs_y_none(comm, square_random_matrix):
     r"""Test MatrixLinearOperator BV actions with Y=None"""
     Apetsc, Apython = square_random_matrix
-    ksp = res4py.create_mumps_solver(Apetsc)
+    ksp = res4py.create_direct_solver(Apetsc)
     linop = res4py.linear_operators.MatrixLinearOperator(Apetsc, ksp)
 
     X, Xpython = pytest_utils.generate_random_bv(comm, (Apython.shape[0], 5))

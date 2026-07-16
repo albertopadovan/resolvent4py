@@ -6,14 +6,14 @@ import numpy as np
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
+from ..utils.comms import compute_local_size, compute_local_size_block_aligned
 from ..utils.io import read_coo_matrix, read_harmonic_balanced_matrix
-from ..utils.comms import compute_local_size_block_aligned, compute_local_size
-from ..utils.ksp import create_mumps_solver, create_gmres_bjacobi_solver
+from ..utils.ksp import create_direct_solver, create_gmres_solver
 from ..utils.matrix import assemble_harmonic_resolvent_generator
+from .leray_projector import LerayProjectorLinearOperator
 from .linear_operator import LinearOperator
 from .matrix import MatrixLinearOperator
 from .product import ProductLinearOperator
-from .leray_projector import LerayProjectorLinearOperator
 
 
 class IncompressibleNavierStokesLinearOperator(LinearOperator):
@@ -24,8 +24,8 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
 
     .. math::
 
-        \underbrace{\begin{bmatrix} I & 0 \\ 0 & 0 
-        \end{bmatrix}}_{M} \frac{dq}{dt} = 
+        \underbrace{\begin{bmatrix} I & 0 \\ 0 & 0
+        \end{bmatrix}}_{M} \frac{dq}{dt} =
         \underbrace{\begin{bmatrix} F & -G \\ -D & 0
         \end{bmatrix}}_{A}\, q,
 
@@ -112,25 +112,25 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
     """
 
     def __init__(
-        self: "IncompressibleNavierStokesLinearOperator",
+        self: IncompressibleNavierStokesLinearOperator,
         comm: PETSc.Comm,
         s: np.complex128,
-        fname_A: typing.List[typing.Tuple[str, str, str]] | typing.Tuple[str, str, str],
-        fname_M: typing.List[typing.Tuple[str, str, str]] | typing.Tuple[str, str, str],
-        sizes: typing.Tuple[int, int],
-        fname_Dm: typing.List[typing.Tuple[str, str, str]] | typing.Tuple[str, str, str],
-        fname_Gm: typing.List[typing.Tuple[str, str, str]] | typing.Tuple[str, str, str],
-        solver_type: str = 'MUMPS_DIRECT',
-        freqs: typing.Optional[typing.List[float]] = None,
-        icntl: typing.Optional[typing.Dict[int, int]] = None,
-        cntl: typing.Optional[typing.Dict[int, float]] = None,
+        fname_A: list[tuple[str, str, str]] | tuple[str, str, str],
+        fname_M: list[tuple[str, str, str]] | tuple[str, str, str],
+        sizes: tuple[int, int],
+        fname_Dm: list[tuple[str, str, str]] | tuple[str, str, str],
+        fname_Gm: list[tuple[str, str, str]] | tuple[str, str, str],
+        solver_type: str = "MUMPS_DIRECT",
+        freqs: typing.Optional[list[float]] = None,
+        icntl: typing.Optional[dict[int, int]] = None,
+        cntl: typing.Optional[dict[int, float]] = None,
     ) -> None:
         self.solver_type = solver_type
         self.icntl = icntl
         self.cntl = cntl
         self.s = s
 
-        if freqs is None and solver_type == 'GMRES_BJACOBI':
+        if freqs is None and solver_type == "GMRES_BJACOBI":
             raise ValueError(
                 "solver_type='GMRES_BJACOBI' is only supported in the "
                 "harmonic-balanced case (when 'freqs' is given): the "
@@ -182,7 +182,7 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
             self.Dm = read_coo_matrix(fname_Dm, ((n_c, N_c), (n_v, N_v)))
             self.Gm = read_coo_matrix(fname_Gm, ((n_v, N_v), (n_c, N_c)))
             self.DmGm = self.Dm.matMult(self.Gm)
-            self.kspDmGm = create_mumps_solver(self.DmGm)
+            self.kspDmGm = create_direct_solver(self.DmGm)
 
             self.D = MatrixLinearOperator(self.Dm)
             self.G = MatrixLinearOperator(self.Gm)
@@ -190,7 +190,6 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
             self.P = LerayProjectorLinearOperator(self.D, self.DG, self.G)
 
         else:
-            
             if len(freqs) < len(fname_A):
                 raise ValueError(
                     f"Number of frequencies ({len(freqs)}) must be at least the number "
@@ -207,8 +206,12 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
 
             blk_size = ((nl, N), (nl, N))
             glb_size = ((Nl, N * nblocks), (Nl, N * nblocks))
-            self.Am = read_harmonic_balanced_matrix(fname_A, True, blk_size, glb_size)
-            self.Mm = read_harmonic_balanced_matrix(fname_M, True, blk_size, glb_size)
+            self.Am = read_harmonic_balanced_matrix(
+                fname_A, True, blk_size, glb_size
+            )
+            self.Mm = read_harmonic_balanced_matrix(
+                fname_M, True, blk_size, glb_size
+            )
             # Harmonic-resolvent generator T = A - i*Omega*M. freqs is the
             # one-sided array of perturbation frequencies; mirror it into the
             # two-sided, length-nblocks array of per-block frequencies that
@@ -238,7 +241,7 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
                 fname_Gm, True, blk_size_G, glb_size_G
             )
             self.DmGm = self.Dm.matMult(self.Gm)
-            self.kspDmGm = create_mumps_solver(self.DmGm)
+            self.kspDmGm = create_direct_solver(self.DmGm)
 
             self.D = MatrixLinearOperator(self.Dm, None, nblocks)
             self.G = MatrixLinearOperator(self.Gm, None, nblocks)
@@ -258,7 +261,7 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
         self.update_operator(s)
 
     def check_if_real_valued(
-        self: "IncompressibleNavierStokesLinearOperator",
+        self: IncompressibleNavierStokesLinearOperator,
     ) -> bool:
         r"""
         The non-harmonic-balanced operator is assembled from real matrices, so
@@ -272,7 +275,7 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
         return False
 
     def check_if_complex_conjugate_structure(
-        self: "IncompressibleNavierStokesLinearOperator",
+        self: IncompressibleNavierStokesLinearOperator,
     ) -> typing.Optional[bool]:
         r"""
         Complex-conjugate block structure is only defined for the
@@ -285,7 +288,7 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
         return bool(np.imag(self.s) == 0.0)
 
     def _refresh_flags(
-        self: "IncompressibleNavierStokesLinearOperator",
+        self: IncompressibleNavierStokesLinearOperator,
     ) -> None:
         r"""
         Recompute the cached real-valued and complex-conjugate-structure flags
@@ -301,7 +304,7 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
         )
 
     def update_operator(
-        self: "IncompressibleNavierStokesLinearOperator",
+        self: IncompressibleNavierStokesLinearOperator,
         s: np.complex128,
     ) -> None:
         r"""
@@ -320,7 +323,7 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
         self._refresh_flags()
 
     def _update_resolvent_operator(
-        self: "IncompressibleNavierStokesLinearOperator",
+        self: IncompressibleNavierStokesLinearOperator,
         s: np.complex128,
     ) -> None:
         r"""
@@ -353,14 +356,15 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
         self.sMr.scale(s)
         self.sMr.axpy(-1.0, self.Tm)
 
-        if self.solver_type == 'MUMPS_DIRECT':
-            self.ksp = create_mumps_solver(self.sMr, self.icntl, self.cntl)
-        elif self.solver_type == 'GMRES_BJACOBI':
-            self.ksp = create_gmres_bjacobi_solver(
+        if self.solver_type == "MUMPS_DIRECT":
+            self.ksp = create_direct_solver(self.sMr, self.icntl, self.cntl)
+        elif self.solver_type == "GMRES_BJACOBI":
+            self.ksp = create_gmres_solver(
                 self.sMr,
-                self.get_nblocks(),
-                sub_icntl=self.icntl,
-                sub_cntl=self.cntl,
+                preconditioner="bjacobi",
+                nblocks=self.get_nblocks(),
+                icntl=self.icntl,
+                cntl=self.cntl,
             )
         else:
             raise ValueError(f"Unsupported solver type: {self.solver_type}")
@@ -368,11 +372,12 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
         self.R = MatrixLinearOperator(self.sMr, self.ksp, self.get_nblocks())
         Lops = [self.L, self.R, self.L]
         acts = [self.L.apply_hermitian_transpose, self.R.solve, self.L.apply]
-        self.ResolventOp = ProductLinearOperator(Lops, acts, self.get_nblocks())
-        
+        self.ResolventOp = ProductLinearOperator(
+            Lops, acts, self.get_nblocks()
+        )
 
     def _update_resolvent_generator(
-        self: "IncompressibleNavierStokesLinearOperator",
+        self: IncompressibleNavierStokesLinearOperator,
         s: np.complex128,
     ) -> None:
         r"""
@@ -412,8 +417,9 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
             self.L.apply,
             self.P.apply,
         ]
-        self.ResolventGenOp = ProductLinearOperator(Lops, acts, self.get_nblocks())
-        
+        self.ResolventGenOp = ProductLinearOperator(
+            Lops, acts, self.get_nblocks()
+        )
 
     def apply(
         self,
@@ -433,16 +439,20 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
         :rtype: PETSc.Vec
         """
         if self.ResolventGenOp is None:
-            raise ValueError("Resolvent generator not initialized. Call update_operator() first.")
+            raise ValueError(
+                "Resolvent generator not initialized. Call update_operator() first."
+            )
         return self.ResolventGenOp.apply(x, y)
-    
+
     def apply_mat(
         self,
         X: SLEPc.BV,
         Y: typing.Optional[SLEPc.BV] = None,
     ) -> SLEPc.BV:
         if self.ResolventGenOp is None:
-            raise ValueError("Resolvent generator not initialized. Call update_operator() first.")
+            raise ValueError(
+                "Resolvent generator not initialized. Call update_operator() first."
+            )
         return self.ResolventGenOp.apply_mat(X, Y)
 
     def apply_hermitian_transpose(
@@ -451,7 +461,9 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
         y: typing.Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
         if self.ResolventGenOp is None:
-            raise ValueError("Resolvent generator not initialized. Call update_operator() first.")
+            raise ValueError(
+                "Resolvent generator not initialized. Call update_operator() first."
+            )
         return self.ResolventGenOp.apply_hermitian_transpose(x, y)
 
     def apply_hermitian_transpose_mat(
@@ -460,9 +472,11 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
         Y: typing.Optional[SLEPc.BV] = None,
     ) -> SLEPc.BV:
         if self.ResolventGenOp is None:
-            raise ValueError("Resolvent generator not initialized. Call update_operator() first.")
+            raise ValueError(
+                "Resolvent generator not initialized. Call update_operator() first."
+            )
         return self.ResolventGenOp.apply_hermitian_transpose_mat(X, Y)
-    
+
     def solve(
         self,
         x: PETSc.Vec,
@@ -480,36 +494,44 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
         :rtype: PETSc.Vec
         """
         if self.ResolventOp is None:
-            raise ValueError("Resolvent operator not initialized. Call update_operator() first.")
+            raise ValueError(
+                "Resolvent operator not initialized. Call update_operator() first."
+            )
         return self.ResolventOp.apply(x, y)
-    
+
     def solve_mat(
         self,
         X: SLEPc.BV,
         Y: typing.Optional[SLEPc.BV] = None,
     ) -> SLEPc.BV:
         if self.ResolventOp is None:
-            raise ValueError("Resolvent operator not initialized. Call update_operator() first.")
+            raise ValueError(
+                "Resolvent operator not initialized. Call update_operator() first."
+            )
         return self.ResolventOp.apply_mat(X, Y)
-    
+
     def solve_hermitian_transpose(
         self,
         x: PETSc.Vec,
         y: typing.Optional[PETSc.Vec] = None,
     ) -> PETSc.Vec:
         if self.ResolventOp is None:
-            raise ValueError("Resolvent operator not initialized. Call update_operator() first.")
+            raise ValueError(
+                "Resolvent operator not initialized. Call update_operator() first."
+            )
         return self.ResolventOp.apply_hermitian_transpose(x, y)
-    
+
     def solve_hermitian_transpose_mat(
         self,
         X: SLEPc.BV,
         Y: typing.Optional[SLEPc.BV] = None,
     ) -> SLEPc.BV:
         if self.ResolventOp is None:
-            raise ValueError("Resolvent operator not initialized. Call update_operator() first.")
+            raise ValueError(
+                "Resolvent operator not initialized. Call update_operator() first."
+            )
         return self.ResolventOp.apply_hermitian_transpose_mat(X, Y)
-    
+
     def destroy(self) -> None:
         r"""
         Destroy every PETSc/SLEPc object and sub-operator owned by this
@@ -545,6 +567,3 @@ class IncompressibleNavierStokesLinearOperator(LinearOperator):
         ]
         for op in destroy_lst:
             op.destroy() if op is not None else None
-
-
-            

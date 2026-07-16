@@ -10,21 +10,11 @@ __all__ = [
     "assemble_matrix_from_coo",
 ]
 
-
-def show_type(np_type):
-    mpi_t = get_mpi_type(np.dtype(np_type))
-    print(
-        f"[Rank {MPI.COMM_WORLD.Get_rank()}] {np_type} "
-        f"→ MPI {mpi_t.Get_name()} (size {mpi_t.Get_size()} bytes)"
-    )
-
+from typing import Optional
 
 import numpy as np
 from mpi4py import MPI
 from petsc4py import PETSc
-from typing import Optional
-
-from .miscellaneous import get_mpi_type, petscprint
 
 
 def create_dense_matrix(
@@ -82,7 +72,7 @@ def mat_solve_hermitian_transpose(
     """
     sizes = X.getSizes()
     Yarray = np.zeros((sizes[0][0], sizes[-1][-1]), dtype=np.complex128)
-    Y = X.duplicate() if Y == None else Y
+    Y = X.duplicate() if Y is None else Y
     y = X.createVecLeft()
     for i in range(X.getSizes()[-1][-1]):
         x = X.getColumnVector(i)
@@ -112,12 +102,17 @@ def hermitian_transpose(
     :param in_place: in-place transposition if :code:`True` and
         out of place otherwise
     :type in_place: Optional[bool] defaults to :code:`False`
-    :param MatHT: [optional] matrix with the correct layout to hold the
-        hermitian transpose of :code:`Mat`
-    :param MatHT: Optional[PETSc.Mat] defaults to :code:`None`
+    :param MatHT: matrix with the correct layout to hold the
+        hermitian transpose of :code:`Mat` (out-of-place only; allocated
+        internally when :code:`None`)
+    :type MatHT: Optional[PETSc.Mat] defaults to :code:`None`
+
+    :return: :math:`\text{Mat}^{*}` (a new matrix, or :code:`MatHT`, or the
+        in-place transposed :code:`Mat`)
+    :rtype: PETSc.Mat
     """
-    if in_place == False:
-        if MatHT == None:
+    if not in_place:
+        if MatHT is None:
             sizes = Mat.getSizes()
             MatHT = PETSc.Mat().create(comm=Mat.getComm())
             MatHT.setType(Mat.getType())
@@ -279,7 +274,7 @@ def assemble_harmonic_resolvent_generator(
     omId.setPreallocationCSR((rows_ptr, cols))
     omId.setValuesCSR(rows_ptr, cols, vals, True)
     omId.assemble(False)
-    if M == None:
+    if M is None:
         omId.axpy(1.0, A)
         return omId
     else:
@@ -431,9 +426,7 @@ def extract_block_banded(
     :rtype: PETSc.Mat
     """
     if n_off_diags < 0:
-        raise ValueError(
-            f"n_off_diags must be >= 0; got {n_off_diags}."
-        )
+        raise ValueError(f"n_off_diags must be >= 0; got {n_off_diags}.")
 
     comm = Mat.getComm()
     size = Mat.getSizes()[0]
@@ -470,9 +463,9 @@ def extract_block_banded(
     ]
 
     B = None
-    for (i, j) in pairs:
-        tmp = Mat.matMult(Es[j])      # Mat @ E_j  → keeps col-block j
-        blk = Es[i].matMult(tmp)      # E_i @ Mat @ E_j  → block (i, j)
+    for i, j in pairs:
+        tmp = Mat.matMult(Es[j])  # Mat @ E_j  → keeps col-block j
+        blk = Es[i].matMult(tmp)  # E_i @ Mat @ E_j  → block (i, j)
         tmp.destroy()
         if B is None:
             B = blk

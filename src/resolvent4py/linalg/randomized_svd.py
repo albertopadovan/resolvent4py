@@ -23,7 +23,7 @@ def randomized_svd(
     n_loops: int,
     n_svals: int,
     verbose: int = 0,
-) -> typing.Tuple[SLEPc.BV, np.ndarray, SLEPc.BV]:
+) -> tuple[SLEPc.BV, np.ndarray, SLEPc.BV]:
     r"""
     Compute the SVD of the linear operator specified by :code:`L` and
     :code:`action` using a randomized algorithm (see [Halko2011]_).
@@ -62,7 +62,7 @@ def randomized_svd(
     """
     comm = L.get_comm()
     if action != L.apply_mat and action != L.solve_mat:
-        raise ValueError(f"action must be L.apply_mat or L.solve_mat.")
+        raise ValueError("action must be L.apply_mat or L.solve_mat.")
     action_adj = (
         L.apply_hermitian_transpose_mat
         if action == L.apply_mat
@@ -105,13 +105,11 @@ def randomized_svd(
     R = create_dense_matrix(PETSc.COMM_SELF, (n_rand, n_rand))
     for j in range(n_loops):
         if verbose == 1:
-            str = "Loop %d/%d, forward action" % (j + 1, n_loops)
-            petscprint(comm, str)
+            petscprint(comm, f"Loop {j + 1}/{n_loops}, forward action")
         Qfwd = action(Qadj, Qfwd)
         Qfwd.orthogonalize(None)
         if verbose == 1:
-            str = "Loop %d/%d, adjoint action" % (j + 1, n_loops)
-            petscprint(comm, str)
+            petscprint(comm, f"Loop {j + 1}/{n_loops}, adjoint action")
         Qadj = action_adj(Qfwd, Qadj)
         Qadj.orthogonalize(R)
     # Compute low-rank SVD
@@ -182,8 +180,10 @@ def check_randomized_svd_convergence(
         error = x.norm()
         error_vec[k] = error.real
         if monitor:
-            str = "Error for SVD triplet %d = %1.15e" % (k + 1, error.real)
-            petscprint(PETSc.COMM_WORLD, str)
+            petscprint(
+                PETSc.COMM_WORLD,
+                f"Error for SVD triplet {k + 1} = {error.real:1.15e}",
+            )
         U.restoreColumn(k, u)
         V.restoreColumn(k, v)
     x.destroy()

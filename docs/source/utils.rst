@@ -51,8 +51,3 @@ Errors
 ------
 .. automodule:: resolvent4py.utils.errors
    :members:
-
-Spectral-Submanifold Utilities
-------------------------------
-.. automodule:: resolvent4py.utils.ssm
-   :members:

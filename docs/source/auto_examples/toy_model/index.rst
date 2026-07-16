@@ -49,6 +49,10 @@ Instructions
 Scripts
 -------
 
+.. raw:: html
+
+  <div id='sg-tag-list' class='sphx-glr-tag-list'></div>
+
 
 .. raw:: html
 
@@ -65,7 +69,7 @@ Scripts
   .. image:: /auto_examples/toy_model/images/thumb/sphx_glr_demonstrate_harmonic_resolvent_thumb.png
     :alt:
 
-  :ref:`sphx_glr_auto_examples_toy_model_demonstrate_harmonic_resolvent.py`
+  :doc:`/auto_examples/toy_model/demonstrate_harmonic_resolvent`
 
 .. raw:: html
 

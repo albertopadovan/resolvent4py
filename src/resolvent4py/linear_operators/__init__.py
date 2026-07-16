@@ -21,10 +21,10 @@ from .linear_operator import LinearOperator
 from .low_rank import LowRankLinearOperator
 from .low_rank_updated import LowRankUpdatedLinearOperator
 from .matrix import MatrixLinearOperator
+from .petsc_python import PetscPythonLinearOperator
 from .product import ProductLinearOperator
 from .projection import ProjectionLinearOperator
 from .propagator import PropagatorLinearOperator
-from .petsc_python import PetscPythonLinearOperator
 from .shift_and_scale import ShiftAndScaleLinearOperator
 from .time_periodic_matrix import TimePeriodicMatrixLinearOperator
 

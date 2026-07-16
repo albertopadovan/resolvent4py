@@ -7,7 +7,6 @@ import typing
 
 import numpy as np
 import scipy as sp
-from mpi4py import MPI
 from petsc4py import PETSc
 
 from .comms import scatter_array_from_root_to_all
@@ -15,7 +14,7 @@ from .matrix import convert_coo_to_csr
 
 
 def generate_random_petsc_sparse_matrix(
-    sizes: typing.Tuple[typing.Tuple[int, int], typing.Tuple[int, int]],
+    sizes: tuple[tuple[int, int], tuple[int, int]],
     nnz: int,
     complex: typing.Optional[bool] = False,
 ) -> PETSc.Mat:
@@ -61,7 +60,7 @@ def generate_random_petsc_sparse_matrix(
 
 
 def generate_random_petsc_vector(
-    sizes: typing.Tuple[int, int],
+    sizes: tuple[int, int],
     complex: typing.Optional[bool] = False,
 ) -> PETSc.Vec:
     r"""

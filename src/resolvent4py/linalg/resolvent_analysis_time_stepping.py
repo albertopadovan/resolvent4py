@@ -9,12 +9,13 @@ from slepc4py import SLEPc
 
 from ..linear_operators import LinearOperator
 from ..linear_operators.matrix import MatrixLinearOperator
-from ..utils.matrix import create_dense_matrix
-from ..utils.matrix import create_AIJ_identity
+from ..utils.matrix import create_AIJ_identity, create_dense_matrix
 from ..utils.miscellaneous import petscprint
+from ..utils.time_stepping import (
+    compute_post_transient_solution,
+    create_time_and_frequency_arrays,
+)
 from ..utils.vector import vec_real
-from ..utils.time_stepping import compute_post_transient_solution
-from ..utils.time_stepping import create_time_and_frequency_arrays
 
 
 def _reorder_list(Qlist: list[SLEPc.BV], Qlist_reordered: list[SLEPc.BV]):
@@ -40,7 +41,7 @@ def resolvent_analysis_rsvd_dt(
     tol: typing.Optional[float] = 1e-3,
     time_stepper: typing.Optional[str] = "RK2",
     verbose: typing.Optional[int] = 0,
-) -> typing.Tuple[SLEPc.BV, np.ndarray, SLEPc.BV]:
+) -> tuple[SLEPc.BV, np.ndarray, SLEPc.BV]:
     r"""
     Perform resolvent analysis using randomized linear algebra and time
     stepping.
@@ -106,6 +107,14 @@ def resolvent_analysis_rsvd_dt(
     :param n_svals: number of singular values/vectors to output
     :type n_svals: int
 
+    :param B: input operator :math:`B` restricting the forcing to the
+        image of :math:`B`; :code:`None` treats :math:`B = I`
+    :type B: Optional[LinearOperator], default is :code:`None`
+
+    :param C: output operator :math:`C` projecting the response onto the
+        image of :math:`C^{*}`; :code:`None` treats :math:`C = I`
+    :type C: Optional[LinearOperator], default is :code:`None`
+
     :param tol: integrate the ODE forward for :code:`n_periods` or until
         :math:`\lVert x(kT) - x((k-1)T) \rVert < \mathrm{tol}`.
     :type tol: Optional[float], default is :math:`10^{-3}`
@@ -138,8 +147,8 @@ def resolvent_analysis_rsvd_dt(
 
     Id = create_AIJ_identity(L.get_comm(), (size, size))
     Idop = MatrixLinearOperator(Id)
-    B = Idop if B == None else B
-    C = Idop if C == None else C
+    B = Idop if B is None else B
+    C = Idop if C is None else C
 
     size_input = B.get_dimensions()[-1]
     size_output = C.get_dimensions()[-1]
@@ -212,13 +221,11 @@ def resolvent_analysis_rsvd_dt(
     for j in range(n_loops):
         for k in range(n_rand):
             if verbose > 0:
-                str = "Loop %d/%d, random vector %d/%d (forward action)" % (
-                    j + 1,
-                    n_loops,
-                    k + 1,
-                    n_rand,
+                petscprint(
+                    L.get_comm(),
+                    f"Loop {j + 1}/{n_loops}, random vector "
+                    f"{k + 1}/{n_rand} (forward action)",
                 )
-                petscprint(L.get_comm(), str)
             x.zeroEntries()
             Qfwd_hat_lst[k] = compute_post_transient_solution(
                 L,
@@ -244,13 +251,11 @@ def resolvent_analysis_rsvd_dt(
 
         for k in range(n_rand):
             if verbose > 0:
-                str = "Loop %d/%d, random vector %d/%d (adjoint action)" % (
-                    j + 1,
-                    n_loops,
-                    k + 1,
-                    n_rand,
+                petscprint(
+                    L.get_comm(),
+                    f"Loop {j + 1}/{n_loops}, random vector "
+                    f"{k + 1}/{n_rand} (adjoint action)",
                 )
-                petscprint(L.get_comm(), str)
             x.zeroEntries()
             Qadj_hat_lst[k] = compute_post_transient_solution(
                 L,

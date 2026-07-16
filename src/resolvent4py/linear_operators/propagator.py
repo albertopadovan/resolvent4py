@@ -1,6 +1,7 @@
 import typing
-from .linear_operator import LinearOperator
+
 from ..utils.time_stepping import solve_ivp
+from .linear_operator import LinearOperator
 
 
 class PropagatorLinearOperator(LinearOperator):
@@ -15,8 +16,8 @@ class PropagatorLinearOperator(LinearOperator):
     integrated from :math:`t_0` to :math:`t_f` with an explicit Runge-Kutta
     stepper.  When :math:`A` is time-invariant this collapses to the matrix
     exponential :math:`L = e^{A (t_f - t_0)}`; when :math:`A` is a
-    :class:`~resolvent4py.linear_operators.TimePeriodicMatrixLinearOperator`
-    (or any operator that overrides :meth:`set_evaluation_time`) the
+    :class:`.TimePeriodicMatrixLinearOperator`
+    (or any operator that overrides :meth:`.LinearOperator.set_evaluation_time`) the
     integrator forwards the current time at every RK stage and you get
     the (time-dependent) propagator :math:`\Phi(t_f, t_0)` — for
     :math:`t_f - t_0 = T` periodic, this is the monodromy matrix.
@@ -68,9 +69,7 @@ class PropagatorLinearOperator(LinearOperator):
         self.nsteps = int((self.tf - self.t0) // dt)
         self.method = method
         nblocks = A.get_nblocks() if nblocks is None else nblocks
-        super().__init__(
-            comm, "PropagatorLinearOperator", dimensions, nblocks
-        )
+        super().__init__(comm, "PropagatorLinearOperator", dimensions, nblocks)
 
     def check_if_real_valued(self) -> bool:
         r"""Inherit the real-valued flag from :code:`A` — for a real
@@ -84,16 +83,14 @@ class PropagatorLinearOperator(LinearOperator):
         return self.A.get_block_cc_flag()
 
     def apply(self, x, y=None):
-        y = x.duplicate() if y == None else y
-        sol = solve_ivp(
-            x, self.A, self.t0, self.tf, self.nsteps, self.method
-        )
+        y = x.duplicate() if y is None else y
+        sol = solve_ivp(x, self.A, self.t0, self.tf, self.nsteps, self.method)
         sol.copy(y)
         sol.destroy()
         return y
 
     def apply_hermitian_transpose(self, x, y=None):
-        y = x.duplicate() if y == None else y
+        y = x.duplicate() if y is None else y
         sol = solve_ivp(
             x,
             self.A,
@@ -108,7 +105,7 @@ class PropagatorLinearOperator(LinearOperator):
         return y
 
     def apply_mat(self, X, Y=None):
-        Y = X.copy() if Y == None else Y
+        Y = X.copy() if Y is None else Y
         for j in range(Y.getSizes()[-1]):
             x = X.getColumn(j)
             y = Y.getColumn(j)
@@ -118,7 +115,7 @@ class PropagatorLinearOperator(LinearOperator):
         return Y
 
     def apply_hermitian_transpose_mat(self, X, Y=None):
-        Y = X.copy() if Y == None else Y
+        Y = X.copy() if Y is None else Y
         for j in range(Y.getSizes()[-1]):
             x = X.getColumn(j)
             y = Y.getColumn(j)

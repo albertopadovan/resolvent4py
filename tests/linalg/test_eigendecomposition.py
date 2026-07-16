@@ -10,7 +10,7 @@ def _build_resolvent_operator(comm, Apetsc, omega):
     Id.scale(1j * omega)
     Id.convert(PETSc.Mat.Type.MPIAIJ)
     Id.axpy(-1.0, Apetsc)
-    ksp = res4py.create_mumps_solver(Id)
+    ksp = res4py.create_direct_solver(Id)
     return res4py.linear_operators.MatrixLinearOperator(Id, ksp)
 
 

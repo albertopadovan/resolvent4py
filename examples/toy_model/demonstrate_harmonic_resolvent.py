@@ -118,8 +118,8 @@ Id = res4py.create_AIJ_identity(comm, T.getSizes())
 Id.scale(1e-7)
 T.axpy(1.0, Id)
 Id.destroy()
-ksp = res4py.create_mumps_solver(T)
-res4py.check_lu_factorization(T, ksp)
+ksp = res4py.create_direct_solver(T)
+res4py.check_solver(T, ksp)
 
 Top = res4py.linear_operators.MatrixLinearOperator(T, ksp, nblocks)
 

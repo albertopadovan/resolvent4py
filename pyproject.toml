@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "resolvent4py"
-version = "1.0.1"
+version = "2.0.0"
 description = """\
   A parallel Python-based library for analysis, model reduction and \
   control of large-scale linear systems.\
@@ -74,6 +74,19 @@ line-length = 79
 target-version = "py39"
 lint.extend-select = ["I", "UP", "B"]
 lint.ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Package __init__.py files use the `from .module import *` + `del module`
+# pattern to build a flat public namespace. Ruff sees `del module` as
+# undefined names (F821) and the star imports as F401/F403, but the pattern
+# is intentional and safe.
+"src/resolvent4py/**/__init__.py" = ["F401", "F403", "F821"]
+# LinearOperator exposes opt-in methods (apply_hermitian_transpose, solve,
+# etc.) decorated with @raise_not_implemented_error rather than
+# @abstractmethod, so subclasses that don't support them can simply not
+# override. B027 doesn't recognise the decorator as fulfilling the same
+# contract.
+"src/resolvent4py/linear_operators/linear_operator.py" = ["B027"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

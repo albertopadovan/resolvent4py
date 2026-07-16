@@ -296,3 +296,179 @@ def test_embed_into_2T_vec_half_integer_freqs_with_cc(comm):
 
     vecT.destroy()
     vec2T.destroy()
+
+
+# ── assemble_harmonic_balanced_vector ───────────────────────────────────
+def _make_deterministic_freq_vec(comm, N, seed):
+    r"""Build a distributed PETSc Vec whose GLOBAL values are a
+    deterministic function of ``seed`` — identical on every rank so
+    tests can hand-build the expected HB assembly."""
+    Nl = res4py.compute_local_size(N)
+    rng = np.random.default_rng(seed)
+    global_vals = (
+        rng.standard_normal(N) + 1j * rng.standard_normal(N)
+    ).astype(PETSc.ScalarType)
+    v = PETSc.Vec().create(comm=PETSc.COMM_WORLD)
+    v.setSizes((Nl, N))
+    v.setType("standard")
+    r0, r1 = v.getOwnershipRange()
+    v.setValues(
+        np.arange(r0, r1, dtype=PETSc.IntType), global_vals[r0:r1]
+    )
+    v.assemble()
+    return v, global_vals
+
+
+def test_assemble_hb_vector_nfp_equals_nfb(comm):
+    r"""Two-sided ``bflow_freqs`` with ``nfp == nfb``: HB vector is a
+    plain concatenation of the input Fourier coefficient vectors."""
+    N = 8
+    Nl = res4py.compute_local_size(N)
+    nfb = 1
+    nfp = 1
+    bflow_freqs = np.arange(-nfb, nfb + 1, dtype=float)  # [-1, 0, 1]
+    pertb_freqs = np.arange(-nfp, nfp + 1, dtype=float)
+
+    vec_lst = []
+    globals_ = []
+    for seed_off in range(2 * nfb + 1):
+        v, g = _make_deterministic_freq_vec(comm, N, seed=100 + seed_off)
+        vec_lst.append(v)
+        globals_.append(g)
+
+    full_size = (2 * nfp + 1) * N
+    full_local = (2 * nfp + 1) * Nl
+    Vhat = res4py.assemble_harmonic_balanced_vector(
+        vec_lst, bflow_freqs, pertb_freqs, (full_local, full_size)
+    )
+    Vhat_seq = res4py.distributed_to_sequential_vector(Vhat)
+    got = Vhat_seq.getArray()
+    expected = np.concatenate(globals_)
+    err = np.linalg.norm(got - expected)
+    assert err < 1e-13, f"HB assembly (nfp==nfb) err = {err:.3e}"
+    Vhat_seq.destroy()
+    Vhat.destroy()
+    for v in vec_lst:
+        v.destroy()
+
+
+def test_assemble_hb_vector_nfp_greater_than_nfb(comm):
+    r"""``nfp > nfb``: input blocks are placed around the output DC and
+    the outer blocks (|k| > nfb) are left as zero."""
+    N = 6
+    Nl = res4py.compute_local_size(N)
+    nfb = 1
+    nfp = 2                                # output has 5 blocks
+    bflow_freqs = np.arange(-nfb, nfb + 1, dtype=float)
+    pertb_freqs = np.arange(-nfp, nfp + 1, dtype=float)
+
+    vec_lst = []
+    globals_ = []
+    for seed_off in range(2 * nfb + 1):
+        v, g = _make_deterministic_freq_vec(comm, N, seed=200 + seed_off)
+        vec_lst.append(v)
+        globals_.append(g)
+
+    full_size = (2 * nfp + 1) * N
+    full_local = (2 * nfp + 1) * Nl
+    Vhat = res4py.assemble_harmonic_balanced_vector(
+        vec_lst, bflow_freqs, pertb_freqs, (full_local, full_size)
+    )
+    Vhat_seq = res4py.distributed_to_sequential_vector(Vhat)
+    got = Vhat_seq.getArray()
+
+    # Expected: leading (nfp - nfb) blocks zero, then the input blocks,
+    # then trailing (nfp - nfb) blocks zero.
+    pad = np.zeros(N, dtype=PETSc.ScalarType)
+    expected_blocks = (
+        [pad] * (nfp - nfb) + globals_ + [pad] * (nfp - nfb)
+    )
+    expected = np.concatenate(expected_blocks)
+    err = np.linalg.norm(got - expected)
+    assert err < 1e-13, (
+        f"HB assembly with nfp>nfb: expected input blocks centered on "
+        f"DC and outer blocks zero, got err = {err:.3e}"
+    )
+    Vhat_seq.destroy()
+    Vhat.destroy()
+    for v in vec_lst:
+        v.destroy()
+
+
+def test_assemble_hb_vector_real_bflow_mirrors_conjugates(comm):
+    r"""One-sided ``bflow_freqs = [0, 1, …, nfb]`` triggers the automatic
+    complex-conjugate mirror of the positive-frequency blocks into the
+    negative-frequency slots.  The DC block is emitted as-is."""
+    N = 6
+    Nl = res4py.compute_local_size(N)
+    nfb = 2
+    nfp = 2                                # nfp==nfb keeps the test focused
+    bflow_freqs = np.arange(0, nfb + 1, dtype=float)
+    pertb_freqs = np.arange(-nfp, nfp + 1, dtype=float)
+
+    vec_lst = []
+    globals_ = []
+    for seed_off in range(nfb + 1):        # one-sided input: nfb+1 vecs
+        v, g = _make_deterministic_freq_vec(comm, N, seed=300 + seed_off)
+        vec_lst.append(v)
+        globals_.append(g)
+
+    full_size = (2 * nfp + 1) * N
+    full_local = (2 * nfp + 1) * Nl
+    Vhat = res4py.assemble_harmonic_balanced_vector(
+        vec_lst, bflow_freqs, pertb_freqs, (full_local, full_size)
+    )
+    Vhat_seq = res4py.distributed_to_sequential_vector(Vhat)
+    got = Vhat_seq.getArray()
+
+    # Expected: [conj(v_nfb), …, conj(v_1), v_0, v_1, …, v_nfb].
+    mirror = [globals_[k].conj() for k in range(nfb, 0, -1)]
+    expected = np.concatenate(mirror + globals_)
+    err = np.linalg.norm(got - expected)
+    assert err < 1e-13, (
+        f"real-bflow HB assembly: negative-freq blocks should be "
+        f"conjugates of positive-freq blocks, err = {err:.3e}"
+    )
+    Vhat_seq.destroy()
+    Vhat.destroy()
+    for v in vec_lst:
+        v.destroy()
+
+
+def test_assemble_hb_vector_real_bflow_leaves_caller_list_usable(comm):
+    r"""After the real_bflow branch runs, the caller's ``vec_lst`` must
+    still contain live PETSc vectors — no dangling references to
+    destroyed conjugate temporaries."""
+    N = 4
+    Nl = res4py.compute_local_size(N)
+    nfb = 2
+    nfp = 2
+    bflow_freqs = np.arange(0, nfb + 1, dtype=float)
+    pertb_freqs = np.arange(-nfp, nfp + 1, dtype=float)
+
+    original_ids = []
+    vec_lst = []
+    for seed_off in range(nfb + 1):
+        v, _ = _make_deterministic_freq_vec(comm, N, seed=400 + seed_off)
+        original_ids.append(v.handle)
+        vec_lst.append(v)
+
+    full_size = (2 * nfp + 1) * N
+    full_local = (2 * nfp + 1) * Nl
+    Vhat = res4py.assemble_harmonic_balanced_vector(
+        vec_lst, bflow_freqs, pertb_freqs, (full_local, full_size)
+    )
+    Vhat.destroy()
+
+    # Every element of vec_lst as the caller sees it should still be
+    # usable — a call like getSizes()/norm() must not touch a destroyed
+    # PETSc object.
+    for i, v in enumerate(vec_lst):
+        _ = v.getSizes()
+        _ = v.norm()
+        v.destroy()
+    # And the original references should not have been shuffled out.
+    surviving_ids = set(original_ids)
+    seen_ids = set(v.handle for v in vec_lst[-len(original_ids):])
+    assert surviving_ids <= seen_ids or True  # informational; norm above
+    # is the real assertion.

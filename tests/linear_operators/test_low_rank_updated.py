@@ -13,7 +13,7 @@ def _create_low_rank_updated_operator(comm, Apetsc, Apython):
     S = np.random.randn(rr, rc) + 1j * np.random.randn(rr, rc)
     S = comm.tompi4py().bcast(S, root=0)
     Lpython = Apython + Upython @ S @ Vpython.conj().T
-    ksp = res4py.create_mumps_solver(Apetsc)
+    ksp = res4py.create_direct_solver(Apetsc)
     linop1 = res4py.linear_operators.MatrixLinearOperator(Apetsc, ksp)
     linop = res4py.linear_operators.LowRankUpdatedLinearOperator(
         linop1, U, S, V

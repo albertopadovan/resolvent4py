@@ -58,6 +58,10 @@ Scripts
 -------
 
 
+.. raw:: html
+
+  <div id='sg-tag-list' class='sphx-glr-tag-list'></div>
+
 
 .. raw:: html
 
@@ -74,7 +78,7 @@ Scripts
   .. image:: /auto_examples/cgl/images/thumb/sphx_glr_demonstrate_balanced_truncation_thumb.png
     :alt:
 
-  :ref:`sphx_glr_auto_examples_cgl_demonstrate_balanced_truncation.py`
+  :doc:`/auto_examples/cgl/demonstrate_balanced_truncation`
 
 .. raw:: html
 
@@ -91,7 +95,7 @@ Scripts
   .. image:: /auto_examples/cgl/images/thumb/sphx_glr_demonstrate_rsvd_thumb.png
     :alt:
 
-  :ref:`sphx_glr_auto_examples_cgl_demonstrate_rsvd.py`
+  :doc:`/auto_examples/cgl/demonstrate_rsvd`
 
 .. raw:: html
 
@@ -108,7 +112,7 @@ Scripts
   .. image:: /auto_examples/cgl/images/thumb/sphx_glr_demonstrate_eigendecomposition_thumb.png
     :alt:
 
-  :ref:`sphx_glr_auto_examples_cgl_demonstrate_eigendecomposition.py`
+  :doc:`/auto_examples/cgl/demonstrate_eigendecomposition`
 
 .. raw:: html
 
@@ -125,7 +129,7 @@ Scripts
   .. image:: /auto_examples/cgl/images/thumb/sphx_glr_demonstrate_rsvd_dt_thumb.png
     :alt:
 
-  :ref:`sphx_glr_auto_examples_cgl_demonstrate_rsvd_dt.py`
+  :doc:`/auto_examples/cgl/demonstrate_rsvd_dt`
 
 .. raw:: html
 

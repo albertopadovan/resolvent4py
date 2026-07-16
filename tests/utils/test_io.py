@@ -523,3 +523,167 @@ def test_write_to_file_creates_file(comm, square_matrix_size):
     if comm.getRank() == 0:
         assert os.path.exists(filepath)
         assert os.path.getsize(filepath) > 0
+
+
+# ── read_harmonic_balanced_bv ───────────────────────────────────────────
+def _write_dense_block_as_bv(comm, tmpdir, name, block_np):
+    r"""Materialise a dense numpy block as a SLEPc BV and dump it via
+    ``write_to_file`` so ``read_harmonic_balanced_bv`` can consume it.
+    ``block_np`` must be replicated on every rank (same values)."""
+    Nr, Nc = block_np.shape
+    Nrl = res4py.compute_local_size(Nr)
+    Bv = SLEPc.BV().create(comm=PETSc.COMM_WORLD)
+    Bv.setSizes((Nrl, Nr), Nc)
+    Bv.setType("mat")
+    mat = Bv.getMat()
+    arr = mat.getDenseArray()
+    r0, r1 = mat.getOwnershipRange()
+    arr[:, :] = block_np[r0:r1, :].astype(PETSc.ScalarType)
+    Bv.restoreMat(mat)
+    path = os.path.join(tmpdir, f"bv_{name}.dat")
+    res4py.write_to_file(path, Bv)
+    Bv.destroy()
+    return path
+
+
+def _hb_bv_to_dense(bv):
+    r"""Convert a distributed SLEPc BV into a numpy array replicated on
+    every rank — for direct comparison with a hand-built reference."""
+    mat = bv.getMat()
+    seq = res4py.distributed_to_sequential_matrix(mat)
+    arr = seq.getDenseArray().copy()
+    bv.restoreMat(mat)
+    seq.destroy()
+    return arr
+
+
+def test_read_hb_bv_real_bflow_toeplitz(comm):
+    r"""``real_bflow=True`` with ``[B_0, B_1]`` should produce the
+    block-Toeplitz BV whose ``B_{-k}`` blocks are ``conj(B_k)``."""
+    Nrb, Ncb = 4, 2
+    nfb = 1                    # supply B_0, B_1
+    nfp = 2                    # 5 output blocks in each direction
+    nblocks = 2 * nfp + 1
+    full_nrows = nblocks * Nrb
+    full_ncols = nblocks * Ncb
+    Nrb_l = res4py.compute_local_size(Nrb)
+    full_nrows_l = res4py.compute_local_size(full_nrows)
+    tmpdir = _shared_tmpdir(comm)
+
+    # Deterministic blocks, same on every rank.
+    rng = np.random.default_rng(2024)
+    B0 = (
+        rng.standard_normal((Nrb, Ncb)) + 1j * rng.standard_normal((Nrb, Ncb))
+    ).astype(np.complex128)
+    B1 = (
+        rng.standard_normal((Nrb, Ncb)) + 1j * rng.standard_normal((Nrb, Ncb))
+    ).astype(np.complex128)
+
+    path0 = _write_dense_block_as_bv(comm, tmpdir, "0", B0)
+    path1 = _write_dense_block_as_bv(comm, tmpdir, "1", B1)
+
+    HB = res4py.read_harmonic_balanced_bv(
+        [path0, path1],
+        real_bflow=True,
+        block_sizes=((Nrb_l, Nrb), Ncb),
+        full_sizes=((full_nrows_l, full_nrows), full_ncols),
+    )
+    got = _hb_bv_to_dense(HB)
+    HB.destroy()
+
+    # Hand-built block-Toeplitz reference with B_{-1} = conj(B_1).
+    blocks = [B1.conj(), B0, B1]
+    expected = np.zeros((full_nrows, full_ncols), dtype=complex)
+    for i in range(nblocks):
+        for j in range(nblocks):
+            k = i - j + nfb
+            if 0 <= k < 2 * nfb + 1:
+                expected[
+                    i * Nrb : (i + 1) * Nrb, j * Ncb : (j + 1) * Ncb
+                ] = blocks[k]
+
+    err = np.linalg.norm(got - expected) / np.linalg.norm(expected)
+    assert err < 1e-12, f"real-bflow HB BV mismatch, err = {err:.3e}"
+
+
+def test_read_hb_bv_two_sided_toeplitz(comm):
+    r"""``real_bflow=False`` consumes the full two-sided list
+    ``[B_{-1}, B_0, B_1]`` verbatim into a block-Toeplitz BV."""
+    Nrb, Ncb = 3, 2
+    nfb = 1
+    nfp = 2
+    nblocks = 2 * nfp + 1
+    full_nrows = nblocks * Nrb
+    full_ncols = nblocks * Ncb
+    Nrb_l = res4py.compute_local_size(Nrb)
+    full_nrows_l = res4py.compute_local_size(full_nrows)
+    tmpdir = _shared_tmpdir(comm)
+
+    rng = np.random.default_rng(7)
+    blocks = [
+        (
+            rng.standard_normal((Nrb, Ncb))
+            + 1j * rng.standard_normal((Nrb, Ncb))
+        ).astype(np.complex128)
+        for _ in range(2 * nfb + 1)
+    ]  # [B_{-1}, B_0, B_1]
+
+    paths = [
+        _write_dense_block_as_bv(comm, tmpdir, f"{k}", blk)
+        for k, blk in enumerate(blocks)
+    ]
+
+    HB = res4py.read_harmonic_balanced_bv(
+        paths,
+        real_bflow=False,
+        block_sizes=((Nrb_l, Nrb), Ncb),
+        full_sizes=((full_nrows_l, full_nrows), full_ncols),
+    )
+    got = _hb_bv_to_dense(HB)
+    HB.destroy()
+
+    expected = np.zeros((full_nrows, full_ncols), dtype=complex)
+    for i in range(nblocks):
+        for j in range(nblocks):
+            k = i - j + nfb
+            if 0 <= k < 2 * nfb + 1:
+                expected[
+                    i * Nrb : (i + 1) * Nrb, j * Ncb : (j + 1) * Ncb
+                ] = blocks[k]
+
+    err = np.linalg.norm(got - expected) / np.linalg.norm(expected)
+    assert err < 1e-12, f"two-sided HB BV mismatch, err = {err:.3e}"
+
+
+def test_read_hb_bv_too_few_blocks_raises(comm):
+    r"""``nfp < nfb`` must raise ValueError."""
+    Nrb, Ncb = 3, 2
+    nfb = 2                    # 3 supplied blocks would need nfp >= 2
+    nfp = 1                    # too few — trigger the raise
+    nblocks = 2 * nfp + 1
+    full_nrows = nblocks * Nrb
+    full_ncols = nblocks * Ncb
+    Nrb_l = res4py.compute_local_size(Nrb)
+    full_nrows_l = res4py.compute_local_size(full_nrows)
+    tmpdir = _shared_tmpdir(comm)
+
+    rng = np.random.default_rng(99)
+    paths = [
+        _write_dense_block_as_bv(
+            comm, tmpdir, f"{k}",
+            (
+                rng.standard_normal((Nrb, Ncb))
+                + 1j * rng.standard_normal((Nrb, Ncb))
+            ).astype(np.complex128),
+        )
+        for k in range(nfb + 1)   # real_bflow inflates to 2*nfb+1
+    ]
+
+    import pytest
+    with pytest.raises(ValueError, match="number of blocks"):
+        res4py.read_harmonic_balanced_bv(
+            paths,
+            real_bflow=True,
+            block_sizes=((Nrb_l, Nrb), Ncb),
+            full_sizes=((full_nrows_l, full_nrows), full_ncols),
+        )

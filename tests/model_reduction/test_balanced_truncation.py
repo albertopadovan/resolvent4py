@@ -13,7 +13,7 @@ def L_generator(omega, A):
     Rinv = res4py.create_AIJ_identity(comm, A.getSizes())
     Rinv.scale(1j * omega)
     Rinv.axpy(-1.0, A)
-    ksp = res4py.create_mumps_solver(Rinv)
+    ksp = res4py.create_direct_solver(Rinv)
     L = res4py.linear_operators.MatrixLinearOperator(Rinv, ksp)
     # L.destroy() only frees the internal Hermitian-transpose copy; Rinv and
     # ksp are created here and must be destroyed explicitly to avoid leaks.

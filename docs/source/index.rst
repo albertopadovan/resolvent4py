@@ -14,15 +14,15 @@ while also leveraging the high-performance and parallel-computing
 capabilities of the PETSc and SLEPc library.
 
 The library is organised around a single
-:class:`~resolvent4py.linear_operators.LinearOperator` abstraction —
+:class:`~resolvent4py.linear_operators.linear_operator.LinearOperator` abstraction —
 matrices, low-rank factorisations, products, projections,
 shift-and-scale composites, the propagator of a (possibly time-
 periodic) ODE, and explicit time-periodic operators with Fourier
 coefficients all share the same ``apply`` / ``apply_mat`` / ``solve``
 interface, and compose freely.  Every analysis routine is written
 against that interface, so anything in ``linalg`` /
-``model_reduction`` / ``spectral_submanifold`` works on any operator
-without knowing how it is stored.
+``model_reduction`` works on any operator without knowing how it is
+stored.
 
 Current functionalities include:
 
@@ -42,12 +42,6 @@ Current functionalities include:
   stable, and a GMRES shoot-and-solve
   :math:`(I - \Phi(T,0))\,x(0) = \int_0^T \Phi(T,\tau)\,f(\tau)\,d\tau`
   that works for any shift where :math:`I - \Phi` is non-singular
-- Spectral submanifolds (SSM) for autonomous and time-periodic
-  quadratic systems :math:`\dot{q} = A\,q + B(q,q)`: polynomial
-  parametrisation of the invariant manifold tangent to a chosen
-  master eigenspace, with intrinsic reduced dynamics
-  :math:`\dot{s} = \Lambda\,s + g(s)` and a convergence-radius
-  estimator for the expansion
 
 
 If you use resolvent4py in your work, please cite the following paper

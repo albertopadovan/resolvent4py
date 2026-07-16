@@ -44,13 +44,13 @@ class LowRankLinearOperator(LinearOperator):
         )
 
     def apply(self, x, y=None):
-        y = self.create_left_vector() if y == None else y
+        y = self.create_left_vector() if y is None else y
         q = self.Sigma @ self.V.dotVec(x)
         self.U.multVec(1.0, 0.0, y, q)
         return y
 
     def apply_hermitian_transpose(self, x, y=None):
-        y = self.create_right_vector() if y == None else y
+        y = self.create_right_vector() if y is None else y
         q = self.Sigma.conj().T @ self.U.dotVec(x)
         self.V.multVec(1.0, 0.0, y, q)
         return y
@@ -59,7 +59,7 @@ class LowRankLinearOperator(LinearOperator):
         M = X.dot(self.V)
         L = self.Sigma @ M.getDenseArray()
         Lm = PETSc.Mat().createDense(L.shape, None, L, PETSc.COMM_SELF)
-        Y = self.create_left_bv(X.getSizes()[-1]) if Y == None else Y
+        Y = self.create_left_bv(X.getSizes()[-1]) if Y is None else Y
         Y.mult(1.0, 0.0, self.U, Lm)
         Lm.destroy()
         M.destroy()
@@ -69,7 +69,7 @@ class LowRankLinearOperator(LinearOperator):
         M = X.dot(self.U)
         L = self.Sigma.conj().T @ M.getDenseArray()
         Lm = PETSc.Mat().createDense(L.shape, None, L, PETSc.COMM_SELF)
-        Y = self.create_right_bv(X.getSizes()[-1]) if Y == None else Y
+        Y = self.create_right_bv(X.getSizes()[-1]) if Y is None else Y
         Y.mult(1.0, 0.0, self.V, Lm)
         Lm.destroy()
         M.destroy()

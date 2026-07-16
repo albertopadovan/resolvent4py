@@ -1,0 +1,19 @@
+[run]
+parallel = True
+concurrency = multiprocessing
+data_file = .coverage
+source = src/resolvent4py
+omit =
+    src/resolvent4py/spectral_submanifold/*
+    src/resolvent4py/utils/ssm.py
+    */__init__.py
+
+[report]
+show_missing = True
+skip_empty = True
+exclude_lines =
+    pragma: no cover
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if typing.TYPE_CHECKING:
+    if TYPE_CHECKING:

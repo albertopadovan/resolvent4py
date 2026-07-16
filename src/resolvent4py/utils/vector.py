@@ -8,8 +8,9 @@ __all__ = [
     "embed_into_2T_vec",
 ]
 
-import numpy as np
 import typing
+
+import numpy as np
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
@@ -20,13 +21,15 @@ def vec_real(
     x: PETSc.Vec, inplace: typing.Optional[bool] = False
 ) -> PETSc.Vec:
     r"""
-    Returns the real part :math:`\text{Re}(x)` of the PETSc Vec.
+    Return the real part :math:`\text{Re}(x)` of a PETSc vector.
 
+    :param x: input vector
     :type x: PETSc.Vec
     :param inplace: in-place if :code:`True`, else the result is stored in a
         new PETSc.Vec
     :type inplace: Optional[bool], default is False
 
+    :return: :math:`\text{Re}(x)`
     :rtype: PETSc.Vec
     """
     y = x if inplace else x.copy()
@@ -39,13 +42,15 @@ def vec_imag(
     x: PETSc.Vec, inplace: typing.Optional[bool] = False
 ) -> PETSc.Vec:
     r"""
-    Returns the imaginary part :math:`\text{Im}(x)` of the PETSc Vec.
+    Return the imaginary part :math:`\text{Im}(x)` of a PETSc vector.
 
+    :param x: input vector
     :type x: PETSc.Vec
     :param inplace: in-place if :code:`True`, else the result is stored in a
         new PETSc.Vec
     :type inplace: Optional[bool], default is False
 
+    :return: :math:`\text{Im}(x)`
     :rtype: PETSc.Vec
     """
     y = x if inplace else x.copy()
@@ -127,7 +132,7 @@ def check_complex_conjugacy(vec: PETSc.Vec, nblocks: int) -> bool:
 
     :return: :code:`True` if the components are complex-conjugates of each
         other and :code:`False` otherwise
-    :rtype: Bool
+    :rtype: bool
     """
     if np.mod(nblocks, 2) == 0:
         raise ValueError(
@@ -155,10 +160,10 @@ def check_complex_conjugacy(vec: PETSc.Vec, nblocks: int) -> bool:
 
 
 def assemble_harmonic_balanced_vector(
-    vec_lst: typing.List[PETSc.Vec],
+    vec_lst: list[PETSc.Vec],
     bflow_freqs: np.array,
     pertb_freqs: np.array,
-    sizes: typing.Tuple[int, int],
+    sizes: tuple[int, int],
 ) -> PETSc.Vec:
     r"""
     Assemble a harmonic-balanced vector from its Fourier coefficient
@@ -203,15 +208,16 @@ def assemble_harmonic_balanced_vector(
     """
     if len(bflow_freqs) != len(vec_lst):
         raise ValueError(
-            f"Error in assemble_harmonic_balanced_vector(). vec_lst "
-            f"should have the same length as bflow_freqs."
+            "Error in assemble_harmonic_balanced_vector(). vec_lst "
+            "should have the same length as bflow_freqs."
         )
 
     put_back = False
     if np.min(bflow_freqs) == 0.0:
         put_back = True
-        for i in range(1, len(bflow_freqs)):
-            idx_lst = i - 1 - nfp
+        n_original = len(vec_lst)
+        for i in range(1, n_original):
+            idx_lst = i - n_original
             vecconj = vec_lst[idx_lst].copy()
             vecconj.conjugate()
             vec_lst.insert(0, vecconj)
@@ -219,26 +225,30 @@ def assemble_harmonic_balanced_vector(
             (-np.flipud(bflow_freqs[1:]), bflow_freqs)
         )
 
-    # Create the harmonic-balanced BV
+    # Create the harmonic-balanced vector.  Same assembly recipe as
+    # :func:`~resolvent4py.utils.io.read_harmonic_balanced_vector`: each
+    # rank writes its own local slice of every input vector at the right
+    # block offset, and PETSc routes cross-rank rows during assemble().
     Vec = PETSc.Vec().create(comm=PETSc.COMM_WORLD)
     Vec.setSizes(sizes)
     Vec.setUp()
-    r0, _ = Vec.getOwnershipRange()
+    r0, _ = vec_lst[0].getOwnershipRange()
     nfb = (len(bflow_freqs) - 1) // 2  # Number of baseflow frequencies
     nfp = (len(pertb_freqs) - 1) // 2  # Number of perturbation frequencies
-    vec_sizes = vec_lst[0].getSizes()
-    nrows_loc, nrows = vec_sizes[0]
+    # PETSc.Vec.getSizes() returns a single (local, global) tuple.
+    nrows_loc, nrows = vec_lst[0].getSizes()
     for i in range(2 * nfb + 1):
         j = i + (nfp - nfb)
         rows = j * nrows + np.arange(nrows_loc, dtype=PETSc.IntType) + r0
-        Vec.setValues(rows, vec_lst[j].getArray(), False)
+        Vec.setValues(rows, vec_lst[i].getArray(), False)
     Vec.assemble()
 
     if put_back:
-        bflow_freqs = bflow_freqs[nfb:]
+        # Destroy the conjugate temporaries we prepended and remove them
+        # from the caller's list so it holds no dangling references.
         for i in range(nfb):
             vec_lst[i].destroy()
-        vec_lst[nfb:]
+        del vec_lst[:nfb]
 
     return Vec
 
@@ -382,8 +392,8 @@ def embed_into_2T_vec(
         i2T = np.argmin(np.abs(freqs2T - fT))
         if np.abs(fT - freqs2T[i2T]) > 1e-10:
             raise ValueError(
-                f"The array freqsT should be a subset of the the "
-                f"array freqs2T. Embedding otherwise makes no sense."
+                "The array freqsT should be a subset of the the "
+                "array freqs2T. Embedding otherwise makes no sense."
             )
         vT = bvT.getColumn(iT)
         bv2T.insertVec(i2T, vT)
