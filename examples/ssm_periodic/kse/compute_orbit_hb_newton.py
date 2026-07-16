@@ -57,7 +57,7 @@ nu_target = 1.0 / 33.3353          # ν used for the refined orbit
 n = 16                            # # Fourier sine modes
 n_pts = 4 * n                     # physical-space grid for dealiasing
 
-nf_HB = 30                        # # T-periodic harmonics retained in Newton
+nf_HB = 40                        # # T-periodic harmonics retained in Newton
 n_time_save = 1024                # # time samples in the saved orbit
 
 # Phase-1 initial-guess parameters (forward integration at nu_guess)

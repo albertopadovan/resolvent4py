@@ -72,7 +72,7 @@ C_periodic_full = data["C"][:, :-1]
 
 # 2T-HB bandwidth derived from the HB-Newton truncation
 nfb = 2 * nf_HB                         # 2T-HB: each T-harmonic k → 2T k' = 2k
-nf = nfb + 20                           # margin above nfb for eigenproblem
+nf = nfb + 10                           # margin above nfb for eigenproblem
 
 T_HB = 2.0 * T                          # harmonic-balance period
 omega_orbit = 2.0 * np.pi / T           # ω of the T-orbit

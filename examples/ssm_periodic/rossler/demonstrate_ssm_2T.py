@@ -22,6 +22,7 @@ import os
 import numpy as np
 import scipy as sp
 from scipy.interpolate import interp1d
+from petsc4py import PETSc
 
 import matplotlib.pyplot as plt
 
@@ -360,4 +361,6 @@ savefig(fig, "phase_portrait_off_2T")
 plt.show()
 
 plt.close("all")
+
+PETSc.COMM_WORLD.Barrier()
 os._exit(0)

@@ -24,8 +24,8 @@ from resolvent4py.spectral_submanifold import SpectralSubmanifold
 # data/periodic_orbit.npz, with the SAME formula save_eigendecomp.py uses
 # (nfb = 2·nf_HB, nf = nfb + 20) — so the two stay in lock-step automatically.
 r = 1
-m = 40
-ssm_scaling = 0.02
+m = 50
+ssm_scaling = 0.04
 manifold_tol = 1e-2
 # Normal-form parametrisation: retain ONLY orders 1 (linear) and 3 (cubic)
 # in the latent-space dynamics — the pitchfork normal form.  Every other

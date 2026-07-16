@@ -49,7 +49,7 @@ C_periodic_1T = data["C"][:, :-1]        # (3, n_orbit_save), T-periodic
 
 # 2T-HB bandwidth derived from the orbit cache.
 nfb = 2 * nf_orbit                       # 2T-HB: each T-harmonic k → 2T k' = 2k
-nf = nfb + 10                            # 10-harmonic margin for eigenproblem
+nf = nfb + 70                            # 10-harmonic margin for eigenproblem
 
 T = 2.0 * T_base
 C_periodic_2T = np.tile(C_periodic_1T, (1, 2))  # (3, 2*n_orbit_save)
@@ -162,4 +162,5 @@ if comm.getRank() == 0:
     plt.show()
 
 
+PETSc.COMM_WORLD.Barrier()
 os._exit(0)

@@ -14,7 +14,7 @@ import plotting_utils as plotting
 comm = PETSc.COMM_WORLD
 
 
-diff_eq = Hopf3D(mu=-1 / 20, alpha=0.15, beta=0.0)
+diff_eq = Hopf3D(mu=1 / 20, alpha=0.15, beta=0.0)
 L, Phi, Psi = diff_eq.compute_eigendecomposition()
 
 

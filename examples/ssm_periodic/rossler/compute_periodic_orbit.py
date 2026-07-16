@@ -41,6 +41,7 @@ import os
 import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
+from petsc4py import PETSc
 
 from rossler_rhs import (
     rossler_rhs,
@@ -407,3 +408,7 @@ fig.savefig("results/orbit_spectrum.pdf", bbox_inches="tight")
 print("Saved plot → results/orbit_spectrum.{png,pdf}")
 
 plt.show()
+
+
+PETSc.COMM_WORLD.Barrier()
+os._exit(0)
