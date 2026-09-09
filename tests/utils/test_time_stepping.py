@@ -107,3 +107,179 @@ def test_time_stepping_forced(comm, square_matrix_size):
             vpetsc.destroy()
 
     assert np.max(np.asarray(error_lst)) < 5e-8
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# compute_post_transient_solution(method='gmres') vs method='donothing'
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def _identity_op(comm, N):
+    Nl = res4py.compute_local_size(N)
+    Id_mat = res4py.create_AIJ_identity(comm, ((Nl, N), (Nl, N)))
+    return res4py.linear_operators.MatrixLinearOperator(Id_mat), Id_mat
+
+
+def _make_stable_periodic_op(comm, N, freqs, seed):
+    r"""Stable real T-periodic operator with one-sided Fourier
+    coefficients ``[A_0, A_1, A_2]``.  ``A_0`` is shifted so all
+    eigenvalues have ``Re(lambda) <= -0.5``; AC blocks are scaled by
+    ``epsilon = 1e-1`` to keep the perturbation modest."""
+    rng = np.random.default_rng(seed)
+    A0 = rng.standard_normal((N, N))
+    evals, V = np.linalg.eig(A0)
+    shift = max(0.0, evals.real.max() + 0.5)
+    A0 = (V @ np.diag(evals - shift) @ np.linalg.inv(V)).real.astype(
+        np.complex128
+    )
+    eps = 1e-1
+    A1 = eps * (
+        rng.standard_normal((N, N)) + 1j * rng.standard_normal((N, N))
+    )
+    A2 = eps * (
+        rng.standard_normal((N, N)) + 1j * rng.standard_normal((N, N))
+    )
+    Apetsc_lst = [
+        pytest_utils.numpy_to_petsc(comm, Ak) for Ak in (A0, A1, A2)
+    ]
+    linop_lst = [
+        res4py.linear_operators.MatrixLinearOperator(A) for A in Apetsc_lst
+    ]
+    op = res4py.linear_operators.TimePeriodicMatrixLinearOperator(
+        linop_lst, freqs, time=0.0
+    )
+    return op, Apetsc_lst
+
+
+def _gather_bv(bv):
+    Mat = bv.getMat()
+    seq = res4py.distributed_to_sequential_matrix(Mat)
+    bv.restoreMat(Mat)
+    arr = seq.getDenseArray().copy()
+    seq.destroy()
+    return arr
+
+
+def _alloc_post_transient_buffers(comm, N, omegas, tsim, nsave):
+    state_sz = (res4py.compute_local_size(N), N)
+    Fhat, _ = pytest_utils.generate_random_bv(comm, (N, len(omegas)), True)
+    Yhat = Fhat.duplicate()
+    X = SLEPc.BV().create(comm=comm)
+    X.setSizes(state_sz, len(tsim[::nsave]))
+    X.setType("mat")
+    x_init = Fhat.createVec()
+    return Fhat, Yhat, X, x_init
+
+
+def _run_post_transient_both_methods(
+    comm, L, adjoint, omegas, tsim, nsave, N, real_signal
+):
+    r"""Run ``compute_post_transient_solution`` with both ``method``
+    values on the same operator/forcing.  Returns the two Yhat numpy
+    arrays for comparison.  ``real_signal=True`` projects the random
+    forcing onto a real time signal (one-sided omegas)."""
+    Idop, Id_mat = _identity_op(comm, N)
+
+    Fhat, Yhat_dn, X_dn, x_dn = _alloc_post_transient_buffers(
+        comm, N, omegas, tsim, nsave
+    )
+    # If the spectrum is one-sided, the DC mode must be real-valued for
+    # the inverse-FFT to give a real time-domain signal.
+    if real_signal:
+        col0 = Fhat.getColumn(0)
+        col0 = res4py.vec_real(col0, True)
+        Fhat.restoreColumn(0, col0)
+
+    Yhat_gm = Yhat_dn.duplicate()
+    X_gm = X_dn.duplicate()
+    x_gm = x_dn.duplicate()
+
+    Yhat_dn = res4py.compute_post_transient_solution(
+        L, Idop, Idop, adjoint,
+        tsim, nsave, 500, omegas, x_dn,
+        Fhat, Yhat_dn, X_dn,
+        tol=1e-10, time_stpper="RK3", method="donothing",
+    )
+    Yhat_gm = res4py.compute_post_transient_solution(
+        L, Idop, Idop, adjoint,
+        tsim, nsave, 0, omegas, x_gm,
+        Fhat, Yhat_gm, X_gm,
+        time_stpper="RK3", method="gmres", gmres_rtol=1e-12,
+    )
+
+    Y_dn = _gather_bv(Yhat_dn)
+    Y_gm = _gather_bv(Yhat_gm)
+
+    for obj in (
+        Fhat, Yhat_dn, Yhat_gm, X_dn, X_gm, x_dn, x_gm, Idop, Id_mat
+    ):
+        obj.destroy()
+    return Y_dn, Y_gm
+
+
+def test_post_transient_gmres_vs_donothing_LTI(comm, square_matrix_size):
+    r"""GMRES IC and post-transient iteration must agree on a stable
+    LTI system, for both forward and adjoint integration."""
+    N, _ = square_matrix_size
+    T = 2 * np.pi
+    omega = 2 * np.pi / T
+    dt = 1e-2
+    n_omegas = 5
+
+    errs = []
+    for adjoint in [False, True]:
+        Apetsc, _ = pytest_utils.generate_stable_random_matrix(
+            comm, (N, N), complex=False
+        )
+        L = res4py.linear_operators.MatrixLinearOperator(Apetsc)
+        # Real operator + one-sided spectrum → real time-domain signal.
+        tsim, nsave, omegas = res4py.create_time_and_frequency_arrays(
+            dt, omega, n_omegas, real=True
+        )
+        Y_dn, Y_gm = _run_post_transient_both_methods(
+            comm, L, adjoint, omegas, tsim, nsave, N, real_signal=True
+        )
+        rel = np.linalg.norm(Y_dn - Y_gm) / np.linalg.norm(Y_dn)
+        errs.append(rel)
+        L.destroy()
+        Apetsc.destroy()
+    assert max(errs) < 1e-6, (
+        f"LTI: |Y_donothing - Y_gmres| / |Y_donothing| = {errs} "
+        f"(forward, adjoint)"
+    )
+
+
+def test_post_transient_gmres_vs_donothing_LTP(comm, square_matrix_size):
+    r"""Same check on a stable :class:`TimePeriodicMatrixLinearOperator`
+    built from one-sided Fourier coefficients ``[A_0, A_1, A_2]``."""
+    N, _ = square_matrix_size
+    T = 2 * np.pi
+    omega = 2 * np.pi / T
+    dt = 1e-2
+    n_omegas = 5
+    A_freqs = omega * np.array([0.0, 1.0, 2.0])
+
+    errs = []
+    for adjoint in [False, True]:
+        L, A_petsc_lst = _make_stable_periodic_op(
+            comm, N, A_freqs, seed=17 + int(adjoint)
+        )
+        # Real LTP operator + one-sided spectrum (matches the operator's
+        # _real_A flag) → real time-domain signal.
+        tsim, nsave, omegas = res4py.create_time_and_frequency_arrays(
+            dt, omega, n_omegas, real=True
+        )
+        Y_dn, Y_gm = _run_post_transient_both_methods(
+            comm, L, adjoint, omegas, tsim, nsave, N, real_signal=True
+        )
+        rel = np.linalg.norm(Y_dn - Y_gm) / np.linalg.norm(Y_dn)
+        errs.append(rel)
+        for linop in L.Alst:
+            linop.destroy()
+        L.destroy()
+        for Ak in A_petsc_lst:
+            Ak.destroy()
+    assert max(errs) < 1e-6, (
+        f"LTP: |Y_donothing - Y_gmres| / |Y_donothing| = {errs} "
+        f"(forward, adjoint)"
+    )
