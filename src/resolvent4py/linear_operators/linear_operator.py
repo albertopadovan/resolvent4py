@@ -24,7 +24,7 @@ class LinearOperator(metaclass=abc.ABCMeta):
     :type dimensions: tuple[tuple[int, int], tuple[int, int]]
     :param nblocks: number of blocks (if the linear operator has block \
         structure)
-    :type nblocks: Optional[Unions[int, None]], default is None
+    :type nblocks: Optional[Union[int, None]], default is None
     """
 
     def __init__(
@@ -41,7 +41,7 @@ class LinearOperator(metaclass=abc.ABCMeta):
         self._real_flag = self.check_if_real_valued()
         self._block_cc_flag = (
             self.check_if_complex_conjugate_structure()
-            if self.get_nblocks() != None
+            if self.get_nblocks() is not None
             else None
         )
 
@@ -152,7 +152,8 @@ class LinearOperator(metaclass=abc.ABCMeta):
         :rtype: bool
         """
         sizes = self.get_dimensions()[-1]
-        x = generate_random_petsc_vector(sizes)
+        x = generate_random_petsc_vector(sizes, complex=False)
+        x.scale(1.0 / x.norm())
         Lx = self.apply(x)
         Lxai = Lx.getArray().imag
         norm = np.sqrt(
@@ -181,22 +182,58 @@ class LinearOperator(metaclass=abc.ABCMeta):
             structure, :code:`False` otherwise.
         :rtype: bool
         """
-        x = generate_random_petsc_vector(self.get_dimensions()[-1])
-        enforce_complex_conjugacy(self.get_comm(), x, self.get_nblocks())
-        cc_x = check_complex_conjugacy(self.get_comm(), x, self.get_nblocks())
-        if cc_x == False:
+        x = generate_random_petsc_vector(
+            self.get_dimensions()[-1], complex=True
+        )
+        enforce_complex_conjugacy(x, self.get_nblocks())
+        x.scale(1.0 / x.norm())
+        cc_x = check_complex_conjugacy(x, self.get_nblocks())
+        if not cc_x:
             raise ValueError(
                 f"Error from {self.get_name()}.check_if_complex_conjugate"
                 f"_structure(): complex conjugacy was not enforced "
                 f"appropriately."
             )
         Lx = self.apply(x)
-        result = check_complex_conjugacy(
-            self.get_comm(), Lx, self.get_nblocks()
-        )
+        result = check_complex_conjugacy(Lx, self.get_nblocks())
         x.destroy()
         Lx.destroy()
         return result
+
+    def set_evaluation_time(self, time: float) -> None:
+        r"""
+        Propagate ``time`` to any time-dependent child operators.
+
+        The default implementation walks every attribute of ``self``
+        and, for any attribute that is itself a :class:`.LinearOperator`
+        (or a list / tuple containing :class:`.LinearOperator`
+        instances), invokes :meth:`.LinearOperator.set_evaluation_time` on it.  This
+        way a composite operator
+        (:class:`.ShiftAndScaleLinearOperator`,
+        :class:`.ProductLinearOperator`,
+        :class:`.LowRankUpdatedLinearOperator`,
+        :class:`.ProjectionLinearOperator`, …) built on top of a
+        :class:`.TimePeriodicMatrixLinearOperator` automatically gains
+        the same time-setter without any per-subclass boilerplate.
+
+        Subclasses whose own state depends on time (notably
+        :class:`.TimePeriodicMatrixLinearOperator`) override this to
+        update their own attribute and should then call
+        ``super().set_evaluation_time(time)`` to keep nested
+        time-dependent operators in sync.
+
+        :param time: time instant :math:`t` to propagate
+        :type time: float
+        """
+        for attr in vars(self).values():
+            if attr is self:
+                continue
+            if isinstance(attr, LinearOperator):
+                attr.set_evaluation_time(time)
+            elif isinstance(attr, (list, tuple)):
+                for item in attr:
+                    if isinstance(item, LinearOperator):
+                        item.set_evaluation_time(time)
 
     # Methods that must be implemented by subclasses
     @abc.abstractmethod

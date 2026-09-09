@@ -7,13 +7,12 @@ __all__ = [
 import typing
 
 import numpy as np
-from mpi4py import MPI
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
+from ..linear_operators import LinearOperator
 from ..utils.comms import compute_local_size
 from ..utils.matrix import create_dense_matrix
-from ..linear_operators import LinearOperator
 
 
 def compute_gramian_factors(
@@ -22,7 +21,7 @@ def compute_gramian_factors(
     weights: np.ndarray,
     B: SLEPc.BV,
     C: SLEPc.BV,
-) -> typing.Tuple[PETSc.Mat, PETSc.Mat]:
+) -> tuple[PETSc.Mat, PETSc.Mat]:
     r"""
     Compute the Gramian factors as outlined in section 2 of [Dergham2011]_.
     In particular, we approximate the Reachability and Observability
@@ -158,7 +157,7 @@ def compute_gramian_factors(
 
 def compute_balanced_projection(
     X: SLEPc.BV, Y: SLEPc.BV, r: int
-) -> typing.Tuple[SLEPc.BV, SLEPc.BV, np.ndarray]:
+) -> tuple[SLEPc.BV, SLEPc.BV, np.ndarray]:
     r"""
     Given the output :math:`(X, Y)` of :func:`.compute_gramian_factors`, compute
     :math:`\Phi` and :math:`\Psi` (each of dimension :math:`N\times r`).
@@ -172,7 +171,7 @@ def compute_balanced_projection(
     :param X: reachability Gramian factor
     :type X: PETSc.Mat
     :param Y: observability Gramian factor
-    :type Y: PETSc. Mat
+    :type Y: PETSc.Mat
     :param r: number of columns of :math:`\Phi` and :math:`\Psi`
     :type r: int
 
@@ -245,7 +244,7 @@ def assemble_reduced_order_tensors(
     C: SLEPc.BV,
     Phi: SLEPc.BV,
     Psi: SLEPc.BV,
-) -> typing.Tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     r"""
     Assemble the reduced-order tensors :math:`A_r = \Psi^\intercal L \Phi`,
     :math:`B_r = \Psi^\intercal B` and :math:`C_r = \Phi^\intercal C`.
@@ -257,6 +256,11 @@ def assemble_reduced_order_tensors(
     :param C: (complex-conj. transpose) of the output matrix of the full-order
         system
     :type C: SLEPc.BV
+    :param Phi: right balancing basis (columns span the reduced-order
+        state subspace)
+    :type Phi: SLEPc.BV
+    :param Psi: left balancing basis (biorthogonal to :code:`Phi`)
+    :type Psi: SLEPc.BV
 
     :return: Tuple with :math:`A_r`, :math:`B_r` and :math:`C_r`
     :rtype: Tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]

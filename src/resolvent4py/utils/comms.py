@@ -1,17 +1,20 @@
 __all__ = [
     "compute_local_size",
+    "compute_local_size_block_aligned",
     "sequential_to_distributed_matrix",
     "sequential_to_distributed_vector",
     "distributed_to_sequential_matrix",
     "distributed_to_sequential_vector",
     "scatter_array_from_root_to_all",
+    "gather_vec_to_rank",
+    "scatter_vec_from_rank",
 ]
 
 import typing
 
 import numpy as np
-from petsc4py import PETSc
 from mpi4py import MPI
+from petsc4py import PETSc
 
 from .miscellaneous import get_mpi_type
 
@@ -45,6 +48,54 @@ def compute_local_size(Ng: int) -> int:
     return Nl
 
 
+def compute_local_size_block_aligned(n: int, N: int) -> tuple[int, int]:
+    r"""
+    Compute per-rank local sizes :code:`(nl, Nl)` for a block-structured
+    :math:`N \times N` PETSc matrix made of :code:`nblocks = N // n`
+    diagonal blocks of size :math:`n \times n`, such that the cumulative
+    row count at every block boundary lands on a rank ownership boundary.
+
+    This is required when the matrix will be preconditioned with
+    PCBJACOBI(nblocks): PETSc snaps sub-block boundaries to the nearest
+    rank boundary, so a misaligned distribution yields the wrong
+    sub-blocks (some rows leak into a neighbour's sub-block where they
+    have no nonzeros, making that sub-block near-singular).
+
+    The function distributes :math:`n` rows across
+    :code:`ranks_per_block = pool_size // nblocks` ranks (using the same
+    formula as :func:`compute_local_size`) and replicates that pattern
+    for every block. Each rank therefore owns exactly one block's
+    portion, so :code:`Nl == nl`.
+
+    Requires :code:`pool_size % nblocks == 0` and :code:`N % n == 0`.
+
+    :param n: block size (each diagonal block is :math:`n \times n`)
+    :type n: int
+    :param N: total matrix size; must be divisible by :code:`n`
+    :type N: int
+
+    :return: :code:`(nl, Nl)` for the current rank.
+    :rtype: tuple[int, int]
+    """
+    if N % n != 0:
+        raise ValueError(f"N ({N}) must be divisible by n ({n})")
+    nblocks = N // n
+    size = PETSc.COMM_WORLD.getSize()
+    rank = PETSc.COMM_WORLD.getRank()
+    if size == 1:
+        return n, N
+    if size % nblocks != 0:
+        raise ValueError(
+            f"MPI pool size ({size}) must be divisible by nblocks "
+            f"({nblocks}) for block boundaries to align with rank "
+            f"boundaries"
+        )
+    ranks_per_block = size // nblocks
+    sub_rank = rank % ranks_per_block
+    nl = n // ranks_per_block + (1 if (n % ranks_per_block) > sub_rank else 0)
+    return nl, nl
+
+
 def sequential_to_distributed_matrix(
     Mat_seq: PETSc.Mat, Mat_dist: PETSc.Mat
 ) -> PETSc.Mat:
@@ -62,8 +113,8 @@ def sequential_to_distributed_matrix(
     """
     array = Mat_seq.getDenseArray()
     r0, r1 = Mat_dist.getOwnershipRange()
-    rows = np.arange(r0, r1)
-    cols = np.arange(0, Mat_seq.getSizes()[-1][-1])
+    rows = np.arange(r0, r1, dtype=PETSc.IntType)
+    cols = np.arange(0, Mat_seq.getSizes()[-1][-1], dtype=PETSc.IntType)
     Mat_dist.setValues(rows, cols, array[r0:r1,].reshape(-1))
     Mat_dist.assemble(None)
     return Mat_dist
@@ -86,9 +137,9 @@ def sequential_to_distributed_vector(
     """
     array = vec_seq.getArray()
     r0, r1 = vec_dist.getOwnershipRange()
-    rows = np.arange(r0, r1)
+    rows = np.arange(r0, r1, dtype=PETSc.IntType)
     vec_dist.setValues(rows, array[r0:r1,])
-    vec_dist.assemble(None)
+    vec_dist.assemble()
     return vec_dist
 
 
@@ -152,7 +203,7 @@ def scatter_array_from_root_to_all(
     comm = MPI.COMM_WORLD
     size, rank = comm.Get_size(), comm.Get_rank()
     counts, displs = None, None
-    if locsize == None:
+    if locsize is None:
         if rank == 0:
             n = len(array)
             counts = np.asarray(
@@ -191,7 +242,139 @@ def scatter_array_from_root_to_all(
         if displs is not None
         else displs
     )
+    # The root's send buffer must be C-contiguous: recent mpi4py rejects a
+    # non-contiguous array (via both the buffer protocol and DLPack). On
+    # non-root ranks ``array`` is None and ignored as the send buffer.
+    sendbuf = np.ascontiguousarray(array) if rank == 0 else array
     comm.Scatterv(
-        [array, counts, displs, get_mpi_type(dtype)], recvbuf, root=0
+        [sendbuf, counts, displs, get_mpi_type(dtype)], recvbuf, root=0
     )
     return recvbuf
+
+
+def gather_vec_to_rank(
+    vec: PETSc.Vec,
+    dest_rank: int,
+) -> typing.Optional[np.ndarray]:
+    r"""
+    Collectively gather a distributed PETSc Vec into a single
+    destination rank.  Returns the full numpy array on
+    ``dest_rank``; returns ``None`` on every other rank.
+
+    Compared to :func:`distributed_to_sequential_vector` (which
+    Allgathers — i.e. replicates the full array on every rank), this
+    routine does a single :py:meth:`~mpi4py.MPI.Comm.Gatherv` to one
+    root.  Use it when
+    only one rank actually consumes the data (e.g. a single-rank
+    bilinear evaluation).  If multiple ranks need the result, follow
+    up with explicit point-to-point sends or a broadcast.
+
+    Collective on ``vec.getComm()``; every rank in that communicator
+    must participate.
+
+    :param vec: a distributed PETSc Vec
+    :type vec: PETSc.Vec
+    :param dest_rank: the world rank that should receive the full
+        numpy view.  Must be a valid rank of ``vec.getComm()``.
+    :type dest_rank: int
+
+    :return: the full vector as a numpy array on ``dest_rank``;
+        ``None`` everywhere else.
+    :rtype: Optional[np.ndarray]
+    """
+    comm = vec.getComm().tompi4py()
+    rank = comm.Get_rank()
+
+    local = vec.getArray()
+    counts = np.asarray(comm.allgather(len(local)), dtype=PETSc.IntType)
+    disps = np.concatenate(([0], np.cumsum(counts[:-1]))).astype(PETSc.IntType)
+    total = int(counts.sum())
+    mpi_dtype = get_mpi_type(local.dtype)
+
+    if rank == dest_rank:
+        recvbuf = np.empty(total, dtype=local.dtype)
+        comm.Gatherv(
+            sendbuf=np.ascontiguousarray(local),
+            recvbuf=(recvbuf, counts, disps, mpi_dtype),
+            root=dest_rank,
+        )
+        return recvbuf
+
+    comm.Gatherv(
+        sendbuf=np.ascontiguousarray(local),
+        recvbuf=None,
+        root=dest_rank,
+    )
+    return None
+
+
+def scatter_vec_from_rank(
+    arr_on_source: typing.Optional[np.ndarray],
+    target_vec: PETSc.Vec,
+    source_rank: int,
+) -> PETSc.Vec:
+    r"""
+    Inverse of :func:`gather_vec_to_rank`: scatter a full-vector
+    numpy array held on a single source rank into the local ownership
+    ranges of a distributed PETSc Vec.
+
+    Round-trip identity (modulo dtype casting):
+
+    .. code-block:: python
+
+        arr = gather_vec_to_rank(vec, root)        # arr is non-None on `root` only
+        scatter_vec_from_rank(arr, vec, root)      # writes back into `vec`
+
+    Implementation: a single :py:meth:`~mpi4py.MPI.Comm.Scatterv` from
+    ``source_rank``;
+    each rank receives only its local slice, so non-source ranks
+    never allocate the full vector.
+
+    Collective on ``target_vec.getComm()``; every rank in that
+    communicator must participate.
+
+    :param arr_on_source: the full vector as a numpy array on
+        ``source_rank``.  Ignored (and may be ``None``) on every
+        other rank.
+    :type arr_on_source: Optional[np.ndarray]
+    :param target_vec: the distributed PETSc Vec to write into.
+        Its ownership ranges drive the scatter counts.
+    :type target_vec: PETSc.Vec
+    :param source_rank: the world rank that holds ``arr_on_source``.
+    :type source_rank: int
+
+    :return: the same ``target_vec``, now populated.
+    :rtype: PETSc.Vec
+    """
+    comm = target_vec.getComm().tompi4py()
+    rank = comm.Get_rank()
+
+    r0, r1 = target_vec.getOwnershipRange()
+    locsize = r1 - r0
+    counts = np.asarray(comm.allgather(locsize), dtype=PETSc.IntType)
+    disps = np.concatenate(([0], np.cumsum(counts[:-1]))).astype(PETSc.IntType)
+
+    dtype = target_vec.getArray().dtype
+    mpi_dtype = get_mpi_type(dtype)
+    local_recv = np.empty(locsize, dtype=dtype)
+
+    if rank == source_rank:
+        sendbuf = np.ascontiguousarray(arr_on_source, dtype=dtype)
+        comm.Scatterv(
+            sendbuf=(sendbuf, counts, disps, mpi_dtype),
+            recvbuf=local_recv,
+            root=source_rank,
+        )
+    else:
+        comm.Scatterv(
+            sendbuf=None,
+            recvbuf=local_recv,
+            root=source_rank,
+        )
+
+    target_vec.setValues(
+        np.arange(r0, r1, dtype=PETSc.IntType),
+        local_recv,
+    )
+    target_vec.assemble()
+    return target_vec

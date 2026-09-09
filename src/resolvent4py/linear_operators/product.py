@@ -37,8 +37,8 @@ class ProductLinearOperator(LinearOperator):
 
     def __init__(
         self: "ProductLinearOperator",
-        linops: typing.List[LinearOperator],
-        linops_actions: typing.List[
+        linops: list[LinearOperator],
+        linops_actions: list[
             typing.Callable[[PETSc.Vec, typing.Optional[PETSc.Vec]], PETSc.Vec]
         ],
         nblocks: typing.Optional[int] = None,
@@ -47,12 +47,12 @@ class ProductLinearOperator(LinearOperator):
         linops_actions.reverse()
         if len(linops) == 1:
             raise ValueError(
-                f"ProductLinearOperator is the product of at least two "
-                f"linear operators. Only one was provided at initialization."
+                "ProductLinearOperator is the product of at least two "
+                "linear operators. Only one was provided at initialization."
             )
         if len(linops) != len(linops_actions):
             raise ValueError(
-                f"len(linops) must be equal to len(linops_actions)."
+                "len(linops) must be equal to len(linops_actions)."
             )
 
         self.linops = linops
@@ -62,7 +62,7 @@ class ProductLinearOperator(LinearOperator):
         self.actions_hermitian_transpose_mat = []
         self.names = []
         for i, linop in enumerate(self.linops):
-            name = "L%03d" % i
+            name = f"L{i:03d}"
             self.names.append(name)
             setattr(self, name, linop)
             if self.actions[i] == linop.apply:
@@ -118,6 +118,33 @@ class ProductLinearOperator(LinearOperator):
             linops[0].get_comm(), "ProductLinearOperator", dims, nblocks
         )
 
+    def check_if_real_valued(self: "ProductLinearOperator") -> bool:
+        r"""
+        Real-valuedness is preserved under composition: if every
+        :math:`L_i` maps real vectors to real vectors, so does any
+        composition (using ``apply``, ``solve``, ``apply_hermitian_transpose``,
+        or ``solve_hermitian_transpose``).  Overriding the base-class check
+        avoids triggering an expensive ``self.apply`` (which for chains
+        containing a ``solve`` action would fire a full Krylov solve on a
+        random RHS at construction time).
+        """
+        return all(op.get_real_flag() for op in self.linops)
+
+    def check_if_complex_conjugate_structure(
+        self: "ProductLinearOperator",
+    ) -> bool:
+        r"""
+        Complex-conjugate (HB) block structure is preserved under composition
+        with the same reasoning as :meth:`check_if_real_valued`: if every
+        constituent preserves CC structure, so does any composition.  Avoids
+        the expensive ``self.apply`` the base class would otherwise run.
+        Returns ``False`` if any constituent has unknown CC status
+        (``get_block_cc_flag()`` is ``None``, i.e. that constituent was
+        constructed without a block count).
+        """
+        flags = [op.get_block_cc_flag() for op in self.linops]
+        return all(f is True for f in flags)
+
     def create_intermediate_vectors(self: "ProductLinearOperator") -> None:
         self.intermediate_vecs = []
         for j in range(self.nlops - 1):
@@ -145,7 +172,7 @@ class ProductLinearOperator(LinearOperator):
 
     def create_intermediate_bvs(
         self: "ProductLinearOperator", m: int
-    ) -> typing.List[SLEPc.BV]:
+    ) -> list[SLEPc.BV]:
         r"""
         Create list of matrices to store :math:`L_i Z`, for any matrix
         Z with :math:`m` columns.
@@ -176,7 +203,7 @@ class ProductLinearOperator(LinearOperator):
 
     def create_intermediate_bvs_hermitian_transpose(
         self: "ProductLinearOperator", m: int
-    ) -> typing.List[SLEPc.BV]:
+    ) -> list[SLEPc.BV]:
         r"""
         Create list of matrices to store :math:`L_i^* Z`, for any matrix
         Z with :math:`m` columns.
@@ -210,7 +237,7 @@ class ProductLinearOperator(LinearOperator):
         return intermediate_bvs
 
     def apply(self, x, y=None):
-        y = self.create_left_vector() if y == None else y
+        y = self.create_left_vector() if y is None else y
         for j in range(self.nlops):
             if j == 0:
                 yj = self.intermediate_vecs[j]
@@ -227,7 +254,7 @@ class ProductLinearOperator(LinearOperator):
         return y
 
     def apply_hermitian_transpose(self, x, y=None):
-        y = self.create_right_vector() if y == None else y
+        y = self.create_right_vector() if y is None else y
         for j in range(self.nlops):
             if j == 0:
                 yj = self.intermediate_vecs_hermitian_transpose[j]
@@ -244,9 +271,9 @@ class ProductLinearOperator(LinearOperator):
         return y
 
     def apply_mat(self, X, Y=None, Z=None):
-        Y = self.create_left_bv(X.getSizes()[-1]) if Y == None else Y
+        Y = self.create_left_bv(X.getSizes()[-1]) if Y is None else Y
         destroy = False
-        if Z == None:
+        if Z is None:
             Z = self.create_intermediate_bvs(X.getSizes()[-1])
             destroy = True
         for j in range(self.nlops):
@@ -262,9 +289,9 @@ class ProductLinearOperator(LinearOperator):
         return Y
 
     def apply_hermitian_transpose_mat(self, X, Y=None, Z=None):
-        Y = self.create_right_bv(X.getSizes()[-1]) if Y == None else Y
+        Y = self.create_right_bv(X.getSizes()[-1]) if Y is None else Y
         destroy = False
-        if Z == None:
+        if Z is None:
             Z = self.create_intermediate_bvs_hermitian_transpose(
                 X.getSizes()[-1]
             )
@@ -288,6 +315,7 @@ class ProductLinearOperator(LinearOperator):
             vec.destroy()
 
     def destroy(self):
+        # Only the intermediate work vectors are created internally. The
+        # constituent linear operators are user-supplied (passed in as
+        # `linops`), so destroying them is the caller's responsibility.
         self.destroy_intermediate_vectors()
-        for name in self.names:
-            getattr(self, name).destroy()

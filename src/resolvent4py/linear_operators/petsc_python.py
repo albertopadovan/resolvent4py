@@ -1,5 +1,64 @@
 from petsc4py import PETSc
+
 from .linear_operator import LinearOperator
+
+
+class _PCContext:
+    """PETSc Python shell PC context. Used internally by
+    :meth:`PetscPythonLinearOperator.create_shell_pc`."""
+
+    def __init__(self, L: LinearOperator, action=None) -> None:
+        self.L = L
+        if action is None or action == L.solve:
+            self._action = L.solve
+            self._action_t = L.solve_hermitian_transpose
+        elif action == L.apply:
+            self._action = L.apply
+            self._action_t = L.apply_hermitian_transpose
+        else:
+            raise ValueError(
+                f"action must be L.apply or L.solve, got {action}."
+            )
+
+    def setUp(self, pc: PETSc.PC) -> None:  # noqa: D401
+        """PETSc shell PC hook — nothing to set up.
+
+        :param pc: shell PC (unused; supplied by PETSc)
+        :type pc: PETSc.PC
+        """
+
+    def apply(self, pc: PETSc.PC, x: PETSc.Vec, y: PETSc.Vec) -> None:
+        """PETSc shell PC hook: apply :math:`y = P x`.
+
+        :param pc: shell PC (unused; supplied by PETSc)
+        :type pc: PETSc.PC
+        :param x: input vector
+        :type x: PETSc.Vec
+        :param y: output vector (populated in place)
+        :type y: PETSc.Vec
+        """
+        self._action(x, y)
+
+    def applyTranspose(
+        self, pc: PETSc.PC, x: PETSc.Vec, y: PETSc.Vec,
+    ) -> None:
+        """PETSc shell PC hook: apply :math:`y = P^{T} x`.
+
+        PETSc requests the plain transpose but the linear operator only
+        exposes the Hermitian transpose, so we bridge with
+        :math:`P^{T} x = \\overline{P^{*} \\overline{x}}`.
+
+        :param pc: shell PC (unused; supplied by PETSc)
+        :type pc: PETSc.PC
+        :param x: input vector
+        :type x: PETSc.Vec
+        :param y: output vector (populated in place)
+        :type y: PETSc.Vec
+        """
+        x.conjugate()
+        self._action_t(x, y)
+        y.conjugate()
+        x.conjugate()
 
 
 class PetscPythonLinearOperator:
@@ -16,34 +75,76 @@ class PetscPythonLinearOperator:
 
     :param L: linear operator
     :type L: LinearOperator
+    :param action: callable used for ``mult``.
+        Must be ``L.apply`` or ``L.solve``.  Defaults to ``L.apply``.
+    :type action: Optional[Callable]
     """
 
-    def __init__(self: "PetscPythonLinearOperator", L: LinearOperator) -> None:
+    def __init__(
+        self: "PetscPythonLinearOperator",
+        L: LinearOperator,
+        action=None,
+    ) -> None:
         self.L = L
+        if action is None or action == L.apply:
+            self._action = L.apply
+            self._action_ht = L.apply_hermitian_transpose
+        elif action == L.solve:
+            self._action = L.solve
+            self._action_ht = L.solve_hermitian_transpose
+        else:
+            raise ValueError(
+                f"action must be L.apply or L.solve, got {action}."
+            )
 
     def mult(self, A: PETSc.Mat, x: PETSc.Vec, y: PETSc.Vec) -> None:
-        r"""Compute :math:`y = L x`"""
-        self.L.apply(x, y)
+        r"""
+        Compute :math:`y = L x`.  PETSc shell matrix hook; not usually
+        called directly by user code.
+
+        :param A: the shell matrix (unused; supplied by PETSc)
+        :type A: PETSc.Mat
+        :param x: input vector
+        :type x: PETSc.Vec
+        :param y: output vector (populated in place)
+        :type y: PETSc.Vec
+        """
+        self._action(x, y)
 
     def multHermitian(self, A: PETSc.Mat, x: PETSc.Vec, y: PETSc.Vec) -> None:
-        r"""Comput :math:`y = L^* x`"""
-        self.L.apply_hermitian_transpose(x, y)
+        r"""
+        Compute :math:`y = L^{*} x`.  PETSc shell matrix hook; not usually
+        called directly by user code.
+
+        :param A: the shell matrix (unused; supplied by PETSc)
+        :type A: PETSc.Mat
+        :param x: input vector
+        :type x: PETSc.Vec
+        :param y: output vector (populated in place)
+        :type y: PETSc.Vec
+        """
+        self._action_ht(x, y)
 
     @classmethod
     def create_shell(
-        cls: type["PetscPythonLinearOperator"], L: LinearOperator
+        cls: type["PetscPythonLinearOperator"],
+        L: LinearOperator,
+        action=None,
     ) -> PETSc.Mat:
         """
         Create a PETSc shell matrix wrapping this operator.
 
         :param L: `resolvent4py` linear operator
         :type L: LinearOperator
+        :param action: callable for ``mult``.  Must be ``L.apply``
+            or ``L.solve``.  Defaults to ``L.apply``.
+        :type action: Optional[Callable]
 
         :rtype: PETSc.Mat of type "python"
         """
         A = PETSc.Mat().create(L.get_comm())
         A.setSizes(L.get_dimensions())
         A.setType("python")
-        A.setPythonContext(cls(L))
+        A.setPythonContext(cls(L, action))
         A.setUp()
         return A

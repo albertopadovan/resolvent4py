@@ -59,8 +59,8 @@ n_svals = 2
 Rinv = res4py.create_AIJ_identity(comm, sizes)
 Rinv.scale(-1j * omega)
 Rinv.axpy(-1.0, A)
-ksp = res4py.create_mumps_solver(Rinv)
-res4py.check_lu_factorization(Rinv, ksp)
+ksp = res4py.create_direct_solver(Rinv)
+res4py.check_solver(Rinv, ksp)
 L = res4py.linear_operators.MatrixLinearOperator(Rinv, ksp)
 Ua, Sa, Va = res4py.linalg.randomized_svd(
     L, L.solve_mat, n_rand, n_loops, n_svals

@@ -125,13 +125,13 @@
    "name": "tight_layout"
   }
  ],
- "res4py.check_lu_factorization": [
+ "res4py.check_solver": [
   {
    "is_class": false,
    "is_explicit": false,
    "module": "resolvent4py",
    "module_short": "resolvent4py",
-   "name": "check_lu_factorization"
+   "name": "check_solver"
   }
  ],
  "res4py.compute_local_size": [
@@ -152,13 +152,13 @@
    "name": "create_AIJ_identity"
   }
  ],
- "res4py.create_mumps_solver": [
+ "res4py.create_direct_solver": [
   {
    "is_class": false,
    "is_explicit": false,
    "module": "resolvent4py",
    "module_short": "resolvent4py",
-   "name": "create_mumps_solver"
+   "name": "create_direct_solver"
   }
  ],
  "res4py.distributed_to_sequential_vector": [

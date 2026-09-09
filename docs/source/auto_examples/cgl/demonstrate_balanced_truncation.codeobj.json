@@ -71,13 +71,13 @@
    "name": "create_AIJ_identity"
   }
  ],
- "res4py.create_mumps_solver": [
+ "res4py.create_direct_solver": [
   {
    "is_class": false,
    "is_explicit": false,
    "module": "resolvent4py",
    "module_short": "resolvent4py",
-   "name": "create_mumps_solver"
+   "name": "create_direct_solver"
   }
  ],
  "res4py.linear_operators.MatrixLinearOperator": [
@@ -143,13 +143,13 @@
    "name": "balanced_truncation"
   }
  ],
- "resolvent4py.utils.ksp.create_mumps_solver": [
+ "resolvent4py.utils.ksp.create_direct_solver": [
   {
    "is_class": false,
    "is_explicit": true,
    "module": "resolvent4py.utils.ksp",
-   "module_short": "resolvent4py.utils.ksp",
-   "name": "create_mumps_solver"
+   "module_short": "resolvent4py",
+   "name": "create_direct_solver"
   }
  ]
 }

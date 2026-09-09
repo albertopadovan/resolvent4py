@@ -1,32 +1,44 @@
 __all__ = [
     "MatrixLinearOperator",
+    "IncompressibleNavierStokesLinearOperator",
+    "LerayProjectorLinearOperator",
     "LowRankLinearOperator",
     "LowRankUpdatedLinearOperator",
-    "MatrixExponentialLinearOperator",
+    "PropagatorLinearOperator",
     "ProductLinearOperator",
     "ProjectionLinearOperator",
     "PetscPythonLinearOperator",
     "ShiftAndScaleLinearOperator",
+    "TimePeriodicMatrixLinearOperator",
     "LinearOperator",
 ]
 
+from .incompressible_navier_stokes import (
+    IncompressibleNavierStokesLinearOperator,
+)
+from .leray_projector import LerayProjectorLinearOperator
 from .linear_operator import LinearOperator
 from .low_rank import LowRankLinearOperator
 from .low_rank_updated import LowRankUpdatedLinearOperator
 from .matrix import MatrixLinearOperator
+from .petsc_python import PetscPythonLinearOperator
 from .product import ProductLinearOperator
 from .projection import ProjectionLinearOperator
-from .matrix_exponential import MatrixExponentialLinearOperator
-from .petsc_python import PetscPythonLinearOperator
+from .propagator import PropagatorLinearOperator
 from .shift_and_scale import ShiftAndScaleLinearOperator
+from .time_periodic_matrix import TimePeriodicMatrixLinearOperator
 
 del (
+    incompressible_navier_stokes,
+    leray_projector,
     linear_operator,
     low_rank,
     low_rank_updated,
     matrix,
     product,
-    matrix_exponential,
+    projection,
+    propagator,
     petsc_python,
     shift_and_scale,
+    time_periodic_matrix,
 )

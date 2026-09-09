@@ -1,7 +1,9 @@
 import typing
+
 import numpy as np
-from .linear_operator import LinearOperator
+
 from ..utils.bv import bv_add
+from .linear_operator import LinearOperator
 
 
 class ShiftAndScaleLinearOperator(LinearOperator):
@@ -44,29 +46,44 @@ class ShiftAndScaleLinearOperator(LinearOperator):
             comm, "ShiftAndScaleLinearOperator", dimensions, A.get_nblocks()
         )
 
+    def check_if_real_valued(self) -> bool:
+        r"""Real iff :math:`A` is real **and** both shift and scale are
+        real-valued scalars; otherwise the linear combination
+        :math:`\alpha I + \beta A` maps real inputs to a complex
+        output."""
+        scalars_real = np.imag(self.alpha) == 0.0 and np.imag(self.beta) == 0.0
+        return bool(self.A.get_real_flag() and scalars_real)
+
+    def check_if_complex_conjugate_structure(self) -> bool:
+        r"""Inherit the block-conjugate-symmetry flag from :math:`A` —
+        :math:`\alpha I + \beta A` preserves whatever cc structure
+        :math:`A` has (both :math:`I` and :math:`A` are diagonal /
+        block-Toeplitz in the same basis)."""
+        return self.A.get_block_cc_flag()
+
     def apply(self, x, y=None):
-        y = x.duplicate() if y == None else y
+        y = x.duplicate() if y is None else y
         y = self.A.apply(x, y)
         y.scale(self.beta)
         y.axpy(self.alpha, x)
         return y
 
     def apply_hermitian_transpose(self, x, y=None):
-        y = x.duplicate() if y == None else y
+        y = x.duplicate() if y is None else y
         y = self.A.apply_hermitian_transpose(x, y)
         y.scale(np.conj(self.beta))
         y.axpy(np.conj(self.alpha), x)
         return y
 
     def apply_mat(self, X, Y=None):
-        Y = X.duplicate() if Y == None else Y
+        Y = X.duplicate() if Y is None else Y
         Y = self.A.apply_mat(X, Y)
         Y.scale(self.beta)
         bv_add(self.alpha, Y, X)
         return Y
 
     def apply_hermitian_transpose_mat(self, X, Y=None):
-        Y = X.duplicate() if Y == None else Y
+        Y = X.duplicate() if Y is None else Y
         Y = self.A.apply_hermitian_transpose_mat(X, Y)
         Y.scale(np.conj(self.beta))
         bv_add(np.conj(self.alpha), Y, X)

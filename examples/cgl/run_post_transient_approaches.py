@@ -71,7 +71,7 @@ tf = 2 * np.pi / omega
 v = f.copy()
 v.scale(0)
 sol = res4py.solve_ivp(
-    v, Aop.apply, 0.0, tf, int(tf // dt), periodic_forcing=(FHat, omegas)
+    v, Aop, 0.0, tf, int(tf // dt), periodic_forcing=(FHat, omegas)
 )
 
 
@@ -81,7 +81,7 @@ sol = res4py.solve_ivp(
 # plt.plot(sol_a.imag)
 # plt.show()
 
-Expop = res4py.linear_operators.MatrixExponentialLinearOperator(Aop, tf, dt)
+Expop = res4py.linear_operators.PropagatorLinearOperator(Aop, 0.0, tf, dt)
 linop = res4py.linear_operators.ShiftAndScaleLinearOperator(Expop, 1.0, -1.0)
 L = res4py.linear_operators.PetscPythonLinearOperator.create_shell(linop)
 
@@ -116,7 +116,7 @@ res4py.petscprint(comm, "Solved.")
 
 
 y = res4py.solve_ivp(
-    x, Aop.apply, 0.0, tf, int(tf // dt), periodic_forcing=(FHat, omegas)
+    x, Aop, 0.0, tf, int(tf // dt), periodic_forcing=(FHat, omegas)
 )
 x.axpy(-1.0, y)
 error = x.norm()
@@ -135,7 +135,7 @@ res4py.compute_post_transient_solution(
     Aop,
     Idop,
     Idop,
-    Aop.apply,
+    False,
     tsim,
     nsave,
     200,

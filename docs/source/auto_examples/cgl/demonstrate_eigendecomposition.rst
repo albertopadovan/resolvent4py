@@ -25,7 +25,7 @@ Given the linear dynamics :math:`d_t q = Aq`, we compute the eigenvalues of
 the matrix :math:`A` closest to the origin using the shift-and-invert technique.
 This script demonstrates the following:
 
-- LU decomposition using :func:`~resolvent4py.utils.ksp.create_mumps_solver`
+- LU decomposition using :func:`~resolvent4py.utils.ksp.create_direct_solver`
 - Eigendecomposition using
   :func:`~resolvent4py.linalg.eigendecomposition.eig`
 
@@ -74,8 +74,8 @@ This script demonstrates the following:
     M = res4py.create_AIJ_identity(comm, sizes)
     M.scale(s)
     M.axpy(-1.0, A)
-    ksp = res4py.create_mumps_solver(M)
-    res4py.check_lu_factorization(M, ksp)
+    ksp = res4py.create_direct_solver(M)
+    res4py.check_solver(M, ksp)
     L = res4py.linear_operators.MatrixLinearOperator(M, ksp)
 
     # Compute the eigendecomp.

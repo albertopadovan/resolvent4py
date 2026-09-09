@@ -4,7 +4,7 @@ from .. import pytest_utils
 from resolvent4py.linear_operators import PetscPythonLinearOperator
 
 
-def test_matrix_on_vectors(comm, square_random_matrix):
+def test_petsc_python_on_vectors(comm, square_random_matrix):
     r"""Test PetscPythonLinearOperator on vectors"""
     Apetsc, Apython = square_random_matrix
     linop = res4py.linear_operators.MatrixLinearOperator(Apetsc)
@@ -25,5 +25,6 @@ def test_matrix_on_vectors(comm, square_random_matrix):
     error = np.linalg.norm(error_vec)
     x.destroy()
     y.destroy()
+    Ashell.destroy()
     linop.destroy()
     assert error < 1e-10

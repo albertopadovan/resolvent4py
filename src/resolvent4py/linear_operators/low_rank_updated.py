@@ -61,16 +61,19 @@ class LowRankUpdatedLinearOperator(LinearOperator):
         K: np.ndarray,
         C: SLEPc.BV,
         woodbury_factors: typing.Optional[
-            typing.Union[typing.Tuple[SLEPc.BV, np.ndarray, SLEPc.BV], None]
+            typing.Union[tuple[SLEPc.BV, np.ndarray, SLEPc.BV], None]
         ] = None,
         nblocks: typing.Optional[typing.Union[int, None]] = None,
     ) -> None:
         comm = A.get_comm()
         self.A = A
         self.L = LowRankLinearOperator(B, K, C, nblocks)
+        # Track whether the Woodbury factors X, Y were computed internally
+        # (and are therefore ours to destroy) or supplied by the user.
+        self._woodbury_internal = woodbury_factors is None
         self.W = (
             self.compute_woodbury_operator(nblocks)
-            if woodbury_factors == None
+            if woodbury_factors is None
             else LowRankLinearOperator(*woodbury_factors, nblocks)
         )
         self.create_intermediate_vectors()
@@ -84,7 +87,7 @@ class LowRankUpdatedLinearOperator(LinearOperator):
     ) -> LowRankLinearOperator:
         r"""
         :param nblocks: number of blocks (if the operator has block structure)
-        :type nblocks: Unions[int, None]
+        :type nblocks: Union[int, None]
 
         :return: a :class:`.LowRankLinearOperator` constructed from the
             Woodbury factors :code:`X`, :code:`D` and :code:`Y`
@@ -108,7 +111,7 @@ class LowRankUpdatedLinearOperator(LinearOperator):
             XS.destroy()
             M.destroy()
             S.destroy()
-        except:
+        except Exception:
             W = None
         return W
 
@@ -117,6 +120,28 @@ class LowRankUpdatedLinearOperator(LinearOperator):
     ) -> None:
         self.Ax = self.A.create_left_vector()
         self.ATx = self.A.create_right_vector()
+        self._cached_Z = None
+        self._cached_Z_ht = None
+
+    def _get_intermediate_bv(
+        self: "LowRankUpdatedLinearOperator", m: int
+    ) -> SLEPc.BV:
+        if self._cached_Z is None or self._cached_Z.getSizes()[-1] != m:
+            if self._cached_Z is not None:
+                self._cached_Z.destroy()
+            self._cached_Z = self.create_intermediate_bv(m)
+        return self._cached_Z
+
+    def _get_intermediate_bv_hermitian_transpose(
+        self: "LowRankUpdatedLinearOperator", m: int
+    ) -> SLEPc.BV:
+        if self._cached_Z_ht is None or self._cached_Z_ht.getSizes()[-1] != m:
+            if self._cached_Z_ht is not None:
+                self._cached_Z_ht.destroy()
+            self._cached_Z_ht = (
+                self.create_intermediate_bv_hermitian_transpose(m)
+            )
+        return self._cached_Z_ht
 
     def create_intermediate_bv(
         self: "LowRankUpdatedLinearOperator", m: int
@@ -175,27 +200,19 @@ class LowRankUpdatedLinearOperator(LinearOperator):
         return y
 
     def apply_mat(self, X, Y=None, Z=None):
-        destroy = False
-        if Z == None:
-            destroy = True
-            Z = self.create_intermediate_bv(X.getSizes()[-1])
+        if Z is None:
+            Z = self._get_intermediate_bv(X.getSizes()[-1])
         Z = self.A.apply_mat(X, Z)
         Y = self.L.apply_mat(X, Y)
         bv_add(1.0, Y, Z)
-        Z.destroy() if destroy else None
         return Y
 
     def apply_hermitian_transpose_mat(self, X, Y=None, Z=None):
-        destroy = False
-        if Z == None:
-            destroy = True
-            Z = self.create_intermediate_bv_hermitian_transpose(
-                X.getSizes()[-1]
-            )
+        if Z is None:
+            Z = self._get_intermediate_bv_hermitian_transpose(X.getSizes()[-1])
         Z = self.A.apply_hermitian_transpose_mat(X, Z)
         Y = self.L.apply_hermitian_transpose_mat(X, Y)
         bv_add(1.0, Y, Z)
-        Z.destroy() if destroy else None
         return Y
 
     def solve(self, x, y=None):
@@ -213,46 +230,39 @@ class LowRankUpdatedLinearOperator(LinearOperator):
         return y
 
     def solve_mat(self, X, Y=None, Z=None):
-        destroy = False
-        if Z == None:
-            destroy = True
-            Z = self.create_intermediate_bv(X.getSizes()[-1])
+        if Z is None:
+            Z = self._get_intermediate_bv(X.getSizes()[-1])
         Z = self.A.solve_mat(X, Z)
         Y = self.W.apply_mat(X, Y)
         Y.scale(-1.0)
         bv_add(1.0, Y, Z)
-        Z.destroy() if destroy else None
         return Y
 
     def solve_hermitian_transpose_mat(self, X, Y=None, Z=None):
-        destroy = False
-        if Z == None:
-            destroy = True
-            Z = self.create_intermediate_bv_hermitian_transpose(
-                X.getSizes()[-1]
-            )
+        if Z is None:
+            Z = self._get_intermediate_bv_hermitian_transpose(X.getSizes()[-1])
         Z = self.A.solve_hermitian_transpose_mat(X, Z)
         Y = self.W.apply_hermitian_transpose_mat(X, Y)
         Y.scale(-1.0)
         bv_add(1.0, Y, Z)
-        Z.destroy() if destroy else None
         return Y
-
-    def destroy_woodbury_operator(
-        self: "LowRankUpdatedLinearOperator",
-    ) -> None:
-        self.W.destroy() if self.W is not None else None
-
-    def destroy_low_rank_update(self: "LowRankUpdatedLinearOperator") -> None:
-        self.L.destroy()
 
     def destroy_intermediate_vectors(
         self: "LowRankUpdatedLinearOperator",
     ) -> None:
         self.Ax.destroy()
         self.ATx.destroy()
+        if self._cached_Z is not None:
+            self._cached_Z.destroy()
+        if self._cached_Z_ht is not None:
+            self._cached_Z_ht.destroy()
 
     def destroy(self):
+        # The intermediate work vectors are created internally. self.A and the
+        # low-rank factors B, K, C (wrapped in self.L) are user-supplied, so we
+        # leave them to the caller. The Woodbury factors X, Y (inside self.W)
+        # are ours to destroy only when we computed them.
         self.destroy_intermediate_vectors()
-        self.destroy_woodbury_operator()
-        self.destroy_low_rank_update()
+        if self._woodbury_internal and self.W is not None:
+            self.W.U.destroy()
+            self.W.V.destroy()

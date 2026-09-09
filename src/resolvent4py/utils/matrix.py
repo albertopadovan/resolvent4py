@@ -11,23 +11,16 @@ __all__ = [
     "hermitian_transpose",
     "convert_coo_to_csr",
     "assemble_harmonic_resolvent_generator",
+    "extract_matrix_block",
+    "extract_block_banded",
+    "assemble_matrix_from_coo",
 ]
-
-
-def show_type(np_type):
-    mpi_t = get_mpi_type(np.dtype(np_type))
-    print(
-        f"[Rank {MPI.COMM_WORLD.Get_rank()}] {np_type} "
-        f"→ MPI {mpi_t.Get_name()} (size {mpi_t.Get_size()} bytes)"
-    )
-
 
 import numpy as np
 from mpi4py import MPI
 from petsc4py import PETSc
 from typing import Optional
 
-from .miscellaneous import get_mpi_type, petscprint
 from .vector import array_from_petsc_vector
 
 
@@ -265,7 +258,7 @@ def mat_solve_hermitian_transpose(
     """
     sizes = X.getSizes()
     Yarray = np.zeros((sizes[0][0], sizes[-1][-1]), dtype=np.complex128)
-    Y = X.duplicate() if Y == None else Y
+    Y = X.duplicate() if Y is None else Y
     y = X.createVecLeft()
     for i in range(X.getSizes()[-1][-1]):
         x = X.getColumnVector(i)
@@ -295,12 +288,17 @@ def hermitian_transpose(
     :param in_place: in-place transposition if :code:`True` and
         out of place otherwise
     :type in_place: Optional[bool] defaults to :code:`False`
-    :param MatHT: [optional] matrix with the correct layout to hold the
-        hermitian transpose of :code:`Mat`
-    :param MatHT: Optional[PETSc.Mat] defaults to :code:`None`
+    :param MatHT: matrix with the correct layout to hold the
+        hermitian transpose of :code:`Mat` (out-of-place only; allocated
+        internally when :code:`None`)
+    :type MatHT: Optional[PETSc.Mat] defaults to :code:`None`
+
+    :return: :math:`\text{Mat}^{*}` (a new matrix, or :code:`MatHT`, or the
+        in-place transposed :code:`Mat`)
+    :rtype: PETSc.Mat
     """
-    if in_place == False:
-        if MatHT == None:
+    if not in_place:
+        if MatHT is None:
             sizes = Mat.getSizes()
             MatHT = PETSc.Mat().create(comm=Mat.getComm())
             MatHT.setType(Mat.getType())
@@ -324,6 +322,10 @@ def convert_coo_to_csr(
     (Petsc4py currently does not support COO matrix assembly, hence the need
     to convert.)
 
+    Uses Alltoall for counts and pairwise Sendrecv for data, which avoids
+    MPI request exhaustion and tag overflow on large machines while keeping
+    memory usage bounded.
+
     :param arrays: a list of numpy arrays (e.g., arrays = [rows,cols,vals])
     :type array: tuple[np.array, np.array, np.array]
     :param sizes: see `MatSizeSpec <MatSizeSpec_>`_
@@ -337,7 +339,6 @@ def convert_coo_to_csr(
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     pool_size = comm.Get_size()
-    pool = np.arange(pool_size)
     rows, cols, vals = arrays
     idces = np.argsort(rows).reshape(-1)
     # Make sure the arrays have the correct data types (save for MPI comms)
@@ -352,71 +353,62 @@ def convert_coo_to_csr(
         comm.allgather(sizes[0][0]), dtype=PETSc.IntType
     )
     mat_row_displ = np.concatenate(([0], np.cumsum(mat_row_sizes_local[:-1])))
-    ownership_ranges = np.zeros((comm.Get_size(), 2), dtype=PETSc.IntType)
+    ownership_ranges = np.zeros((pool_size, 2), dtype=PETSc.IntType)
     ownership_ranges[:, 0] = mat_row_displ
     ownership_ranges[:-1, 1] = ownership_ranges[1:, 0]
     ownership_ranges[-1, 1] = sizes[0][-1]
 
-    # Each processor (ID rank) computes how many which rows, cols, data
-    # need to be sent to every other processor in the pool. The number of
-    # rows, cols, data values is store in the 'lengths' list
-    send_rows = []
-    send_cols = []
-    send_vals = []
-    send_lengths = []
-    for i in pool:
-        idces = np.argwhere(
-            (rows >= ownership_ranges[i, 0]) & (rows < ownership_ranges[i, 1])
-        ).reshape(-1)
-        send_lengths.append(np.asarray([len(idces)], dtype=PETSc.IntType))
-        send_rows.append(rows[idces])
-        send_cols.append(cols[idces])
-        send_vals.append(vals[idces])
+    # Determine which rank owns each row and partition entries by destination
+    dest = np.searchsorted(mat_row_displ, rows, side="right") - 1
+    send_counts = np.bincount(dest, minlength=pool_size).astype(PETSc.IntType)
 
-    recv_bufs = [np.empty(1, dtype=PETSc.IntType) for _ in pool]
-    recv_reqs = [comm.Irecv(bf, source=i) for (bf, i) in zip(recv_bufs, pool)]
-    send_reqs = [comm.Isend(sz, dest=i) for (i, sz) in enumerate(send_lengths)]
-    MPI.Request.waitall(send_reqs + recv_reqs)
-    recv_lengths = [buf[0] for buf in recv_bufs]
+    # Sort entries by destination rank for contiguous per-rank slicing
+    sort_idx = np.argsort(dest, kind="stable")
+    rows = np.ascontiguousarray(rows[sort_idx])
+    cols = np.ascontiguousarray(cols[sort_idx])
+    vals = np.ascontiguousarray(vals[sort_idx])
+    send_displs = np.concatenate(([0], np.cumsum(send_counts[:-1])))
 
-    comm.Barrier()  # Sync processors after non-blocking send/recv for safety
+    # Exchange counts via Alltoall (O(P) integers, negligible memory)
+    recv_counts = np.empty(pool_size, dtype=PETSc.IntType)
+    comm.Alltoall(send_counts, recv_counts)
 
-    dtypes = [PETSc.IntType, PETSc.IntType, PETSc.ScalarType]
-    my_arrays = []
-    for j, array in enumerate([send_rows, send_cols, send_vals]):
-        dtype = dtypes[j]
-        mpi_type = get_mpi_type(np.dtype(dtype))
-        recv_bufs = [
-            [np.empty(recv_lengths[i], dtype=dtype), mpi_type] for i in pool
-        ]
-        recv_reqs = [
-            comm.Irecv(
-                bf, source=i, tag=rank * pool_size + i + j * pool_size**2
-            )
-            for (bf, i) in zip(recv_bufs, pool)
-        ]
-        send_reqs = [
-            comm.Isend(
-                array[i], dest=i, tag=rank + i * pool_size + j * pool_size**2
-            )
-            for i in pool
-        ]
-        MPI.Request.waitall(send_reqs + recv_reqs)
-        my_arrays.append([recv_bufs[i][0] for i in pool])
-        comm.Barrier()  # Sync processors after non-blocking send/recv for safety
+    # Exchange data via pairwise Sendrecv (1 send + 1 recv at a time,
+    # no tag management, deadlock-free)
+    total_recv = int(recv_counts.sum())
+    my_rows = np.empty(total_recv, dtype=PETSc.IntType)
+    my_cols = np.empty(total_recv, dtype=PETSc.IntType)
+    my_vals = np.empty(total_recv, dtype=PETSc.ScalarType)
+    recv_displs = np.concatenate(([0], np.cumsum(recv_counts[:-1])))
 
-    my_rows, my_cols, my_vals = [], [], []
-    for i in pool:
-        my_rows.extend(my_arrays[0][i])
-        my_cols.extend(my_arrays[1][i])
-        my_vals.extend(my_arrays[2][i])
+    for k in range(pool_size):
+        send_to = (rank + k) % pool_size
+        recv_from = (rank - k) % pool_size
+        s0 = int(send_displs[send_to])
+        sn = int(send_counts[send_to])
+        r0 = int(recv_displs[recv_from])
+        rn = int(recv_counts[recv_from])
+        comm.Sendrecv(
+            rows[s0 : s0 + sn],
+            dest=send_to,
+            recvbuf=my_rows[r0 : r0 + rn],
+            source=recv_from,
+        )
+        comm.Sendrecv(
+            cols[s0 : s0 + sn],
+            dest=send_to,
+            recvbuf=my_cols[r0 : r0 + rn],
+            source=recv_from,
+        )
+        comm.Sendrecv(
+            vals[s0 : s0 + sn],
+            dest=send_to,
+            recvbuf=my_vals[r0 : r0 + rn],
+            source=recv_from,
+        )
 
-    my_rows = (
-        np.asarray(my_rows, dtype=PETSc.IntType) - ownership_ranges[rank, 0]
-    )
-    my_cols = np.asarray(my_cols, dtype=PETSc.IntType)
-    my_vals = np.asarray(my_vals, dtype=PETSc.ScalarType)
-
+    # Convert to local row indices and sort by row for CSR
+    my_rows = my_rows - ownership_ranges[rank, 0]
     idces = np.argsort(my_rows).reshape(-1)
     my_rows = my_rows[idces]
     my_cols = my_cols[idces]
@@ -468,7 +460,7 @@ def assemble_harmonic_resolvent_generator(
     omId.setPreallocationCSR((rows_ptr, cols))
     omId.setValuesCSR(rows_ptr, cols, vals, True)
     omId.assemble(False)
-    if M == None:
+    if M is None:
         omId.axpy(1.0, A)
         return omId
     else:
@@ -476,3 +468,210 @@ def assemble_harmonic_resolvent_generator(
         Mat.axpy(1.0, A)
         omId.destroy()
         return Mat
+
+
+def assemble_matrix_from_coo(comm, coo_arrays, mat_sizes):
+    r"""
+    Assemble a PETSc AIJ sparse matrix from COO arrays via CSR conversion.
+
+    :param comm: MPI communicator
+    :type comm: PETSc.Comm
+    :param coo_arrays: ``[rows, cols, vals]`` in COO format (only populated
+        on rank 0; ``None`` on other ranks)
+    :type coo_arrays: list
+    :param mat_sizes: PETSc size spec
+        ``((local_rows, global_rows), (local_cols, global_cols))``
+    :type mat_sizes: tuple
+
+    :return: assembled PETSc sparse matrix
+    :rtype: PETSc.Mat
+    """
+    from .comms import scatter_array_from_root_to_all
+
+    rows_coo, cols_coo, data_coo = coo_arrays
+    rows = scatter_array_from_root_to_all(rows_coo)
+    cols = scatter_array_from_root_to_all(cols_coo)
+    data = scatter_array_from_root_to_all(data_coo)
+    rows_ptr, cols, vals = convert_coo_to_csr([rows, cols, data], mat_sizes)
+
+    M = PETSc.Mat().createAIJ(mat_sizes, comm=comm)
+    M.setPreallocationCSR((rows_ptr, cols))
+    M.setValuesCSR(rows_ptr, cols, vals, True)
+    M.assemble()
+
+    return M
+
+
+def extract_matrix_block(
+    Mat: PETSc.Mat, nblocks: int, rowblock: int, colblock: int
+) -> PETSc.Mat:
+    r"""
+    Extract a single :math:`N \times N` block from a block-structured
+    :math:`nN \times nN` PETSc matrix, where the block at position
+    ``(rowblock, colblock)`` occupies rows
+    ``rowblock*N .. (rowblock+1)*N - 1`` and columns
+    ``colblock*N .. (colblock+1)*N - 1``.
+
+    The extraction is done via two selector multiplications:
+
+    .. math::
+
+        \text{block} = \hat{I}_r^T \; \text{Mat} \; \hat{I}_c
+
+    where :math:`\hat{I}_r` and :math:`\hat{I}_c` are :math:`nN \times N`
+    matrices with :math:`I_N` at the appropriate block-row.
+
+    :param Mat: assembled :math:`nN \times nN` PETSc sparse matrix
+    :type Mat: PETSc.Mat
+    :param nblocks: number of blocks along each dimension
+    :type nblocks: int
+    :param rowblock: 0-based row-block index
+    :type rowblock: int
+    :param colblock: 0-based column-block index
+    :type colblock: int
+
+    :return: the extracted :math:`N \times N` PETSc sparse matrix
+    :rtype: PETSc.Mat
+    """
+    from .comms import compute_local_size
+
+    comm = Mat.getComm()
+    size = Mat.getSizes()[0]
+    N = size[-1] // nblocks
+
+    # Build selector for the column block: Ic is nN x N with I_N at colblock
+    rows_coo, cols_coo, data_coo = None, None, None
+    if comm.getRank() == 0:
+        data_coo = np.ones(N, dtype=PETSc.ScalarType)
+        cols_coo = np.arange(N, dtype=PETSc.IntType)
+        rows_coo = cols_coo + colblock * N
+
+    mat_sizes_sel = (size, (compute_local_size(N), N))
+    Ic = assemble_matrix_from_coo(
+        comm, [rows_coo, cols_coo, data_coo], mat_sizes_sel
+    )
+
+    # Mat @ Ic gives nN x N (the colblock-th block-column)
+    MatIc = Mat.matMult(Ic)
+    Ic.destroy()
+
+    # Build selector for the row block: Ir is nN x N with I_N at rowblock
+    rows_coo, cols_coo, data_coo = None, None, None
+    if comm.getRank() == 0:
+        data_coo = np.ones(N, dtype=PETSc.ScalarType)
+        cols_coo = np.arange(N, dtype=PETSc.IntType)
+        rows_coo = cols_coo + rowblock * N
+
+    Ir = assemble_matrix_from_coo(
+        comm, [rows_coo, cols_coo, data_coo], mat_sizes_sel
+    )
+
+    # Ir^H @ MatIc = (N x nN) @ (nN x N) = N x N block
+    Ir.hermitianTranspose()
+    block = Ir.matMult(MatIc)
+    Ir.destroy()
+    MatIc.destroy()
+
+    return block
+
+
+def extract_block_banded(
+    Mat: PETSc.Mat, nblocks: int, n_off_diags: int = 0
+) -> PETSc.Mat:
+    r"""
+    Extract the block-banded part of a block-structured
+    :math:`nN \times nN` PETSc matrix and assemble it as a new
+    :math:`nN \times nN` sparse matrix.  Every block :math:`(i, j)`
+    with :math:`|i - j| \le k` is retained, where
+    :math:`k = ` ``n_off_diags``:
+
+    * ``n_off_diags = 0`` → block-diagonal,
+    * ``n_off_diags = 1`` → block-tridiagonal,
+    * ``n_off_diags = 2`` → block-pentadiagonal, etc.
+
+    Uses the identity
+
+    .. math::
+
+        B = \sum_{|i - j| \le k} E_i \, A \, E_j,
+
+    where :math:`E_k` is the :math:`nN \times nN` block projector with
+    :math:`I_N` in the :math:`(k, k)` block position and zeros
+    elsewhere, so that :math:`E_i A E_j` isolates the :math:`(i, j)`
+    block of :math:`A` in place.
+
+    :param Mat: assembled :math:`nN \times nN` PETSc sparse matrix
+    :type Mat: PETSc.Mat
+    :param nblocks: number of blocks along each dimension
+    :type nblocks: int
+    :param n_off_diags: number of block off-diagonals to keep on each
+        side of the main block-diagonal (default 0, i.e. block-diagonal)
+    :type n_off_diags: int
+
+    :return: the block-banded :math:`nN \times nN` PETSc sparse matrix
+    :rtype: PETSc.Mat
+    """
+    if n_off_diags < 0:
+        raise ValueError(f"n_off_diags must be >= 0; got {n_off_diags}.")
+
+    comm = Mat.getComm()
+    size = Mat.getSizes()[0]
+    nN = size[-1]
+    N = nN // nblocks
+    # Use Mat's own local row count so the Es projectors share its parallel
+    # layout — necessary because Mat.matMult requires the operands to have
+    # matching local row/col partitions (block-aligned, default, etc.).
+    Nl = size[0]
+
+    mat_sizes = ((Nl, nN), (Nl, nN))
+
+    # Build the block projectors E_0, ..., E_{nblocks-1} once and reuse
+    # them across the diagonal and off-diagonal accumulations.
+    Es = []
+    for k in range(nblocks):
+        rows_coo, cols_coo, vals_coo = None, None, None
+        if comm.getRank() == 0:
+            rows_coo = np.arange(k * N, (k + 1) * N, dtype=PETSc.IntType)
+            cols_coo = rows_coo.copy()
+            vals_coo = np.ones(N, dtype=PETSc.ScalarType)
+        Es.append(
+            assemble_matrix_from_coo(
+                comm, [rows_coo, cols_coo, vals_coo], mat_sizes
+            )
+        )
+
+    # (row-block, col-block) pairs within the requested bandwidth
+    pairs = [
+        (i, j)
+        for i in range(nblocks)
+        for j in range(nblocks)
+        if abs(i - j) <= n_off_diags
+    ]
+
+    B = None
+    for i, j in pairs:
+        tmp = Mat.matMult(Es[j])  # Mat @ E_j  → keeps col-block j
+        blk = Es[i].matMult(tmp)  # E_i @ Mat @ E_j  → block (i, j)
+        tmp.destroy()
+        if B is None:
+            B = blk
+        else:
+            B.axpy(1.0, blk)
+            blk.destroy()
+
+    for Ek in Es:
+        Ek.destroy()
+
+    # Drop explicit zeros from the CSR: each E_i @ Mat @ E_j triple product
+    # can leave structurally-allocated entries that happen to be numerically
+    # zero (and the axpy union preserves them), and downstream consumers like
+    # MUMPS' distributed-input ingestion choke on the resulting padded j[]
+    # arrays.  IGNORE_ZERO_ENTRIES + a re-assemble compress the pattern.
+    B.assemble()
+    B.setOption(PETSc.Mat.Option.IGNORE_ZERO_ENTRIES, True)
+    try:
+        B.eliminateZeros()
+    except AttributeError:
+        pass
+
+    return B

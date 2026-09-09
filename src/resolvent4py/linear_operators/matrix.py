@@ -36,6 +36,8 @@ class MatrixLinearOperator(LinearOperator):
         real_valued: typing.Optional[typing.Union[bool, None]] = None,
     ) -> None:
         self.A = A
+        self.Ah = A.copy()
+        self.Ah.hermitianTranspose()
         self.ksp = ksp
         self.real_valued = real_valued
         super().__init__(A.getComm(), "MatrixLinearOperator", A.getSizes(), nblocks)
@@ -46,13 +48,13 @@ class MatrixLinearOperator(LinearOperator):
         return super().check_if_real_valued()
 
     def apply(self, x, y=None):
-        y = self.create_left_vector() if y == None else y
+        y = self.create_left_vector() if y is None else y
         self.A.mult(x, y)
         return y
 
     def apply_mat(self, X, Y=None):
         Xm = X.getMat()
-        if Y != None:
+        if Y is not None:
             Ym = Y.getMat()
             Ym = self.A.matMult(Xm, Ym)
             Y.restoreMat(Ym)
@@ -65,29 +67,27 @@ class MatrixLinearOperator(LinearOperator):
         return Y
 
     def apply_hermitian_transpose(self, x, y=None):
-        y = self.create_right_vector() if y == None else y
+        y = self.create_right_vector() if y is None else y
         self.A.multHermitian(x, y)
         return y
 
     def apply_hermitian_transpose_mat(self, X, Y=None):
-        self.A.hermitianTranspose()
         Xm = X.getMat()
-        if Y != None:
+        if Y is not None:
             Ym = Y.getMat()
-            Ym = self.A.matMult(Xm, Ym)
+            Ym = self.Ah.matMult(Xm, Ym)
             Y.restoreMat(Ym)
         else:
             Y = self.create_right_bv(X.getSizes()[-1])
             Ym = Y.getMat()
-            Ym = self.A.matMult(Xm, Ym)
+            Ym = self.Ah.matMult(Xm, Ym)
             Y.restoreMat(Ym)
         X.restoreMat(Xm)
-        self.A.hermitianTranspose()
         return Y
 
     def solve(self, x, y=None):
-        if self.ksp != None:
-            y = self.create_right_vector() if y == None else y
+        if self.ksp is not None:
+            y = self.create_left_vector() if y is None else y
             self.ksp.solve(x, y)
             return y
         else:
@@ -98,9 +98,9 @@ class MatrixLinearOperator(LinearOperator):
             )
 
     def solve_mat(self, X, Y=None):
-        if self.ksp != None:
+        if self.ksp is not None:
             Xm = X.getMat()
-            if Y != None:
+            if Y is not None:
                 Ym = Y.getMat()
                 self.ksp.matSolve(Xm, Ym)
                 Y.restoreMat(Ym)
@@ -120,8 +120,8 @@ class MatrixLinearOperator(LinearOperator):
             )
 
     def solve_hermitian_transpose(self, x, y=None):
-        if self.ksp != None:
-            y = self.create_left_vector() if y == None else y
+        if self.ksp is not None:
+            y = self.create_right_vector() if y is None else y
             x.conjugate()
             self.ksp.solveTranspose(x, y)
             x.conjugate()
@@ -135,9 +135,9 @@ class MatrixLinearOperator(LinearOperator):
             )
 
     def solve_hermitian_transpose_mat(self, X, Y=None):
-        if self.ksp != None:
+        if self.ksp is not None:
             Xm = X.getMat()
-            if Y != None:
+            if Y is not None:
                 Ym = Y.getMat()
                 Ym = mat_solve_hermitian_transpose(self.ksp, Xm, Ym)
                 Y.restoreMat(Ym)
@@ -156,12 +156,8 @@ class MatrixLinearOperator(LinearOperator):
                 f"the solve() method."
             )
 
-    def destroy_matrix(self: "MatrixLinearOperator"):
-        self.A.destroy()
-
-    def destroy_ksp(self: "MatrixLinearOperator"):
-        self.ksp.destroy() if self.ksp is not None else None
-
     def destroy(self):
-        self.destroy_matrix()
-        self.destroy_ksp()
+        # self.A and self.ksp are user-supplied (passed to __init__), so the
+        # caller owns them. Only self.Ah (the Hermitian transpose built
+        # internally) is destroyed here.
+        self.Ah.destroy()

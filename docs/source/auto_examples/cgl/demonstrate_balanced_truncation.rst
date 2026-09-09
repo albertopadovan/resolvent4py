@@ -34,7 +34,7 @@ with the input and output matrices :math:`B` and :math:`C` defined as in
 :cite:`Ilak2010model`, we perform balanced truncation in the frequency domain
 using the algorithm presented in :cite:`dergham2011`.
 
-- LU decomposition using :func:`~resolvent4py.utils.ksp.create_mumps_solver`
+- LU decomposition using :func:`~resolvent4py.utils.ksp.create_direct_solver`
 - Balanced truncation in the frequency domain using 
   :func:`~resolvent4py.model_reduction.balanced_truncation`
 
@@ -64,7 +64,7 @@ using the algorithm presented in :cite:`dergham2011`.
         Rinv = res4py.create_AIJ_identity(comm, A.getSizes())
         Rinv.scale(1j * omega)
         Rinv.axpy(-1.0, A)
-        ksp = res4py.create_mumps_solver(Rinv)
+        ksp = res4py.create_direct_solver(Rinv)
         L = res4py.linear_operators.MatrixLinearOperator(Rinv, ksp)
         return (L, L.solve_mat, (L.destroy,))
 

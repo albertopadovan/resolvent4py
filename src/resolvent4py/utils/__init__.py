@@ -6,8 +6,8 @@ from .ksp import *
 from .matrix import *
 from .miscellaneous import *
 from .random import *
-from .vector import *
 from .time_stepping import *
+from .vector import *
 
 del (
     bv,

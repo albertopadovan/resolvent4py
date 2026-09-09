@@ -36,7 +36,7 @@ def petscprint(comm: PETSc.Comm, arg: any) -> None:
     :param comm: MPI communicator (PETSc.COMM_WORLD or PETSc.COMM_SELF)
     :type comm: PETSc.Comm
     :param arg: argument to be fed into print()
-    :type arg: any
+    :type arg: Any
     """
     if comm == PETSc.COMM_SELF or comm == MPI.COMM_SELF:
         print(arg)
@@ -47,9 +47,14 @@ def petscprint(comm: PETSc.Comm, arg: any) -> None:
 
 def get_memory_usage(comm: PETSc.Comm) -> float:
     r"""
-    Compute the used memory (in Mb) across the MPI pool
+    Compute the used memory (in MB) across the MPI pool.
 
+    :param comm: MPI communicator.  When equal to :code:`PETSc.COMM_WORLD`
+        the returned value is the sum across all ranks; otherwise it is
+        the memory used on the calling rank only
     :type comm: PETSc.Comm
+
+    :return: memory usage in megabytes
     :rtype: float
     """
     comm = comm.tompi4py()

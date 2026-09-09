@@ -26,9 +26,9 @@ Low-Rank-Updated Linear Operator
    :members:
    :show-inheritance:
 
-Matrix Exponential Linear Operator
+Propagator Linear Operator
 ----------------------------------
-.. automodule:: resolvent4py.linear_operators.matrix_exponential
+.. automodule:: resolvent4py.linear_operators.propagator
    :members:
    :show-inheritance:
 
@@ -44,8 +44,32 @@ Projection Linear Operator
    :members:
    :show-inheritance:
 
+Leray Projector Linear Operator
+-------------------------------
+.. automodule:: resolvent4py.linear_operators.leray_projector
+   :members:
+   :show-inheritance:
+
+Incompressible Navier-Stokes Linear Operator
+--------------------------------------------
+.. automodule:: resolvent4py.linear_operators.incompressible_navier_stokes
+   :members:
+   :show-inheritance:
+
 Petsc/Python Linear Operator
 ----------------------------
 .. automodule:: resolvent4py.linear_operators.petsc_python
+   :members:
+   :show-inheritance:
+
+Shift and Scale Linear Operator
+-------------------------------
+.. automodule:: resolvent4py.linear_operators.shift_and_scale
+   :members:
+   :show-inheritance:
+
+Time-Periodic Matrix Linear Operator
+-------------------------------------
+.. automodule:: resolvent4py.linear_operators.time_periodic_matrix
    :members:
    :show-inheritance:

@@ -22,39 +22,35 @@ def randomized_svd(
     n_rand: int,
     n_loops: int,
     n_svals: int,
-    verbose: typing.Optional[int] = 0,
-) -> typing.Tuple[SLEPc.BV, np.ndarray, SLEPc.BV]:
+    verbose: int = 0,
+) -> tuple[SLEPc.BV, np.ndarray, SLEPc.BV]:
     r"""
-    Compute the singular value decomposition (SVD) of the linear operator
-    specified by :code:`L` and :code:`action` using a randomized SVD algorithm.
-    (See [Halko2011]_.)
+    Compute the SVD of the linear operator specified by :code:`L` and
+    :code:`action` using a randomized algorithm (see [Halko2011]_).
     For example, with :code:`L.solve_mat` we compute
 
     .. math::
 
         L^{-1} = U \Sigma V^*.
 
-
-    :param L: instance of the :class:`.LinearOperator` class
+    :param L: linear operator
     :type L: :class:`.LinearOperator`
     :param action: one of :meth:`.LinearOperator.apply_mat` or
         :meth:`.LinearOperator.solve_mat`
     :type action: Callable[[SLEPc.BV, SLEPc.BV], SLEPc.BV]
     :param n_rand: number of random vectors
     :type n_rand: int
-    :param n_loops: number of randomized svd power iterations
-        (see [Ribeiro2020]_ for additional details on this parameter)
+    :param n_loops: number of power iterations
+        (see [Ribeiro2020]_ for details)
     :type n_loops: int
     :param n_svals: number of singular triplets to return
     :type n_svals: int
-    :param verbose: defines verbosity of output to terminal (useful to
-        monitor progress during time stepping). = 0 no printout to terminal,
-        = 1 monitor randomized SVD iterations.
-    :type verbose: Optional[int], default is 0
+    :param verbose: 0 = no output, 1 = print progress
+    :type verbose: int, default is 0
 
-    :return: leading :code:`n_svals` left singular vectors,
-        singular values and right singular vectors
-    :rtype: Tuple[SLEPc.BV, np.ndarray, SLEPc.BV]
+    :return: left singular vectors, singular values (diagonal matrix),
+        and right singular vectors
+    :rtype: (SLEPc.BV, numpy.ndarray, SLEPc.BV)
 
     References
     ----------
@@ -66,7 +62,7 @@ def randomized_svd(
     """
     comm = L.get_comm()
     if action != L.apply_mat and action != L.solve_mat:
-        raise ValueError(f"action must be L.apply_mat or L.solve_mat.")
+        raise ValueError("action must be L.apply_mat or L.solve_mat.")
     action_adj = (
         L.apply_hermitian_transpose_mat
         if action == L.apply_mat
@@ -93,7 +89,7 @@ def randomized_svd(
             xj.setValues(rows, xj.getArray().real)
             xj.assemble()
         if L.get_block_cc_flag():
-            enforce_complex_conjugacy(comm, xj, L.get_nblocks())
+            enforce_complex_conjugacy(xj, L.get_nblocks())
         X.restoreColumn(j, xj)
     X.orthogonalize(None)
     # Perform randomized SVD loop
@@ -109,27 +105,25 @@ def randomized_svd(
     R = create_dense_matrix(PETSc.COMM_SELF, (n_rand, n_rand))
     for j in range(n_loops):
         if verbose == 1:
-            str = "Loop %d/%d, forward action" % (j + 1, n_loops)
-            petscprint(comm, str)
+            petscprint(comm, f"Loop {j + 1}/{n_loops}, forward action")
         Qfwd = action(Qadj, Qfwd)
         Qfwd.orthogonalize(None)
         if verbose == 1:
-            str = "Loop %d/%d, adjoint action" % (j + 1, n_loops)
-            petscprint(comm, str)
+            petscprint(comm, f"Loop {j + 1}/{n_loops}, adjoint action")
         Qadj = action_adj(Qfwd, Qadj)
         Qadj.orthogonalize(R)
     # Compute low-rank SVD
-    u, s, v = sp.linalg.svd(R.getDenseArray())
+    u_data, s, v_data = sp.linalg.svd(R.getDenseArray())
     R.destroy()
-    v = v.conj().T
+    v_data = v_data.conj().T
     s = s[:n_svals]
-    u = u[:, :n_svals]
-    v = v[:, :n_svals]
+    u_data = u_data[:, :n_svals]
+    v_data = v_data[:, :n_svals]
     u = PETSc.Mat().createDense(
-        (n_rand, n_svals), None, u, comm=PETSc.COMM_SELF
+        (n_rand, n_svals), None, u_data, comm=PETSc.COMM_SELF
     )
     v = PETSc.Mat().createDense(
-        (n_rand, n_svals), None, v, comm=PETSc.COMM_SELF
+        (n_rand, n_svals), None, v_data, comm=PETSc.COMM_SELF
     )
     Qfwd.multInPlace(v, 0, n_svals)
     Qfwd.setActiveColumns(0, n_svals)
@@ -147,25 +141,27 @@ def check_randomized_svd_convergence(
     U: SLEPc.BV,
     S: np.ndarray,
     V: SLEPc.BV,
-    monitor: typing.Optional[bool] = False,
-) -> np.array:
+    monitor: bool = False,
+) -> np.ndarray:
     r"""
-    Check the convergence of the singular value triplets by measuring
-    :math:`\lVert Av/\sigma - u\rVert` for every triplet :math:`(u, \sigma, v)`.
+    Check convergence of singular triplets by computing
+    :math:`\lVert Av/\sigma - u\rVert` for each triplet
+    :math:`(u, \sigma, v)`.
 
     :param action: one of :meth:`.LinearOperator.apply` or
         :meth:`.LinearOperator.solve`
     :type action: Callable[[PETSc.Vec, PETSc.Vec], PETSc.Vec]
     :param U: left singular vectors
     :type U: SLEPc.BV
-    :param D: diagonal 2D numpy array with the singular values
-    :type D: numpy.ndarray
+    :param S: singular values as a diagonal matrix
+    :type S: numpy.ndarray
     :param V: right singular vectors
     :type V: SLEPc.BV
+    :param monitor: print per-triplet errors if True
+    :type monitor: bool, default is False
 
-    :return: Error vector (each entry is the error of the corresponding
-        singular triplet)
-    :rtype: np.array
+    :return: error for each singular triplet
+    :rtype: numpy.ndarray
     """
     if monitor:
         petscprint(PETSc.COMM_WORLD, " ")
@@ -184,13 +180,16 @@ def check_randomized_svd_convergence(
         error = x.norm()
         error_vec[k] = error.real
         if monitor:
-            str = "Error for SVD triplet %d = %1.15e" % (k + 1, error)
-            petscprint(PETSc.COMM_WORLD, str)
+            petscprint(
+                PETSc.COMM_WORLD,
+                f"Error for SVD triplet {k + 1} = {error.real:1.15e}",
+            )
         U.restoreColumn(k, u)
         V.restoreColumn(k, v)
     x.destroy()
     if monitor:
         petscprint(
-            PETSc.COMM_WORLD, "Executing SVD triplet convergence check..."
+            PETSc.COMM_WORLD, "Done executing SVD triplet convergence check."
         )
         petscprint(PETSc.COMM_WORLD, " ")
+    return error_vec

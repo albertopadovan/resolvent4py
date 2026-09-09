@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "resolvent4py"
-version = "1.0.1"
+version = "2.0.0"
 description = """\
   A parallel Python-based library for analysis, model reduction and \
   control of large-scale linear systems.\
@@ -40,9 +40,29 @@ Documentation = "https://albertopadovan.github.io/resolvent4py/"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.claude]
+# Declares a Claude Code expert agent ("resolvent4py-expert") that has
+# read access to the per-area skills under .claude/skills/. The agent
+# definition lives in .claude/agents/resolvent4py-expert.md and the
+# skills in .claude/skills/<name>/SKILL.md. Both directories are shipped
+# in the sdist via MANIFEST.in so a clone of the source distribution
+# carries the expert with it.
+agent = ".claude/agents/resolvent4py-expert.md"
+skills_dir = ".claude/skills"
+skills = [
+    "resolvent4py-linalg",
+    "resolvent4py-linear-operators",
+    "resolvent4py-model-reduction",
+    "resolvent4py-spectral-submanifold",
+    "resolvent4py-utils",
+    "resolvent4py-examples",
+    "resolvent4py-tests",
+]
 
 [tool.ruff]
 line-length = 79
@@ -50,10 +70,23 @@ target-version = "py39"
 lint.extend-select = ["I", "UP", "B"]
 lint.ignore = ["E501"]
 
+[tool.ruff.lint.per-file-ignores]
+# Package __init__.py files use the `from .module import *` + `del module`
+# pattern to build a flat public namespace. Ruff sees `del module` as
+# undefined names (F821) and the star imports as F401/F403, but the pattern
+# is intentional and safe.
+"src/resolvent4py/**/__init__.py" = ["F401", "F403", "F821"]
+# LinearOperator exposes opt-in methods (apply_hermitian_transpose, solve,
+# etc.) decorated with @raise_not_implemented_error rather than
+# @abstractmethod, so subclasses that don't support them can simply not
+# override. B027 doesn't recognise the decorator as fulfilling the same
+# contract.
+"src/resolvent4py/linear_operators/linear_operator.py" = ["B027"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
     "local: marks tests as local development tests",
 ]
 python_files = ["test_*.py"]
-addopts = "-ra -q"
+addopts = "-ra -v"

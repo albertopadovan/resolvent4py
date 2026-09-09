@@ -40,9 +40,6 @@ def test_time_stepping_forced(comm, square_matrix_size):
                 comm, (N, N), complex
             )
             linop = res4py.linear_operators.MatrixLinearOperator(Apetsc)
-            action = (
-                linop.apply if not adjoint else linop.apply_hermitian_transpose
-            )
             Apython = Apython.conj().T if adjoint else Apython
 
             # Generate frequency vector
@@ -81,7 +78,7 @@ def test_time_stepping_forced(comm, square_matrix_size):
             sol_python = np.fliplr(sol_python) if adjoint else sol_python
             sol_petsc = res4py.solve_ivp(
                 vpetsc,
-                action,
+                linop,
                 0,
                 T,
                 nsteps,
@@ -102,5 +99,11 @@ def test_time_stepping_forced(comm, square_matrix_size):
             sol_petsc.restoreMat(sol_petsc_mat)
             sol_petsc_mat_seq.destroy()
             error_lst.append(error)
+
+            sol_petsc.destroy()
+            linop.destroy()
+            Apetsc.destroy()
+            Fpetsc.destroy()
+            vpetsc.destroy()
 
     assert np.max(np.asarray(error_lst)) < 5e-8
