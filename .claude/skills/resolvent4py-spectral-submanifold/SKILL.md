@@ -219,7 +219,7 @@ combinatorics per call.
 
 ## Tests
 
-[resolvent4py-tests-spectral-submanifold](../resolvent4py-tests-spectral-submanifold/SKILL.md)
+[resolvent4py-tests](../resolvent4py-tests/SKILL.md)
 exists but contains only an empty `__init__.py` at present —
 SSM functionality is exercised through the
 [examples/ssm/](../../../examples/ssm/) and

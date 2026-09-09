@@ -83,7 +83,7 @@ distributed-aware but the result is gathered into numpy.
 
 ## Tests
 
-See [resolvent4py-tests-model-reduction](../resolvent4py-tests-model-reduction/SKILL.md)
+See [resolvent4py-tests](../resolvent4py-tests/SKILL.md)
 — it builds quadrature with a refined `domega` near zero, then
 compares against `scipy.linalg.solve_continuous_lyapunov` for the
 exact Hankel singular value and reduced operator.

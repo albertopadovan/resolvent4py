@@ -199,6 +199,6 @@ harmonics each, bump `n_omegas` accordingly.
 
 ## Tests
 
-See [resolvent4py-tests-utils](../resolvent4py-tests-utils/SKILL.md).
+See [resolvent4py-tests](../resolvent4py-tests/SKILL.md).
 Every file here has a matching `test_<file>.py` that compares
 against numpy / scipy reference computations.

@@ -62,11 +62,6 @@ skills = [
     "resolvent4py-utils",
     "resolvent4py-examples",
     "resolvent4py-tests",
-    "resolvent4py-tests-linalg",
-    "resolvent4py-tests-linear-operators",
-    "resolvent4py-tests-model-reduction",
-    "resolvent4py-tests-spectral-submanifold",
-    "resolvent4py-tests-utils",
 ]
 
 [tool.ruff]

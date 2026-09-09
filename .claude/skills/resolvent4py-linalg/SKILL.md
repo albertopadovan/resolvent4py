@@ -81,5 +81,5 @@ to identity LinOps if `None`.
 
 ## Tests
 
-See [resolvent4py-tests-linalg](../resolvent4py-tests-linalg/SKILL.md)
+See [resolvent4py-tests](../resolvent4py-tests/SKILL.md)
 for the parallel-aware reference checks.

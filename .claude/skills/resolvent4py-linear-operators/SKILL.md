@@ -129,7 +129,7 @@ These operators compose freely. Common idioms:
 ## Tests
 
 See
-[resolvent4py-tests-linear-operators](../resolvent4py-tests-linear-operators/SKILL.md).
+[resolvent4py-tests](../resolvent4py-tests/SKILL.md).
 Every concrete class has a per-file test that compares all four
 actions (apply / solve / their HT variants, both vec and BV forms)
 against a numpy reference assembled from the same data.

@@ -55,12 +55,7 @@ help the user build, extend, debug, and test it.
 
 | Skill | Covers |
 |---|---|
-| [resolvent4py-tests](../skills/resolvent4py-tests/SKILL.md) | Top-level: conftest fixtures, `pytest_utils` helpers, MPI execution rules. |
-| [resolvent4py-tests-linalg](../skills/resolvent4py-tests-linalg/SKILL.md) | eig / randomized SVD / RSVD-dt validation, tolerance bands. |
-| [resolvent4py-tests-linear-operators](../skills/resolvent4py-tests-linear-operators/SKILL.md) | Per-class tests, caching tests, idempotency tests, real-flag tests. |
-| [resolvent4py-tests-model-reduction](../skills/resolvent4py-tests-model-reduction/SKILL.md) | Balanced-truncation pipeline vs scipy Lyapunov reference. |
-| [resolvent4py-tests-spectral-submanifold](../skills/resolvent4py-tests-spectral-submanifold/SKILL.md) | (empty — exercised via `examples/`). |
-| [resolvent4py-tests-utils](../skills/resolvent4py-tests-utils/SKILL.md) | All utility tests: I/O round-trips, KSP convergence, COO/CSR, time-stepping accuracy. |
+| [resolvent4py-tests](../skills/resolvent4py-tests/SKILL.md) | The whole suite: conftest fixtures, `pytest_utils` helpers, MPI execution rules, per-directory coverage, tolerance bands, pitfalls. |
 
 ## Hard rules for this codebase
 

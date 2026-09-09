@@ -1,4 +1,4 @@
-include README.md LICENSE pyproject.toml
+include README.md LICENSE pyproject.toml CLAUDE.md
 
 # Ship the Claude Code expert agent + per-area skills with the sdist
 # (see [tool.claude] in pyproject.toml).
