@@ -80,7 +80,7 @@ cols.dat, vals.dat)` triples plus `B.dat` and `C.dat`.
 | [demonstrate_rsvd.py](../../../examples/cgl/demonstrate_rsvd.py) | Frequency-domain `randomized_svd` on `R(iω)=(iωI−A)⁻¹` at `ω=0.648`; compared to `scipy.linalg.svd` of the dense resolvent. |
 | [demonstrate_rsvd_dt.py](../../../examples/cgl/demonstrate_rsvd_dt.py) | Side-by-side `randomized_svd` vs `resolvent_analysis_rsvd_dt` at the same `ω`; expensive (~minutes), produces `singular_values_compare.png`. |
 | [demonstrate_balanced_truncation.py](../../../examples/cgl/demonstrate_balanced_truncation.py) | `compute_gramian_factors` → `compute_balanced_projection(r=10)` over a uniform grid `ω ∈ [-30, 30]` with `Δω=0.324`. |
-| [run_post_transient_approaches.py](../../../examples/cgl/run_post_transient_approaches.py) | Mixed showcase: builds `MatrixExponentialLinearOperator`, wraps it as `ShiftAndScale` then `PetscPythonLinearOperator.create_shell` so PETSc's GMRES can solve `(I − e^{AT})x = sol`. Demonstrates the matrix-free composition path. |
+| [run_post_transient_approaches.py](../../../examples/cgl/run_post_transient_approaches.py) | Mixed showcase: builds `PropagatorLinearOperator`, wraps it as `ShiftAndScale` then `PetscPythonLinearOperator.create_shell` so PETSc's GMRES can solve `(I − e^{AT})x = sol`. Demonstrates the matrix-free composition path. |
 
 ### `toy_model/` — harmonic resolvent on a 3D limit cycle
 

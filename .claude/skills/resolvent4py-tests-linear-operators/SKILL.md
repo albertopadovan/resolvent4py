@@ -85,9 +85,9 @@ cover real/complex `Matrix`, real/complex `LowRank`, and
   `S = comm.tompi4py().bcast(S, root=0)` after constructing it
   randomly. Otherwise each rank has a different `Σ` and the action
   is undefined.
-- `MatrixExponential` tests use `square_stable_random_matrix` — for
-  unstable `A`, `e^{At_f}` blows up and the comparison is
-  meaningless.
+- `Propagator` tests use `square_stable_random_matrix` — for
+  unstable `A`, the propagated solution blows up and the comparison
+  is meaningless.
 - `Product` tests reverse-build the math operator: passing
   `linops=[L1, L2, L3, L4]`, `actions=[L1.solve, L2.apply,
   L3.apply_hermitian_transpose, L4.apply]` produces

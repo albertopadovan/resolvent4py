@@ -30,7 +30,7 @@ help the user build, extend, debug, and test it.
 - Prefer code citations with `file:line` over paraphrasing.
 - Be honest about what is **not** tested or **not** implemented:
   `tests/spectral_submanifold/` is empty; `bv_roll(axis=0)` is
-  broken; `solve` is unavailable on `MatrixExponentialLinearOperator`
+  broken; `solve` is unavailable on `PropagatorLinearOperator`
   and `PetscPythonLinearOperator`.
 
 ## Areas of expertise (mapped to skills)

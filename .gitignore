@@ -180,3 +180,6 @@ cython_debug/
 **/data/
 **/results/
 
+
+# macOS
+.DS_Store
