@@ -106,7 +106,7 @@ def test_time_stepping_forced(comm, square_matrix_size):
             Fpetsc.destroy()
             vpetsc.destroy()
 
-    assert np.max(np.asarray(error_lst)) < 5e-8
+    assert np.max(np.asarray(error_lst)) < 1e-8
 
 
 # ──────────────────────────────────────────────────────────────────────────────

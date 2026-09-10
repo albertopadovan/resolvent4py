@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 __all__ = ["OWNSRecursionParameters", "OWNSStation", "resolvent_analysis_owns"]
+
 
 import typing
 from dataclasses import dataclass
@@ -7,7 +10,7 @@ import numpy as np
 from petsc4py import PETSc
 
 from ..linear_operators.matrix import MatrixLinearOperator
-from ..utils.ksp import create_mumps_solver
+from ..utils.ksp import create_direct_solver
 from ..utils.matrix import add_identity_block, add_matrix_block, create_aij_matrix, left_diagonal_solve, matrix_diagonal_array, matrix_subblock
 from ..utils.miscellaneous import petscprint
 from ..utils.vector import array_from_petsc_vector
@@ -170,16 +173,19 @@ class _StationSystem:
     output_weight: MatrixLinearOperator
 
     def destroy(self) -> None:
-        self.input_weight.destroy_ksp()
-        if self.P3z is not None:
-            self.P3z.destroy()
-        self.P3.destroy()
-        self.P2.destroy()
-        self.P1_full.destroy()
-        self.response.destroy()
-        self.input.destroy()
-        self.Apm.destroy()
-        self.forward.destroy()
+        # input_weight/output_weight wrap the caller's station matrices, so
+        # only the KSP and internal transpose are ours to free.  Everything
+        # else was built here and is released in full.
+        _destroy_borrowed_operator(self.input_weight)
+        _destroy_borrowed_operator(self.output_weight)
+        _destroy_owned_operator(self.P3z)
+        _destroy_owned_operator(self.P3)
+        _destroy_owned_operator(self.P2)
+        _destroy_owned_operator(self.P1_full)
+        _destroy_owned_operator(self.response)
+        _destroy_owned_operator(self.input)
+        _destroy_owned_operator(self.Apm)
+        _destroy_owned_operator(self.forward)
 
 
 class _Marcher:
@@ -334,8 +340,38 @@ class _Marcher:
 
 
 def _matrix_operator(matrix: PETSc.Mat, solve: bool = False) -> MatrixLinearOperator:
-    ksp = create_mumps_solver(matrix) if solve else None
+    ksp = create_direct_solver(matrix) if solve else None
     return MatrixLinearOperator(matrix, ksp, real_valued=False)
+
+
+# As of v2.0, MatrixLinearOperator.destroy() frees only the Hermitian
+# transpose it builds internally: the matrix and the KSP handed to
+# __init__ belong to the caller.  Every operator here is built by
+# _matrix_operator(), so this module is that caller and must release the
+# KSP itself -- and, where it also created the matrix, the matrix.
+
+
+def _destroy_owned_operator(operator: MatrixLinearOperator | None) -> None:
+    r"""Tear down an operator whose matrix this module created."""
+    if operator is None:
+        return
+    matrix = operator.A
+    ksp = operator.ksp
+    operator.destroy()
+    if ksp is not None:
+        ksp.destroy()
+    matrix.destroy()
+
+
+def _destroy_borrowed_operator(operator: MatrixLinearOperator | None) -> None:
+    r"""Tear down an operator wrapping a matrix owned by someone else: free
+    the KSP created here and the internal transpose, leave the matrix."""
+    if operator is None:
+        return
+    ksp = operator.ksp
+    operator.destroy()
+    if ksp is not None:
+        ksp.destroy()
 
 
 def _set_vector(vector: PETSc.Vec, values: np.ndarray) -> None:
@@ -607,7 +643,7 @@ def _algebraic_completion(L_sort: PETSc.Mat, split: _Split) -> PETSc.Mat:
             try:
                 zpm = _solve_matrix(Lzz_operator, Lzpm)
             finally:
-                Lzz_operator.destroy_ksp()
+                _destroy_borrowed_operator(Lzz_operator)
 
             try:
                 add_matrix_block(S, split.n_pm, 0, -1.0, zpm)

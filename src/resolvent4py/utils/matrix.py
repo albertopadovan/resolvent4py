@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __all__ = [
     "create_dense_matrix",
     "create_aij_matrix",
@@ -15,6 +17,7 @@ __all__ = [
     "extract_block_banded",
     "assemble_matrix_from_coo",
 ]
+
 
 import numpy as np
 from mpi4py import MPI
@@ -223,12 +226,18 @@ def left_diagonal_solve(diagonal: np.ndarray, rhs: PETSc.Mat) -> PETSc.Mat:
     if len(diagonal) != nrows:
         raise ValueError("Diagonal length does not match matrix row count.")
 
+    # Validate collectively, before any collective call and before the
+    # rank-local loop.  `diagonal` is a global array replicated on every
+    # rank, so this raises on all ranks together.  Checking inside the loop
+    # instead would raise only on the rank that owns the offending row,
+    # leaving the others inside the collective out.assemble() below.
+    if np.any(np.abs(diagonal) == 0):
+        raise ValueError("Diagonal solve encountered a zero entry.")
+
     out = create_aij_matrix(rhs.getComm(), nrows, ncols)
     start, end = rhs.getOwnershipRange()
     for row in range(start, end):
         value = diagonal[row]
-        if abs(value) == 0:
-            raise ValueError("Diagonal solve encountered a zero entry.")
 
         columns, values = rhs.getRow(row)
         if len(columns) == 0:

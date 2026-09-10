@@ -1,7 +1,10 @@
 import numpy as np
 import resolvent4py as res4py
 from petsc4py import PETSc
-from resolvent4py.utils.vector import reshape_harmonic_balanced_vector_into_bv
+from resolvent4py.utils.vector import (
+    array_from_petsc_vector,
+    reshape_harmonic_balanced_vector_into_bv,
+)
 from resolvent4py.utils.comms import compute_local_size
 from .. import pytest_utils
 
@@ -472,3 +475,40 @@ def test_assemble_hb_vector_real_bflow_leaves_caller_list_usable(comm):
     seen_ids = set(v.handle for v in vec_lst[-len(original_ids):])
     assert surviving_ids <= seen_ids or True  # informational; norm above
     # is the real assertion.
+
+
+def test_array_from_petsc_vector(comm, square_matrix_size):
+    r"""array_from_petsc_vector gathers the full global vector, and every
+    rank gets the same answer."""
+    N = square_matrix_size[0]
+    x, xpython = pytest_utils.generate_random_vector(comm, N, complex=True)
+
+    gathered = array_from_petsc_vector(x)
+
+    assert gathered.shape == (N,), (
+        f"expected the global length {N}, got {gathered.shape}"
+    )
+    error = np.linalg.norm(gathered - xpython) / np.linalg.norm(xpython)
+
+    # Every rank must see identical global data, not just its own slice.
+    everyones = comm.tompi4py().allgather(gathered)
+    consistent = all(np.array_equal(g, everyones[0]) for g in everyones)
+
+    x.destroy()
+    assert error < 1e-14, f"array_from_petsc_vector error: {error:.2e}"
+    assert consistent, "ranks disagree on the gathered array"
+
+
+def test_array_from_petsc_vector_is_a_copy(comm, square_matrix_size):
+    r"""The returned array must not alias PETSc-owned memory: mutating it
+    must leave the source vector untouched."""
+    N = square_matrix_size[0]
+    x, xpython = pytest_utils.generate_random_vector(comm, N, complex=True)
+
+    gathered = array_from_petsc_vector(x)
+    gathered[:] = 0.0
+    after = array_from_petsc_vector(x)
+
+    error = np.linalg.norm(after - xpython) / np.linalg.norm(xpython)
+    x.destroy()
+    assert error < 1e-14, "mutating the result corrupted the source vector"
