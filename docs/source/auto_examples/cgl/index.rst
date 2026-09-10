@@ -137,6 +137,23 @@ Scripts
     </div>
 
 
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Compare post-transient and direct time-stepping approaches for the CGL example.">
+
+.. only:: html
+
+  .. image:: /auto_examples/cgl/images/thumb/sphx_glr_run_post_transient_approaches_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/cgl/run_post_transient_approaches`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Post-Transient Time-Stepping Approaches</div>
+    </div>
+
+
 .. thumbnail-parent-div-close
 
 .. raw:: html
@@ -151,6 +168,7 @@ Scripts
    /auto_examples/cgl/demonstrate_rsvd
    /auto_examples/cgl/demonstrate_eigendecomposition
    /auto_examples/cgl/demonstrate_rsvd_dt
+   /auto_examples/cgl/run_post_transient_approaches
 
 
 .. only:: html

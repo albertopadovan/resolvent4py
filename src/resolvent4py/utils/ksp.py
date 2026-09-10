@@ -85,6 +85,7 @@ def create_direct_solver(
     pc = ksp.getPC()
     pc.setType("lu")
     pc.setFactorSolverType("mumps")
+    pc.setFactorSetUpSolverType()
     _apply_mumps_options(pc.getFactorMatrix(), icntl, cntl)
     pc.setUp()
     ksp.setUp()

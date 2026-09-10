@@ -1,8 +1,18 @@
 import numpy as np
+import pytest
 import scipy as sp
 import resolvent4py as res4py
 from petsc4py import PETSc
-from resolvent4py.utils.matrix import extract_block_banded
+from resolvent4py.utils.matrix import (
+    _ownership_slice,
+    add_identity_block,
+    add_matrix_block,
+    create_aij_matrix,
+    extract_block_banded,
+    left_diagonal_solve,
+    matrix_diagonal_array,
+    matrix_subblock,
+)
 from .. import pytest_utils
 
 
@@ -260,3 +270,232 @@ def test_extract_block_banded_of_block_banded_is_identity_map(comm):
             f"block-banded idempotency error (n_off_diags={n_off_diags}): "
             f"{error:.2e}"
         )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Helpers introduced alongside the OWNS resolvent analysis
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def _reference_matrix(comm, nrows, ncols, seed=17):
+    r"""Deterministic dense reference, identical on every rank, plus its
+    distributed PETSc counterpart."""
+    rng = np.random.default_rng(seed)
+    A_np = rng.standard_normal((nrows, ncols)) + 1j * rng.standard_normal(
+        (nrows, ncols)
+    )
+    A_np = comm.tompi4py().bcast(A_np, root=0)
+    return A_np, pytest_utils.numpy_to_petsc(comm, A_np)
+
+
+def _dense_from_petsc(comm, M, nrows, ncols):
+    r"""Materialise a distributed PETSc matrix as a dense numpy array by
+    applying it to the columns of the identity."""
+    cols = []
+    for j in range(ncols):
+        e = M.createVecRight()
+        if e.getOwnershipRange()[0] <= j < e.getOwnershipRange()[1]:
+            e.setValue(j, 1.0)
+        e.assemble()
+        y = M.createVecLeft()
+        M.mult(e, y)
+        y_seq = res4py.distributed_to_sequential_vector(y)
+        cols.append(y_seq.getArray().copy())
+        y_seq.destroy()
+        y.destroy()
+        e.destroy()
+    return np.column_stack(cols)
+
+
+def test_ownership_slice_partitions_exactly():
+    r"""_ownership_slice must tile [0, size) exactly: contiguous, no gaps,
+    no overlaps, and balanced to within one element -- including the
+    uneven cases that a 2-rank test run never exercises."""
+    for size in range(0, 18):
+        for n_ranks in range(1, 7):
+            slices = [_ownership_slice(size, r, n_ranks) for r in range(n_ranks)]
+
+            assert slices[0][0] == 0, f"size={size} n={n_ranks}: gap at start"
+            assert slices[-1][1] == size, f"size={size} n={n_ranks}: short end"
+            for r in range(1, n_ranks):
+                assert slices[r][0] == slices[r - 1][1], (
+                    f"size={size} n={n_ranks}: discontinuity at rank {r}"
+                )
+
+            counts = [e - s for s, e in slices]
+            assert all(c >= 0 for c in counts), (
+                f"size={size} n={n_ranks}: negative count {counts}"
+            )
+            assert sum(counts) == size, (
+                f"size={size} n={n_ranks}: counts {counts} sum != {size}"
+            )
+            assert max(counts) - min(counts) <= 1, (
+                f"size={size} n={n_ranks}: unbalanced {counts}"
+            )
+
+
+def test_create_aij_matrix(comm, square_matrix_size):
+    r"""create_aij_matrix returns an assembled AIJ matrix of the requested
+    global shape."""
+    N = square_matrix_size[0]
+    M = create_aij_matrix(comm, N, N - 3)
+    M.assemble()
+
+    sizes = M.getSizes()
+    assert sizes[0][-1] == N
+    assert sizes[-1][-1] == N - 3
+    assert M.getType().startswith("seqaij") or M.getType().startswith("mpiaij")
+    M.destroy()
+
+
+def test_matrix_diagonal_array(comm, square_matrix_size):
+    r"""matrix_diagonal_array returns the global diagonal on every rank."""
+    N = square_matrix_size[0]
+    A_np, A = _reference_matrix(comm, N, N)
+
+    diag = matrix_diagonal_array(A)
+
+    assert diag.shape == (N,)
+    error = np.linalg.norm(diag - np.diag(A_np)) / np.linalg.norm(np.diag(A_np))
+    everyones = comm.tompi4py().allgather(diag)
+    consistent = all(np.array_equal(d, everyones[0]) for d in everyones)
+
+    A.destroy()
+    assert error < 1e-12, f"matrix_diagonal_array error: {error:.2e}"
+    assert consistent, "ranks disagree on the diagonal"
+
+
+def test_matrix_subblock(comm):
+    r"""matrix_subblock must reproduce numpy fancy indexing A[np.ix_(rows,
+    cols)].  Rows and columns are deliberately non-contiguous and unsorted,
+    and their counts do not divide evenly across typical rank counts."""
+    N = 12
+    A_np, A = _reference_matrix(comm, N, N)
+    rows = [0, 3, 4, 7, 11]
+    cols = [1, 2, 6, 9]
+
+    sub = matrix_subblock(A, rows, cols)
+
+    assert sub.getSizes()[0][-1] == len(rows)
+    assert sub.getSizes()[-1][-1] == len(cols)
+
+    got = _dense_from_petsc(comm, sub, len(rows), len(cols))
+    expected = A_np[np.ix_(rows, cols)]
+    error = np.linalg.norm(got - expected) / np.linalg.norm(expected)
+
+    sub.destroy()
+    A.destroy()
+    assert error < 1e-12, f"matrix_subblock error: {error:.2e}"
+
+
+def test_add_matrix_block(comm):
+    r"""add_matrix_block scatters a scaled block into a larger matrix at the
+    requested offset, leaving everything else untouched."""
+    n, N = 4, 10
+    B_np, B = _reference_matrix(comm, n, n, seed=5)
+    scale = 2.0 - 1.5j
+    row_offset, col_offset = 3, 5
+
+    target = create_aij_matrix(comm, N, N, nnz=N)
+    add_matrix_block(target, row_offset, col_offset, scale, B)
+    target.assemble()
+
+    expected = np.zeros((N, N), dtype=complex)
+    expected[row_offset : row_offset + n, col_offset : col_offset + n] = (
+        scale * B_np
+    )
+    got = _dense_from_petsc(comm, target, N, N)
+    error = np.linalg.norm(got - expected) / np.linalg.norm(expected)
+
+    target.destroy()
+    B.destroy()
+    assert error < 1e-12, f"add_matrix_block error: {error:.2e}"
+
+
+def test_add_matrix_block_accumulates(comm):
+    r"""Two calls at the same offset must add, not overwrite -- the function
+    uses ADD_VALUES and callers rely on that to build block systems."""
+    n, N = 3, 8
+    B_np, B = _reference_matrix(comm, n, n, seed=9)
+
+    target = create_aij_matrix(comm, N, N, nnz=N)
+    add_matrix_block(target, 0, 0, 1.0, B)
+    add_matrix_block(target, 0, 0, 2.0, B)
+    target.assemble()
+
+    expected = np.zeros((N, N), dtype=complex)
+    expected[:n, :n] = 3.0 * B_np
+    got = _dense_from_petsc(comm, target, N, N)
+    error = np.linalg.norm(got - expected) / np.linalg.norm(expected)
+
+    target.destroy()
+    B.destroy()
+    assert error < 1e-12, f"add_matrix_block did not accumulate: {error:.2e}"
+
+
+def test_add_identity_block(comm):
+    r"""add_identity_block places a scaled identity at an arbitrary offset,
+    including an off-diagonal one."""
+    N, size = 10, 4
+    scale = -0.5 + 2.0j
+    row_offset, col_offset = 2, 6
+
+    target = create_aij_matrix(comm, N, N, nnz=N)
+    add_identity_block(target, row_offset, col_offset, size, scale)
+    target.assemble()
+
+    expected = np.zeros((N, N), dtype=complex)
+    for k in range(size):
+        expected[row_offset + k, col_offset + k] = scale
+    got = _dense_from_petsc(comm, target, N, N)
+    error = np.linalg.norm(got - expected) / np.linalg.norm(expected)
+
+    target.destroy()
+    assert error < 1e-12, f"add_identity_block error: {error:.2e}"
+
+
+def test_left_diagonal_solve(comm):
+    r"""left_diagonal_solve divides row i by diagonal[i], i.e. computes
+    diag(d)^-1 @ A."""
+    N = 9
+    A_np, A = _reference_matrix(comm, N, N, seed=3)
+    rng = np.random.default_rng(11)
+    d = rng.standard_normal(N) + 1j * rng.standard_normal(N) + 2.0
+    d = comm.tompi4py().bcast(d, root=0)
+
+    out = left_diagonal_solve(d, A)
+
+    expected = A_np / d[:, None]
+    got = _dense_from_petsc(comm, out, N, N)
+    error = np.linalg.norm(got - expected) / np.linalg.norm(expected)
+
+    out.destroy()
+    A.destroy()
+    assert error < 1e-12, f"left_diagonal_solve error: {error:.2e}"
+
+
+def test_left_diagonal_solve_raises_on_size_mismatch(comm):
+    r"""A diagonal whose length does not match the row count is a caller
+    error and must be rejected rather than silently truncated."""
+    N = 6
+    _, A = _reference_matrix(comm, N, N, seed=4)
+    bad = np.ones(N - 1, dtype=complex)
+
+    with pytest.raises(ValueError):
+        left_diagonal_solve(bad, A)
+
+    A.destroy()
+
+
+def test_left_diagonal_solve_raises_on_zero_diagonal(comm):
+    r"""A zero diagonal entry means the system is singular; it must raise
+    instead of producing infs."""
+    N = 6
+    _, A = _reference_matrix(comm, N, N, seed=6)
+    d = np.ones(N, dtype=complex)
+    d[N // 2] = 0.0
+
+    with pytest.raises(ValueError):
+        left_diagonal_solve(d, A)
+
+    A.destroy()

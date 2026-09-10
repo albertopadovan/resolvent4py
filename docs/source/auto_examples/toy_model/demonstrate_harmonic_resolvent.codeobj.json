@@ -247,7 +247,7 @@
    "is_class": false,
    "is_explicit": true,
    "module": "resolvent4py.linalg.eigendecomposition",
-   "module_short": "resolvent4py.linalg",
+   "module_short": "resolvent4py.linalg.eigendecomposition",
    "name": "eig"
   }
  ],
@@ -256,7 +256,7 @@
    "is_class": false,
    "is_explicit": true,
    "module": "resolvent4py.linalg.randomized_svd",
-   "module_short": "resolvent4py.linalg",
+   "module_short": "resolvent4py.linalg.randomized_svd",
    "name": "randomized_svd"
   }
  ],
@@ -265,7 +265,7 @@
    "is_class": false,
    "is_explicit": true,
    "module": "resolvent4py.linear_operators.product",
-   "module_short": "resolvent4py.linear_operators",
+   "module_short": "resolvent4py.linear_operators.product",
    "name": "ProductLinearOperator"
   }
  ],
@@ -274,7 +274,7 @@
    "is_class": false,
    "is_explicit": true,
    "module": "resolvent4py.linear_operators.projection",
-   "module_short": "resolvent4py.linear_operators",
+   "module_short": "resolvent4py.linear_operators.projection",
    "name": "ProjectionLinearOperator"
   }
  ],
@@ -283,7 +283,7 @@
    "is_class": false,
    "is_explicit": true,
    "module": "resolvent4py.utils.io",
-   "module_short": "resolvent4py",
+   "module_short": "resolvent4py.utils.io",
    "name": "read_harmonic_balanced_matrix"
   }
  ]

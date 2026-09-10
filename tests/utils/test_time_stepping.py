@@ -28,6 +28,7 @@ def _evaluate_dynamics(t, x, A, Fhat, omegas, tf):
 def test_time_stepping_forced(comm, square_matrix_size):
     r"""Test time stepping function against scipy.integrate.solve_ivp"""
 
+    np.random.seed(0)
     N, _ = square_matrix_size
     complex_lst = [False, True]
     adjoint_lst = [False, True]
